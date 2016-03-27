@@ -3,6 +3,7 @@ package bigcache
 import (
 	"log"
 	"sync"
+	"fmt"
 
 	"github.com/allegro/bigcache/queue"
 )
@@ -71,7 +72,7 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 	}
 	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
 		if c.config.Verbose {
-			log.Printf("Collision detected. Both %q and %q has same hash %x", key, entryKey, hashedKey)
+			log.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
 		}
 		return nil, notFound(key)
 	}
@@ -79,7 +80,13 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 }
 
 // Set saves entry under the key
-func (c *BigCache) Set(key string, entry []byte) {
+func (c *BigCache) Set(key string, entry []byte) error {
+	if len(entry) > c.config.MaxEntrySize {
+		return fmt.Errorf("Specified entry with length %d for key '%s' exeeds maxEntrySize: %d",
+			len(entry), key, c.config.MaxEntrySize,
+		)
+	}
+
 	hashedKey := c.hash.sum(key)
 	shard := c.getShard(hashedKey)
 	shard.lock.Lock()
@@ -104,6 +111,8 @@ func (c *BigCache) Set(key string, entry []byte) {
 	w := wrapEntry(currentTimestamp, hashedKey, key, entry)
 	index := shard.entries.Push(w)
 	shard.hashmap[hashedKey] = uint32(index)
+
+	return nil
 }
 
 func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func()) {

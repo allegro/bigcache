@@ -103,6 +103,18 @@ func TestHashCollision(t *testing.T) {
 	assert.Nil(t, cachedValue)
 }
 
+func TestOverlyLargeValue(t *testing.T) {
+	cache := NewBigCache(Config{1, 5 * time.Second, 1, 5, true})
+
+	value := "valueeeeeeeeeeeeeeeeeeeeeeee"
+	err := cache.Set("Key", []byte(value))
+	assert.Error(t, err, "Specified entry with length 28 for key 'Key' exeeds maxEntrySize: 5")
+
+	cachedValue, err := cache.Get("Key")
+	assert.Error(t, err, "Entry \"Key\" not found")
+	assert.Equal(t, []byte(nil), cachedValue)
+}
+
 type mockedClock struct {
 	value int64
 }
