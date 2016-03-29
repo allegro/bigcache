@@ -31,7 +31,7 @@ config := bigcache.Config{
 		Shards: 1000,                       // number of shards
 		LifeWindow: 10 * time.Minute,       // time after which entry can be evicted
 		MaxEntriesInWindow: 1000 * 10 * 60, // rps * lifeWindow
-		MaxEntrySize: 500,                  // max entry size in bytes
+		MaxEntrySize: 500,                  // max entry size in bytes, used only in initial memory allocation
 		Verbose: true,                      // prints information about additional memory allocation
 	}
 

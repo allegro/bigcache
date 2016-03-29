@@ -71,7 +71,7 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 	}
 	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
 		if c.config.Verbose {
-			log.Printf("Collision detected. Both %q and %q has same hash %x", key, entryKey, hashedKey)
+			log.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
 		}
 		return nil, notFound(key)
 	}

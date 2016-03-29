@@ -104,6 +104,38 @@ func TestAllocateAdditionalSpaceForInsufficientFreeFragmentedSpaceWhereTailIsBef
 	assert.Equal(t, []byte("ab"), pop(queue))
 }
 
+func TestAllocateAdditionalSpaceForValueBiggerThanInitQueue(t *testing.T) {
+	t.Parallel()
+
+	// given
+	queue := NewBytesQueue(11, false)
+
+	// when
+	queue.Push(make([]byte, 100))
+
+	// then
+	assert.Equal(t, make([]byte, 100), pop(queue))
+	assert.Equal(t, 222, queue.Capacity())
+}
+
+func TestAllocateAdditionalSpaceForValueBiggerThanQueue(t *testing.T) {
+	t.Parallel()
+
+	// given
+	queue := NewBytesQueue(21, false)
+
+	// when
+	queue.Push(make([]byte, 2))
+	queue.Push(make([]byte, 2))
+	queue.Push(make([]byte, 100))
+
+	// then
+	queue.Pop()
+	queue.Pop()
+	assert.Equal(t, make([]byte, 100), pop(queue))
+	assert.Equal(t, 242, queue.Capacity())
+}
+
 func TestPopWholeQueue(t *testing.T) {
 	t.Parallel()
 
