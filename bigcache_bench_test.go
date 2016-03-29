@@ -15,32 +15,32 @@ func BenchmarkWriteToCacheWith1Shard(b *testing.B) {
 	writeToCache(b, 1, 100*time.Second, b.N)
 }
 
-func BenchmarkWriteToCacheWith500Shards(b *testing.B) {
-	writeToCache(b, 500, 100*time.Second, b.N)
+func BenchmarkWriteToCacheWith512Shards(b *testing.B) {
+	writeToCache(b, 512, 100*time.Second, b.N)
 }
 
-func BenchmarkWriteToCacheWith1kShards(b *testing.B) {
-	writeToCache(b, 1000, 100*time.Second, b.N)
+func BenchmarkWriteToCacheWith1024Shards(b *testing.B) {
+	writeToCache(b, 1024, 100*time.Second, b.N)
 }
 
-func BenchmarkWriteToCacheWith10kShards(b *testing.B) {
-	writeToCache(b, 10000, 100*time.Second, b.N)
+func BenchmarkWriteToCacheWith8192Shards(b *testing.B) {
+	writeToCache(b, 8192, 100*time.Second, b.N)
 }
 
-func BenchmarkWriteToCacheWith1kShardsAndSmallShardInitSize(b *testing.B) {
-	writeToCache(b, 1000, 100*time.Second, 100)
+func BenchmarkWriteToCacheWith1024ShardsAndSmallShardInitSize(b *testing.B) {
+	writeToCache(b, 1024, 100*time.Second, 100)
 }
 
-func BenchmarkReadFromCacheWith1kShards(b *testing.B) {
-	readFromCache(b, 1000)
+func BenchmarkReadFromCacheWith1024Shards(b *testing.B) {
+	readFromCache(b, 1024)
 }
 
-func BenchmarkReadFromCacheWith10kShards(b *testing.B) {
-	readFromCache(b, 10000)
+func BenchmarkReadFromCacheWith8192Shards(b *testing.B) {
+	readFromCache(b, 8192)
 }
 
 func writeToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsInLifeWindow int) {
-	cache := NewBigCache(Config{shards, lifeWindow, max(requestsInLifeWindow, 100), 500, false})
+	cache, _ := NewBigCache(Config{shards, lifeWindow, max(requestsInLifeWindow, 100), 500, false, nil})
 	rand.Seed(time.Now().Unix())
 
 	b.RunParallel(func(pb *testing.PB) {
@@ -54,7 +54,7 @@ func writeToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsIn
 }
 
 func readFromCache(b *testing.B, shards int) {
-	cache := NewBigCache(Config{10000, 1000 * time.Second, max(b.N, 100), 500, false})
+	cache, _ := NewBigCache(Config{8192, 1000 * time.Second, max(b.N, 100), 500, false, nil})
 	for i := 0; i < b.N; i++ {
 		cache.Set(strconv.Itoa(i), message)
 	}

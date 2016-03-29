@@ -1,6 +1,7 @@
 package bigcache
 
 import (
+	"fmt"
 	"log"
 	"sync"
 
@@ -18,8 +19,9 @@ type BigCache struct {
 	shards     []*cacheShard
 	lifeWindow uint64
 	clock      clock
-	hash       hash
+	hash       Hasher
 	config     Config
+	shardMask  uint64
 }
 
 type cacheShard struct {
@@ -30,17 +32,27 @@ type cacheShard struct {
 }
 
 // NewBigCache initialize new instance of BigCache
-func NewBigCache(config Config) *BigCache {
+func NewBigCache(config Config) (*BigCache, error) {
 	return newBigCache(config, &systemClock{})
 }
 
-func newBigCache(config Config, clock clock) *BigCache {
+func newBigCache(config Config, clock clock) (*BigCache, error) {
+
+	if !isPowerOfTwo(config.Shards) {
+		return nil, fmt.Errorf("Shards number must be power of two")
+	}
+
+	if config.Hasher == nil {
+		config.Hasher = newDefaultHasher()
+	}
+
 	cache := &BigCache{
 		shards:     make([]*cacheShard, config.Shards),
 		lifeWindow: uint64(config.LifeWindow.Seconds()),
 		clock:      clock,
-		hash:       fnv64a{},
+		hash:       config.Hasher,
 		config:     config,
+		shardMask:  uint64(config.Shards - 1),
 	}
 
 	shardSize := max(config.MaxEntriesInWindow/config.Shards, minimumEntriesInShard)
@@ -51,12 +63,17 @@ func newBigCache(config Config, clock clock) *BigCache {
 			entryBuffer: make([]byte, config.MaxEntrySize+headersSizeInBytes),
 		}
 	}
-	return cache
+
+	return cache, nil
+}
+
+func isPowerOfTwo(number int) bool {
+	return (number & (number - 1)) == 0
 }
 
 // Get reads entry for the key
 func (c *BigCache) Get(key string) ([]byte, error) {
-	hashedKey := c.hash.sum(key)
+	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	shard.lock.RLock()
 	defer shard.lock.RUnlock()
@@ -82,7 +99,7 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 
 // Set saves entry under the key
 func (c *BigCache) Set(key string, entry []byte) {
-	hashedKey := c.hash.sum(key)
+	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	shard.lock.Lock()
 	defer shard.lock.Unlock()
@@ -116,8 +133,7 @@ func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict fu
 }
 
 func (c *BigCache) getShard(hashedKey uint64) (shard *cacheShard) {
-	shardKey := hashedKey % uint64(len(c.shards))
-	return c.shards[shardKey]
+	return c.shards[hashedKey&c.shardMask]
 }
 
 func max(a, b int) int {

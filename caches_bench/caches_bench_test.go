@@ -150,11 +150,13 @@ func parallelKey(threadID int, counter int) string {
 }
 
 func initBigCache(entriesInWindow int) *bigcache.BigCache {
-	return bigcache.NewBigCache(bigcache.Config{
+	cache, _ := bigcache.NewBigCache(bigcache.Config{
 		Shards:             256,
 		LifeWindow:         10 * time.Minute,
 		MaxEntriesInWindow: entriesInWindow,
 		MaxEntrySize:       maxEntrySize,
 		Verbose:            true,
 	})
+
+	return cache
 }
