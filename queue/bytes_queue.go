@@ -38,6 +38,7 @@ func NewBytesQueue(initialCapacity int, verbose bool) *BytesQueue {
 		headerBuffer: make([]byte, headerEntrySize),
 		tail:         leftMarginIndex,
 		head:         leftMarginIndex,
+		rightMargin:  leftMarginIndex,
 		verbose:      verbose,
 	}
 }
@@ -51,7 +52,7 @@ func (q *BytesQueue) Push(data []byte) int {
 		if q.availableSpaceBeforeHead() >= dataLen+headerEntrySize {
 			q.tail = leftMarginIndex
 		} else {
-			q.allocateAdditionalMemory()
+			q.allocateAdditionalMemory(dataLen)
 		}
 	}
 
@@ -62,20 +63,25 @@ func (q *BytesQueue) Push(data []byte) int {
 	return index
 }
 
-func (q *BytesQueue) allocateAdditionalMemory() {
+func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 	start := time.Now()
+	if (q.capacity < minimum) {
+		q.capacity += minimum
+	}
 	q.capacity = q.capacity * 2
 	newArray := make([]byte, q.capacity)
 
-	copy(newArray[leftMarginIndex:], q.array[q.head:q.rightMargin])
+	if q.head != q.rightMargin {
+		copy(newArray[leftMarginIndex:], q.array[q.head:q.rightMargin])
+	}
 	newTail := q.rightMargin - q.head + leftMarginIndex
-	if q.tail <= q.head {
+	if q.tail <= q.head && q.tail != leftMarginIndex {
 		copy(newArray[newTail:], q.array[leftMarginIndex:q.tail])
 		newTail += q.tail - leftMarginIndex
 	}
 
 	if q.verbose {
-		log.Printf("Allocated new queue. Took: %dms, Capacity: %d \n", time.Since(start)/time.Millisecond, q.capacity)
+		log.Printf("Allocated new queue in %s; Capacity: %d \n", time.Since(start), q.capacity)
 	}
 
 	q.array = newArray
