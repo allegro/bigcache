@@ -65,7 +65,7 @@ func (q *BytesQueue) Push(data []byte) int {
 
 func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 	start := time.Now()
-	if (q.capacity < minimum) {
+	if q.capacity < minimum {
 		q.capacity += minimum
 	}
 	q.capacity = q.capacity * 2
