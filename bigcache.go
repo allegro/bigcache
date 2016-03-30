@@ -23,9 +23,10 @@ type BigCache struct {
 }
 
 type cacheShard struct {
-	hashmap map[uint64]uint32
-	entries queue.BytesQueue
-	lock    sync.RWMutex
+	hashmap     map[uint64]uint32
+	entries     queue.BytesQueue
+	lock        sync.RWMutex
+	entryBuffer []byte
 }
 
 // NewBigCache initialize new instance of BigCache
@@ -45,8 +46,9 @@ func newBigCache(config Config, clock clock) *BigCache {
 	shardSize := max(config.MaxEntriesInWindow/config.Shards, minimumEntriesInShard)
 	for i := 0; i < config.Shards; i++ {
 		cache.shards[i] = &cacheShard{
-			hashmap: make(map[uint64]uint32, shardSize),
-			entries: *queue.NewBytesQueue(shardSize*config.MaxEntrySize, config.Verbose),
+			hashmap:     make(map[uint64]uint32, shardSize),
+			entries:     *queue.NewBytesQueue(shardSize*config.MaxEntrySize, config.Verbose),
+			entryBuffer: make([]byte, config.MaxEntrySize+headersSizeInBytes),
 		}
 	}
 	return cache
@@ -101,7 +103,7 @@ func (c *BigCache) Set(key string, entry []byte) {
 		})
 	}
 
-	w := wrapEntry(currentTimestamp, hashedKey, key, entry)
+	w := wrapEntry(currentTimestamp, hashedKey, key, entry, &shard.entryBuffer)
 	index := shard.entries.Push(w)
 	shard.hashmap[hashedKey] = uint32(index)
 }
