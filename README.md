@@ -107,6 +107,10 @@ the size of cache in advance, because when bigcache is full,
 it allocates additional memory for new entries instead of
 overwriting existing ones as freecache does currently.
 
+## More
+
+Bigcache genesis is described in allegro.tech blog post: [writing a very fast cache service in Go](http://allegro.tech/2016/03/writing-fast-cache-service-in-go.html)
+
 ## License
 
 BigCache is released under the Apache 2.0 license (see [LICENSE](LICENSE))
