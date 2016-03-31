@@ -11,7 +11,7 @@ func TestWriteAndGetOnCache(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache := NewBigCache(Config{10, 5 * time.Second, 10, 256, false})
+	cache, _ := NewBigCache(Config{16, 5 * time.Second, 10, 256, false, nil})
 	value := []byte("value")
 
 	// when
@@ -23,11 +23,30 @@ func TestWriteAndGetOnCache(t *testing.T) {
 	assert.Equal(t, value, cachedValue)
 }
 
+func TestConstructCacheWithDefaultHasher(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{16, 5 * time.Second, 10, 256, false, nil})
+
+	assert.IsType(t, fnv64a{}, cache.hash)
+}
+
+func TestWillReturnErrorOnInvalidNumberOfPartitions(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, error := NewBigCache(Config{18, 5 * time.Second, 10, 256, false, nil})
+
+	assert.Nil(t, cache)
+	assert.Error(t, error, "Shards number must be power of two")
+}
+
 func TestEntryNotFound(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache := NewBigCache(Config{10, 5 * time.Second, 10, 256, false})
+	cache, _ := NewBigCache(Config{16, 5 * time.Second, 10, 256, false, nil})
 
 	// when
 	_, err := cache.Get("nonExistingKey")
@@ -41,7 +60,7 @@ func TestTimingEviction(t *testing.T) {
 
 	// given
 	clock := mockedClock{value: 0}
-	cache := newBigCache(Config{1, time.Second, 1, 256, false}, &clock)
+	cache, _ := newBigCache(Config{1, time.Second, 1, 256, false, nil}, &clock)
 
 	// when
 	cache.Set("key", []byte("value"))
@@ -58,7 +77,7 @@ func TestEntryUpdate(t *testing.T) {
 
 	// given
 	clock := mockedClock{value: 0}
-	cache := newBigCache(Config{1, 6 * time.Second, 1, 256, false}, &clock)
+	cache, _ := newBigCache(Config{1, 6 * time.Second, 1, 256, false, nil}, &clock)
 
 	// when
 	cache.Set("key", []byte("value"))
@@ -76,8 +95,7 @@ func TestHashCollision(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache := NewBigCache(Config{10, 5 * time.Second, 10, 256, true})
-	cache.hash = hashStub(5)
+	cache, _ := NewBigCache(Config{16, 5 * time.Second, 10, 256, true, hashStub(5)})
 
 	// when
 	cache.Set("liquid", []byte("value"))

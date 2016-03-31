@@ -27,14 +27,14 @@ func main() {
 	fmt.Println("Number of entries: ", entries)
 
 	config := bigcache.Config{
-		Shards:             250,
+		Shards:             256,
 		LifeWindow:         100 * time.Minute,
 		MaxEntriesInWindow: entries,
 		MaxEntrySize:       200,
 		Verbose:            true,
 	}
 
-	bigcache := bigcache.NewBigCache(config)
+	bigcache, _ := bigcache.NewBigCache(config)
 	for i := 0; i < entries; i++ {
 		key, val := generateKeyValue(i, valueSize)
 		bigcache.Set(key, val)

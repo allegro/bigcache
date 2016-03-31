@@ -11,7 +11,7 @@ therefore entries (de)serialization in front of the cache will be needed in most
 ```go
 import "github.com/allegro/bigcache"
 
-cache := bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
+cache, error := bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
 
 cache.Set("my-unique-key", []byte("value"))
 
@@ -28,14 +28,14 @@ allocation can be avoided in that way.
 import "github.com/allegro/bigcache"
 
 config := bigcache.Config{
-		Shards: 1000,                       // number of shards
+		Shards: 1024,                       // number of shards (must be a power of 2)
 		LifeWindow: 10 * time.Minute,       // time after which entry can be evicted
 		MaxEntriesInWindow: 1000 * 10 * 60, // rps * lifeWindow
 		MaxEntrySize: 500,                  // max entry size in bytes, used only in initial memory allocation
 		Verbose: true,                      // prints information about additional memory allocation
 	}
 
-cache := bigcache.NewBigCache(config)
+cache, error := bigcache.NewBigCache(config)
 
 cache.Set("my-unique-key", []byte("value"))
 
