@@ -11,7 +11,7 @@ therefore entries (de)serialization in front of the cache will be needed in most
 ```go
 import "github.com/allegro/bigcache"
 
-cache, error := bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
+cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
 
 cache.Set("my-unique-key", []byte("value"))
 
@@ -52,37 +52,36 @@ Benchmark tests were made on MacBook Pro (3 GHz Processor Intel Core i7, 16GB Me
 ### Writes and reads
 
 ```
-go test -bench=. -benchtime=10s ./...
+cd caches_bench; go test -bench=. -benchtime=10s ./...
 
-BenchmarkMapSet-4              	10000000	      1691 ns/op
-BenchmarkFreeCacheSet-4        	20000000	      1309 ns/op
-BenchmarkBigCacheSet-4         	20000000	      1110 ns/op
-BenchmarkMapGet-4              	30000000	       544 ns/op
-BenchmarkFreeCacheGet-4        	20000000	      1020 ns/op
-BenchmarkBigCacheGet-4         	20000000	       766 ns/op
-BenchmarkBigCacheSetParallel-4 	20000000	       563 ns/op
-BenchmarkFreeCacheSetParallel-4	30000000	       666 ns/op
-BenchmarkBigCacheGetParallel-4 	50000000	       625 ns/op
-BenchmarkFreeCacheGetParallel-4	20000000	       696 ns/op
-ok  	github.com/allegro/bigcache/caches_bench	470.259s
+BenchmarkMapSet-4              	10000000	      1430 ns/op
+BenchmarkFreeCacheSet-4        	20000000	      1115 ns/op
+BenchmarkBigCacheSet-4         	20000000	       873 ns/op
+BenchmarkMapGet-4              	30000000	       558 ns/op
+BenchmarkFreeCacheGet-4        	20000000	       973 ns/op
+BenchmarkBigCacheGet-4         	20000000	       737 ns/op
+BenchmarkBigCacheSetParallel-4 	30000000	       545 ns/op
+BenchmarkFreeCacheSetParallel-4	20000000	       654 ns/op
+BenchmarkBigCacheGetParallel-4 	50000000	       426 ns/op
+BenchmarkFreeCacheGetParallel-4	50000000	       715 ns/op
 ```
 
-Parallel writes and reads in bigcache and freecache are on very similar level.
-In serial tests reads are slightly faster in bigcache than in fastcache.
+Writes and reads in bigcache are faster than in freecache.
+Writes to map are the slowest.
 
 ### GC pause time
 
 ```
-go run caches_gc_overhead_comparsion.go
+cd caches_bench; go run caches_gc_overhead_comparsion.go
 
 Number of entries:  20000000
-GC pause for bigcache:  50.8121ms
-GC pause for freecache:  29.451837ms
-GC pause for map:  11.231013483s
+GC pause for bigcache:  27.81671ms
+GC pause for freecache:  30.218371ms
+GC pause for map:  11.590772251s
 ```
 
 Test shows how long are the GC pauses for caches filled with 20mln of entries.
-Freecache has the shortest GC pause time, bigcache is slightly slower.
+Bigcache and freecache have very similar GC pause time.
 It is clear that both reduce GC overhead in contrast to map
 which GC pause time took more than 10 seconds.
 
