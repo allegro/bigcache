@@ -25,7 +25,11 @@ When cache load can be predicted in advance then it is better to use custom init
 allocation can be avoided in that way.
 
 ```go
-import "github.com/allegro/bigcache"
+import (
+	"log"
+
+	"github.com/allegro/bigcache"
+)
 
 config := bigcache.Config{
 		Shards: 1024,                       // number of shards (must be a power of 2)
@@ -35,7 +39,10 @@ config := bigcache.Config{
 		Verbose: true,                      // prints information about additional memory allocation
 	}
 
-cache, error := bigcache.NewBigCache(config)
+cache, initErr := bigcache.NewBigCache(config)
+if initErr != nil {
+	log.Fatal(initErr)
+}
 
 cache.Set("my-unique-key", []byte("value"))
 
