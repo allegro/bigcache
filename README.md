@@ -94,7 +94,7 @@ which GC pause time took more than 10 seconds.
 
 ## How it works
 
-BigCache relays on optimization presented in 1.5 version of Go ([issue-9477](https://github.com/golang/go/issues/9477)).
+BigCache relies on optimization presented in 1.5 version of Go ([issue-9477](https://github.com/golang/go/issues/9477)).
 This optimization states that if map without pointers in keys and values is used then GC will omit it’s content.
 Therefore BigCache uses `map[uint64]uint32` where keys are hashed and values are offsets of entries.
 
@@ -104,7 +104,7 @@ because GC will only see single pointer to it.
 
 ## Bigcache vs Freecache
 Both caches provide the same core features but they reduce GC overhead in different ways.
-Bigcache relays on `map[uint64]uint32`, freecache implements its own mapping built on
+Bigcache relies on `map[uint64]uint32`, freecache implements its own mapping built on
 slices to reduce number of pointers.
 
 Results from benchmark tests are presented above.
