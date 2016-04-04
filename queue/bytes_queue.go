@@ -7,8 +7,13 @@ import (
 )
 
 const (
-	headerEntrySize = 4 // Number of bytes used to keep information about entry size
-	leftMarginIndex = 1 // Bytes before left margin are not used. Zero index means element does not exist in queue, useful while reading slice from index
+	// Number of bytes used to keep information about entry size
+	headerEntrySize = 4
+	// Bytes before left margin are not used. Zero index means element does not exist in queue, useful while reading slice from index
+	leftMarginIndex = 1
+	// Minimum empty blob size in bytes. Empty blob fills space between tail and head in additional memory allocation.
+	// It keeps entries indexes unchanged
+	minimumEmptyBlobSize = 32 + headerEntrySize
 )
 
 // BytesQueue is a non-thread safe queue type of fifo based on bytes array.
@@ -69,25 +74,23 @@ func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 		q.capacity += minimum
 	}
 	q.capacity = q.capacity * 2
-	newArray := make([]byte, q.capacity)
+	oldArray := q.array
+	q.array = make([]byte, q.capacity)
 
-	if q.head != q.rightMargin {
-		copy(newArray[leftMarginIndex:], q.array[q.head:q.rightMargin])
-	}
-	newTail := q.rightMargin - q.head + leftMarginIndex
-	if q.tail <= q.head && q.tail != leftMarginIndex {
-		copy(newArray[newTail:], q.array[leftMarginIndex:q.tail])
-		newTail += q.tail - leftMarginIndex
+	if leftMarginIndex != q.rightMargin {
+		copy(q.array, oldArray[:q.rightMargin])
+
+		if q.tail < q.head {
+			emptyBlobLen := q.head - q.tail - headerEntrySize
+			q.push(make([]byte, emptyBlobLen), emptyBlobLen)
+			q.head = leftMarginIndex
+			q.tail = q.rightMargin
+		}
 	}
 
 	if q.verbose {
 		log.Printf("Allocated new queue in %s; Capacity: %d \n", time.Since(start), q.capacity)
 	}
-
-	q.array = newArray
-	q.head = leftMarginIndex
-	q.tail = newTail
-	q.rightMargin = newTail
 }
 
 func (q *BytesQueue) push(data []byte, len int) {
@@ -174,12 +177,12 @@ func (q *BytesQueue) availableSpaceAfterTail() int {
 	if q.tail >= q.head {
 		return q.capacity - q.tail
 	}
-	return q.head - q.tail
+	return q.head - q.tail - minimumEmptyBlobSize
 }
 
 func (q *BytesQueue) availableSpaceBeforeHead() int {
 	if q.tail >= q.head {
-		return q.head - leftMarginIndex
+		return q.head - leftMarginIndex - minimumEmptyBlobSize
 	}
-	return q.head - q.tail
+	return q.head - q.tail - minimumEmptyBlobSize
 }
