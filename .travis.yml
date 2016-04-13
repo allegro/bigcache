@@ -5,6 +5,7 @@ go:
   - tip
 
 before_install:
+  - go get github.com/modocache/gover
   - go get github.com/mattn/goveralls
   - go get golang.org/x/tools/cmd/cover
   - go get golang.org/x/tools/cmd/goimports
@@ -12,4 +13,7 @@ before_install:
 script:
   - gofiles=$(find ./ -name '*.go') && [ -z "$gofiles" ] || unformatted=$(goimports -l $gofiles) && [ -z "$unformatted" ] || (echo >&2 "Go files must be formatted with gofmt. Following files has problem:\n $unformatted" && false)
   - golint ./... # This won't break the build, just show warnings
-  - $HOME/gopath/bin/goveralls -service=travis-ci
+  - go test -coverprofile=web.coverprofile ./queue
+  - go test -coverprofile=main.coverprofile
+  - $HOME/gopath/bin/gover
+  - $HOME/gopath/bin/goveralls -coverprofile=gover.coverprofile -service travis-ci

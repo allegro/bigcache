@@ -112,11 +112,10 @@ func (q *BytesQueue) copy(data []byte, len int) {
 
 // Pop reads the oldest entry from queue and moves head pointer to the next one
 func (q *BytesQueue) Pop() ([]byte, error) {
-	if q.count == 0 {
-		return nil, &queueError{"Empty queue"}
+	data, size, err := q.peek(q.head)
+	if err != nil {
+		return nil, err
 	}
-
-	data, size := q.peek(q.head)
 
 	q.head += headerEntrySize + size
 	q.count--
@@ -134,23 +133,14 @@ func (q *BytesQueue) Pop() ([]byte, error) {
 
 // Peek reads the oldest entry from list without moving head pointer
 func (q *BytesQueue) Peek() ([]byte, error) {
-	if q.count == 0 {
-		return nil, &queueError{"Empty queue"}
-	}
-
-	data, _ := q.peek(q.head)
-
-	return data, nil
+	data, _, err := q.peek(q.head)
+	return data, err
 }
 
 // Get reads entry from index
 func (q *BytesQueue) Get(index int) ([]byte, error) {
-	if index <= 0 {
-		return nil, &queueError{"Index must be grater than zero. Invalid index."}
-	}
-
-	data, _ := q.peek(index)
-	return data, nil
+	data, _, err := q.peek(index)
+	return data, err
 }
 
 // Capacity returns number of allocated bytes for queue
@@ -168,9 +158,22 @@ func (e *queueError) Error() string {
 	return e.message
 }
 
-func (q *BytesQueue) peek(index int) ([]byte, int) {
+func (q *BytesQueue) peek(index int) ([]byte, int, error) {
+
+	if q.count == 0 {
+		return nil, 0, &queueError{"Empty queue"}
+	}
+
+	if index <= 0 {
+		return nil, 0, &queueError{"Index must be grater than zero. Invalid index."}
+	}
+
+	if index+headerEntrySize >= len(q.array) {
+		return nil, 0, &queueError{"Index out of range"}
+	}
+
 	blockSize := int(binary.LittleEndian.Uint32(q.array[index : index+headerEntrySize]))
-	return q.array[index+headerEntrySize : index+headerEntrySize+blockSize], blockSize
+	return q.array[index+headerEntrySize : index+headerEntrySize+blockSize], blockSize, nil
 }
 
 func (q *BytesQueue) availableSpaceAfterTail() int {

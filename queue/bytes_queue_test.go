@@ -10,8 +10,14 @@ func TestPushAndPop(t *testing.T) {
 	t.Parallel()
 
 	// given
-	queue := NewBytesQueue(10, true)
+	queue := NewBytesQueue(10, false)
 	entry := []byte("hello")
+
+	// when
+	_, err := queue.Pop()
+
+	// then
+	assert.EqualError(t, err, "Empty queue")
 
 	// when
 	queue.Push(entry)
@@ -20,18 +26,41 @@ func TestPushAndPop(t *testing.T) {
 	assert.Equal(t, entry, pop(queue))
 }
 
+func TestLen(t *testing.T) {
+	t.Parallel()
+
+	// given
+	queue := NewBytesQueue(100, false)
+	entry := []byte("hello")
+	assert.Zero(t, queue.Len())
+
+	// when
+	queue.Push(entry)
+
+	// then
+	assert.Equal(t, queue.Len(), 1)
+}
+
 func TestPeek(t *testing.T) {
 	t.Parallel()
 
 	// given
 	queue := NewBytesQueue(100, false)
 	entry := []byte("hello")
-	queue.Push(entry)
 
 	// when
-	read, _ := queue.Peek()
+	read, err := queue.Peek()
 
 	// then
+	assert.EqualError(t, err, "Empty queue")
+	assert.Nil(t, read)
+
+	// when
+	queue.Push(entry)
+	read, err = queue.Peek()
+
+	// then
+	assert.NoError(t, err)
 	assert.Equal(t, pop(queue), read)
 	assert.Equal(t, entry, read)
 }
@@ -164,7 +193,7 @@ func TestAllocateAdditionalSpaceForValueBiggerThanQueue(t *testing.T) {
 	t.Parallel()
 
 	// given
-	queue := NewBytesQueue(21, false)
+	queue := NewBytesQueue(21, true)
 
 	// when
 	queue.Push(make([]byte, 2))
@@ -216,23 +245,59 @@ func TestGetEntryFromInvalidIndex(t *testing.T) {
 	t.Parallel()
 
 	// given
-	queue := NewBytesQueue(13, false)
+	queue := NewBytesQueue(1, false)
+	queue.Push([]byte("a"))
 
 	// when
 	result, err := queue.Get(0)
 
 	// then
-	assert.Empty(t, result)
+	assert.Nil(t, result)
 	assert.EqualError(t, err, "Index must be grater than zero. Invalid index.")
 }
 
+func TestGetEntryFromIndexOutOfRange(t *testing.T) {
+	t.Parallel()
+
+	// given
+	queue := NewBytesQueue(1, false)
+	queue.Push([]byte("a"))
+
+	// when
+	result, err := queue.Get(42)
+
+	// then
+	assert.Nil(t, result)
+	assert.EqualError(t, err, "Index out of range")
+}
+
+func TestGetEntryFromEmptyQueue(t *testing.T) {
+	t.Parallel()
+
+	// given
+	queue := NewBytesQueue(13, false)
+
+	// when
+	result, err := queue.Get(1)
+
+	// then
+	assert.Nil(t, result)
+	assert.EqualError(t, err, "Empty queue")
+}
+
 func pop(queue *BytesQueue) []byte {
-	entry, _ := queue.Pop()
+	entry, err := queue.Pop()
+	if err != nil {
+		panic(err)
+	}
 	return entry
 }
 
 func get(queue *BytesQueue, index int) []byte {
-	entry, _ := queue.Get(index)
+	entry, err := queue.Get(index)
+	if err != nil {
+		panic(err)
+	}
 	return entry
 }
 

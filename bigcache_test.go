@@ -11,7 +11,7 @@ func TestWriteAndGetOnCache(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{16, 5 * time.Second, 10, 256, false, nil})
+	cache, _ := NewBigCache(DefaultConfig(5 * time.Second))
 	value := []byte("value")
 
 	// when
