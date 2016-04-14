@@ -9,11 +9,9 @@ import (
 const (
 	// Number of bytes used to keep information about entry size
 	headerEntrySize = 4
-	// Bytes before left margin are not used. Zero index means element does not exist in queue, useful while reading slice from index
-	leftMarginIndex = 1
 	// Minimum empty blob size in bytes. Empty blob fills space between tail and head in additional memory allocation.
 	// It keeps entries indexes unchanged
-	minimumEmptyBlobSize = 32 + headerEntrySize
+	minimumEmptyBlobSize = 1
 )
 
 // BytesQueue is a non-thread safe queue type of fifo based on bytes array.
@@ -24,7 +22,6 @@ type BytesQueue struct {
 	head         int
 	tail         int
 	count        int
-	rightMargin  int
 	headerBuffer []byte
 	verbose      bool
 }
@@ -41,9 +38,8 @@ func NewBytesQueue(initialCapacity int, verbose bool) *BytesQueue {
 		array:        make([]byte, initialCapacity),
 		capacity:     initialCapacity,
 		headerBuffer: make([]byte, headerEntrySize),
-		tail:         leftMarginIndex,
-		head:         leftMarginIndex,
-		rightMargin:  leftMarginIndex,
+		tail:         0,
+		head:         0,
 		verbose:      verbose,
 	}
 }
@@ -52,19 +48,11 @@ func NewBytesQueue(initialCapacity int, verbose bool) *BytesQueue {
 // Returns index for pushed data
 func (q *BytesQueue) Push(data []byte) int {
 	dataLen := len(data)
-
-	if q.availableSpaceAfterTail() < dataLen+headerEntrySize {
-		if q.availableSpaceBeforeHead() >= dataLen+headerEntrySize {
-			q.tail = leftMarginIndex
-		} else {
-			q.allocateAdditionalMemory(dataLen)
-		}
+	if q.availableSpace() < dataLen+headerEntrySize {
+		q.allocateAdditionalMemory(dataLen)
 	}
-
 	index := q.tail
-
 	q.push(data, dataLen)
-
 	return index
 }
 
@@ -75,18 +63,17 @@ func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 	}
 	q.capacity = q.capacity * 2
 	oldArray := q.array
+	length := q.length()
 	q.array = make([]byte, q.capacity)
 
-	if leftMarginIndex != q.rightMargin {
-		copy(q.array, oldArray[:q.rightMargin])
-
-		if q.tail < q.head {
-			emptyBlobLen := q.head - q.tail - headerEntrySize
-			q.push(make([]byte, emptyBlobLen), emptyBlobLen)
-			q.head = leftMarginIndex
-			q.tail = q.rightMargin
-		}
+	if q.tail >= q.head {
+		copy(q.array, oldArray[q.head:q.tail])
+	} else {
+		part := copy(q.array, oldArray[q.head:])
+		copy(q.array[part:], oldArray[:q.tail])
 	}
+	q.head = 0
+	q.tail = length
 
 	if q.verbose {
 		log.Printf("Allocated new queue in %s; Capacity: %d \n", time.Since(start), q.capacity)
@@ -99,15 +86,15 @@ func (q *BytesQueue) push(data []byte, len int) {
 
 	q.copy(data, len)
 
-	if q.tail > q.head {
-		q.rightMargin = q.tail
-	}
-
 	q.count++
 }
 
 func (q *BytesQueue) copy(data []byte, len int) {
-	q.tail += copy(q.array[q.tail:], data[:len])
+	part := copy(q.array[q.tail:], data[:len])
+	if part < len {
+		copy(q.array, data[part:len])
+	}
+	q.tail = (q.tail + len) % q.capacity
 }
 
 // Pop reads the oldest entry from queue and moves head pointer to the next one
@@ -120,14 +107,6 @@ func (q *BytesQueue) Pop() ([]byte, error) {
 
 	q.head += headerEntrySize + size
 	q.count--
-
-	if q.head == q.rightMargin {
-		q.head = leftMarginIndex
-		if q.tail == q.rightMargin {
-			q.tail = leftMarginIndex
-		}
-		q.rightMargin = q.tail
-	}
 
 	return data, nil
 }
@@ -145,7 +124,7 @@ func (q *BytesQueue) Peek() ([]byte, error) {
 
 // Get reads entry from index
 func (q *BytesQueue) Get(index int) ([]byte, error) {
-	if index <= 0 {
+	if index < 0 {
 		return nil, &queueError{"Index must be grater than zero. Invalid index."}
 	}
 
@@ -169,20 +148,25 @@ func (e *queueError) Error() string {
 }
 
 func (q *BytesQueue) peek(index int) ([]byte, int) {
-	blockSize := int(binary.LittleEndian.Uint32(q.array[index : index+headerEntrySize]))
-	return q.array[index+headerEntrySize : index+headerEntrySize+blockSize], blockSize
+	blockSize := int(binary.LittleEndian.Uint32(q.getBytes(index, headerEntrySize)))
+	return q.getBytes(index+headerEntrySize, blockSize), blockSize
 }
 
-func (q *BytesQueue) availableSpaceAfterTail() int {
-	if q.tail >= q.head {
-		return q.capacity - q.tail
+func (q *BytesQueue) getBytes(index, len int) []byte {
+	ret := make([]byte, len)
+	if index+len > q.capacity {
+		part := copy(ret, q.array[index:])
+		copy(ret[part:], q.array[:len-part])
+	} else {
+		copy(ret, q.array[index:index+len])
 	}
-	return q.head - q.tail - minimumEmptyBlobSize
+	return ret
 }
 
-func (q *BytesQueue) availableSpaceBeforeHead() int {
-	if q.tail >= q.head {
-		return q.head - leftMarginIndex - minimumEmptyBlobSize
-	}
-	return q.head - q.tail - minimumEmptyBlobSize
+func (q *BytesQueue) length() int {
+	return (q.tail - q.head + q.capacity) % q.capacity
+}
+
+func (q *BytesQueue) availableSpace() int {
+	return q.capacity - q.length() - minimumEmptyBlobSize
 }
