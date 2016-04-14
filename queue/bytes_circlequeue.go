@@ -2,6 +2,7 @@ package queue
 
 import (
 	"encoding/binary"
+	"fmt"
 	"log"
 	"time"
 )
@@ -67,9 +68,12 @@ func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 	q.array = make([]byte, q.capacity)
 
 	if q.tail >= q.head {
+		fmt.Println("------", q.head, q.tail)
 		copy(q.array, oldArray[q.head:q.tail])
 	} else {
+		fmt.Println("++++++", q.head, q.tail)
 		part := copy(q.array, oldArray[q.head:])
+		fmt.Println(part)
 		copy(q.array[part:], oldArray[:q.tail])
 	}
 	q.head = 0
@@ -90,7 +94,7 @@ func (q *BytesQueue) push(data []byte, len int) {
 }
 
 func (q *BytesQueue) copy(data []byte, len int) {
-	part := copy(q.array[q.tail:], data[:len])
+	part := copy(q.array[q.tail:], data)
 	if part < len {
 		copy(q.array, data[part:len])
 	}
@@ -106,6 +110,7 @@ func (q *BytesQueue) Pop() ([]byte, error) {
 	data, size := q.peek(q.head)
 
 	q.head += headerEntrySize + size
+	q.head = q.head % q.capacity
 	q.count--
 
 	return data, nil
@@ -149,10 +154,12 @@ func (e *queueError) Error() string {
 
 func (q *BytesQueue) peek(index int) ([]byte, int) {
 	blockSize := int(binary.LittleEndian.Uint32(q.getBytes(index, headerEntrySize)))
+	fmt.Println("^^^^^^^^^^^^^^^^^^^^^", blockSize)
 	return q.getBytes(index+headerEntrySize, blockSize), blockSize
 }
 
 func (q *BytesQueue) getBytes(index, len int) []byte {
+	fmt.Println(index, len)
 	ret := make([]byte, len)
 	if index+len > q.capacity {
 		part := copy(ret, q.array[index:])
