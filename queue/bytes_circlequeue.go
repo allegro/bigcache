@@ -2,7 +2,6 @@ package queue
 
 import (
 	"encoding/binary"
-	"fmt"
 	"log"
 	"time"
 )
@@ -52,6 +51,7 @@ func (q *BytesQueue) Push(data []byte) int {
 	if q.availableSpace() < dataLen+headerEntrySize {
 		q.allocateAdditionalMemory(dataLen)
 	}
+
 	index := q.tail
 	q.push(data, dataLen)
 	return index
@@ -59,21 +59,18 @@ func (q *BytesQueue) Push(data []byte) int {
 
 func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 	start := time.Now()
+	length := q.length()
 	if q.capacity < minimum {
 		q.capacity += minimum
 	}
 	q.capacity = q.capacity * 2
 	oldArray := q.array
-	length := q.length()
 	q.array = make([]byte, q.capacity)
 
 	if q.tail >= q.head {
-		fmt.Println("------", q.head, q.tail)
 		copy(q.array, oldArray[q.head:q.tail])
 	} else {
-		fmt.Println("++++++", q.head, q.tail)
 		part := copy(q.array, oldArray[q.head:])
-		fmt.Println(part)
 		copy(q.array[part:], oldArray[:q.tail])
 	}
 	q.head = 0
@@ -87,9 +84,7 @@ func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 func (q *BytesQueue) push(data []byte, len int) {
 	binary.LittleEndian.PutUint32(q.headerBuffer, uint32(len))
 	q.copy(q.headerBuffer, headerEntrySize)
-
 	q.copy(data, len)
-
 	q.count++
 }
 
@@ -130,7 +125,7 @@ func (q *BytesQueue) Peek() ([]byte, error) {
 // Get reads entry from index
 func (q *BytesQueue) Get(index int) ([]byte, error) {
 	if index < 0 {
-		return nil, &queueError{"Index must be grater than zero. Invalid index."}
+		return nil, &queueError{"Index must be equal or grater than zero. Invalid index."}
 	}
 
 	data, _ := q.peek(index)
@@ -154,12 +149,11 @@ func (e *queueError) Error() string {
 
 func (q *BytesQueue) peek(index int) ([]byte, int) {
 	blockSize := int(binary.LittleEndian.Uint32(q.getBytes(index, headerEntrySize)))
-	fmt.Println("^^^^^^^^^^^^^^^^^^^^^", blockSize)
 	return q.getBytes(index+headerEntrySize, blockSize), blockSize
 }
 
 func (q *BytesQueue) getBytes(index, len int) []byte {
-	fmt.Println(index, len)
+	index = index % q.capacity
 	ret := make([]byte, len)
 	if index+len > q.capacity {
 		part := copy(ret, q.array[index:])

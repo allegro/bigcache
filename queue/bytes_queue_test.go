@@ -134,14 +134,14 @@ func TestUnchangedEntriesIndexesAfterAdditionalMemoryAllocationWhereTailIsBefore
 	queue := NewBytesQueue(100, false)
 
 	// when
-	queue.Push(blob('a', 70))                // header + entry + left margin = 75 bytes
-	index := queue.Push(blob('b', 10))       // 75 + 10 + 4 = 89 bytes
+	queue.Push(blob('a', 70))                // header + entry = 74 bytes
+	index := queue.Push(blob('b', 10))       // 74 + 10 + 4 = 88 bytes
 	queue.Pop()                              // space freed at the beginning
 	queue.Push(blob('c', 30))                // 34 bytes used at the beginning, tail pointer is before head pointer
 	newestIndex := queue.Push(blob('d', 40)) // 44 bytes needed but no available in one segment, allocate new memory
 
 	// then
-	assert.Equal(t, 200, queue.Capacity())
+	assert.Equal(t, 100, queue.Capacity())
 	assert.Equal(t, blob('b', 10), get(queue, index))
 	assert.Equal(t, blob('d', 40), get(queue, newestIndex))
 }
@@ -219,11 +219,11 @@ func TestGetEntryFromInvalidIndex(t *testing.T) {
 	queue := NewBytesQueue(13, false)
 
 	// when
-	result, err := queue.Get(0)
+	result, err := queue.Get(-1)
 
 	// then
 	assert.Empty(t, result)
-	assert.EqualError(t, err, "Index must be grater than zero. Invalid index.")
+	assert.EqualError(t, err, "Index must be equal or grater than zero. Invalid index.")
 }
 
 func pop(queue *BytesQueue) []byte {
