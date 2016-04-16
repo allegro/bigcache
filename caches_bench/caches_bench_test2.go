@@ -7,24 +7,10 @@ import (
 	"time"
 
 	"bigcache"
-	"github.com/coocood/freecache"
+	bigold "github.com/allegro/bigcache"
 )
 
 const maxEntrySize = 256
-
-func BenchmarkMapSet(b *testing.B) {
-	m := make(map[string][]byte)
-	for i := 0; i < b.N; i++ {
-		m[key(i)] = value()
-	}
-}
-
-func BenchmarkFreeCacheSet(b *testing.B) {
-	cache := freecache.NewCache(b.N * maxEntrySize)
-	for i := 0; i < b.N; i++ {
-		cache.Set([]byte(key(i)), value(), 0)
-	}
-}
 
 func BenchmarkBigCacheSet(b *testing.B) {
 	cache := initBigCache(b.N)
@@ -33,38 +19,29 @@ func BenchmarkBigCacheSet(b *testing.B) {
 	}
 }
 
-func BenchmarkMapGet(b *testing.B) {
-	b.StopTimer()
-	m := make(map[string][]byte)
+func BenchmarkOldBigCacheSet(b *testing.B) {
+	cache := initOldBigCache(b.N)
 	for i := 0; i < b.N; i++ {
-		m[key(i)] = value()
-	}
-
-	b.StartTimer()
-	hitCount := 0
-	for i := 0; i < b.N; i++ {
-		if m[key(i)] != nil {
-			hitCount++
-		}
-	}
-}
-
-func BenchmarkFreeCacheGet(b *testing.B) {
-	b.StopTimer()
-	cache := freecache.NewCache(b.N * maxEntrySize)
-	for i := 0; i < b.N; i++ {
-		cache.Set([]byte(key(i)), value(), 0)
-	}
-
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		cache.Get([]byte(key(i)))
+		cache.Set(key(i), value())
 	}
 }
 
 func BenchmarkBigCacheGet(b *testing.B) {
 	b.StopTimer()
 	cache := initBigCache(b.N)
+	for i := 0; i < b.N; i++ {
+		cache.Set(key(i), value())
+	}
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		cache.Get(key(i))
+	}
+}
+
+func BenchmarkOldBigCacheGet(b *testing.B) {
+	b.StopTimer()
+	cache := initOldBigCache(b.N)
 	for i := 0; i < b.N; i++ {
 		cache.Set(key(i), value())
 	}
@@ -89,15 +66,15 @@ func BenchmarkBigCacheSetParallel(b *testing.B) {
 	})
 }
 
-func BenchmarkFreeCacheSetParallel(b *testing.B) {
-	cache := freecache.NewCache(b.N * maxEntrySize)
+func BenchmarkOldBigCacheSetParallel(b *testing.B) {
+	cache := initOldBigCache(b.N)
 	rand.Seed(time.Now().Unix())
 
 	b.RunParallel(func(pb *testing.PB) {
 		id := rand.Intn(1000)
 		counter := 0
 		for pb.Next() {
-			cache.Set([]byte(parallelKey(id, counter)), value(), 0)
+			cache.Set(parallelKey(id, counter), value())
 			counter = counter + 1
 		}
 	})
@@ -120,18 +97,18 @@ func BenchmarkBigCacheGetParallel(b *testing.B) {
 	})
 }
 
-func BenchmarkFreeCacheGetParallel(b *testing.B) {
+func BenchmarkOldBigCacheGetParallel(b *testing.B) {
 	b.StopTimer()
-	cache := freecache.NewCache(b.N * maxEntrySize)
+	cache := initOldBigCache(b.N)
 	for i := 0; i < b.N; i++ {
-		cache.Set([]byte(key(i)), value(), 0)
+		cache.Set(key(i), value())
 	}
 
 	b.StartTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		counter := 0
 		for pb.Next() {
-			cache.Get([]byte(key(counter)))
+			cache.Get(key(counter))
 			counter = counter + 1
 		}
 	})
@@ -151,6 +128,18 @@ func parallelKey(threadID int, counter int) string {
 
 func initBigCache(entriesInWindow int) *bigcache.BigCache {
 	cache, _ := bigcache.NewBigCache(bigcache.Config{
+		Shards:             256,
+		LifeWindow:         10 * time.Minute,
+		MaxEntriesInWindow: entriesInWindow,
+		MaxEntrySize:       maxEntrySize,
+		Verbose:            true,
+	})
+
+	return cache
+}
+
+func initOldBigCache(entriesInWindow int) *bigold.BigCache {
+	cache, _ := bigold.NewBigCache(bigold.Config{
 		Shards:             256,
 		LifeWindow:         10 * time.Minute,
 		MaxEntriesInWindow: entriesInWindow,

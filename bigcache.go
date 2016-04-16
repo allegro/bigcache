@@ -5,7 +5,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/allegro/bigcache/queue"
+	"bigcache/queue"
 )
 
 const (
@@ -77,10 +77,8 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 	shard := c.getShard(hashedKey)
 	shard.lock.RLock()
 	defer shard.lock.RUnlock()
-
-	itemIndex := shard.hashmap[hashedKey]
-
-	if itemIndex == 0 {
+	itemIndex, ok := shard.hashmap[hashedKey]
+	if !ok{
 		return nil, notFound(key)
 	}
 
