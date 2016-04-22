@@ -21,6 +21,7 @@ const (
 type BytesQueue struct {
 	array        []byte
 	capacity     int
+	maxCapacity  int
 	head         int
 	tail         int
 	count        int
@@ -36,10 +37,11 @@ type queueError struct {
 // NewBytesQueue initialize new bytes queue.
 // Initial capacity is used in bytes array allocation
 // When verbose flag is set then information about memory allocation are printed
-func NewBytesQueue(initialCapacity int, verbose bool) *BytesQueue {
+func NewBytesQueue(initialCapacity int, maxCapacity int, verbose bool) *BytesQueue {
 	return &BytesQueue{
 		array:        make([]byte, initialCapacity),
 		capacity:     initialCapacity,
+		maxCapacity:  maxCapacity,
 		headerBuffer: make([]byte, headerEntrySize),
 		tail:         leftMarginIndex,
 		head:         leftMarginIndex,
@@ -49,15 +51,17 @@ func NewBytesQueue(initialCapacity int, verbose bool) *BytesQueue {
 }
 
 // Push copies entry at the end of queue and moves tail pointer. Allocates more space if needed.
-// Returns index for pushed data
-func (q *BytesQueue) Push(data []byte) int {
+// Returns index for pushed data or error if maximum size queue limit is reached.
+func (q *BytesQueue) Push(data []byte) (int, error) {
 	dataLen := len(data)
 
 	if q.availableSpaceAfterTail() < dataLen+headerEntrySize {
 		if q.availableSpaceBeforeHead() >= dataLen+headerEntrySize {
 			q.tail = leftMarginIndex
+		} else if q.capacity+headerEntrySize+dataLen >= q.maxCapacity && q.maxCapacity > 0 {
+			return -1, &queueError{"Full queue. Maximum size limit reached."}
 		} else {
-			q.allocateAdditionalMemory(dataLen)
+			q.allocateAdditionalMemory(dataLen + headerEntrySize)
 		}
 	}
 
@@ -65,7 +69,7 @@ func (q *BytesQueue) Push(data []byte) int {
 
 	q.push(data, dataLen)
 
-	return index
+	return index, nil
 }
 
 func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
@@ -74,6 +78,10 @@ func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 		q.capacity += minimum
 	}
 	q.capacity = q.capacity * 2
+	if q.capacity > q.maxCapacity && q.maxCapacity > 0 {
+		q.capacity = q.maxCapacity
+	}
+
 	oldArray := q.array
 	q.array = make([]byte, q.capacity)
 

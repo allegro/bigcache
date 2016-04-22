@@ -31,12 +31,21 @@ import (
 	"github.com/allegro/bigcache"
 )
 
-config := bigcache.Config{
-		Shards: 1024,                       // number of shards (must be a power of 2)
-		LifeWindow: 10 * time.Minute,       // time after which entry can be evicted
-		MaxEntriesInWindow: 1000 * 10 * 60, // rps * lifeWindow
-		MaxEntrySize: 500,                  // max entry size in bytes, used only in initial memory allocation
-		Verbose: true,                      // prints information about additional memory allocation
+config := bigcache.Config {
+		// number of shards (must be a power of 2)
+		Shards: 1024,
+		// time after which entry can be evicted
+		LifeWindow: 10 * time.Minute,
+		// rps * lifeWindow, used only in initial memory allocation
+		MaxEntriesInWindow: 1000 * 10 * 60,
+		// max entry size in bytes, used only in initial memory allocation
+		MaxEntrySize: 500,
+		// prints information about additional memory allocation
+		Verbose: true,
+		// cache will not allocate more memory than this limit, value in MB
+		// if value is reached then the oldest entries can be overridden for the new ones
+		// 0 value means no size limit
+		HardMaxCacheSize: 8192,
 	}
 
 cache, initErr := bigcache.NewBigCache(config)
@@ -109,9 +118,11 @@ slices to reduce number of pointers.
 
 Results from benchmark tests are presented above.
 One of the advantage of bigcache over freecache is that you don’t need to know
-the size of cache in advance, because when bigcache is full,
-it allocates additional memory for new entries instead of
+the size of the cache in advance, because when bigcache is full,
+it can allocate additional memory for new entries instead of
 overwriting existing ones as freecache does currently.
+However hard max size in bigcache also can be set, check [HardMaxCacheSize](https://godoc.org/github.com/allegro/bigcache#Config).
+
 
 ## More
 
