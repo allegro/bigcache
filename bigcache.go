@@ -30,6 +30,7 @@ type cacheShard struct {
 	entries     queue.BytesQueue
 	lock        sync.RWMutex
 	entryBuffer []byte
+	onRemove    func(wrappedEntry []byte)
 }
 
 // NewBigCache initialize new instance of BigCache
@@ -62,12 +63,20 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 		maxShardSize: uint32(maxShardSize),
 	}
 
+	var onRemove func(wrappedEntry []byte)
+	if config.OnRemove == nil {
+		onRemove = cache.notProvidedOnRemove
+	} else {
+		onRemove = cache.providedOnRemove
+	}
+
 	initShardSize := max(config.MaxEntriesInWindow/config.Shards, minimumEntriesInShard)
 	for i := 0; i < config.Shards; i++ {
 		cache.shards[i] = &cacheShard{
 			hashmap:     make(map[uint64]uint32, initShardSize),
 			entries:     *queue.NewBytesQueue(initShardSize*config.MaxEntrySize, maxShardSize, config.Verbose),
 			entryBuffer: make([]byte, config.MaxEntrySize+headersSizeInBytes),
+			onRemove:    onRemove,
 		}
 	}
 
@@ -147,6 +156,7 @@ func (s *cacheShard) removeOldestEntry() error {
 	if err == nil {
 		hash := readHashFromEntry(oldest)
 		delete(s.hashmap, hash)
+		s.onRemove(oldest)
 		return nil
 	}
 	return err
@@ -154,6 +164,13 @@ func (s *cacheShard) removeOldestEntry() error {
 
 func (c *BigCache) getShard(hashedKey uint64) (shard *cacheShard) {
 	return c.shards[hashedKey&c.shardMask]
+}
+
+func (c *BigCache) providedOnRemove(wrappedEntry []byte) {
+	c.config.OnRemove(readKeyFromEntry(wrappedEntry), readEntry(wrappedEntry))
+}
+
+func (c *BigCache) notProvidedOnRemove(wrappedEntry []byte) {
 }
 
 func max(a, b int) int {
