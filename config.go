@@ -22,6 +22,9 @@ type Config struct {
 	// Default value is 0 which means unlimited size. When the limit is higher than 0 and reached then
 	// the oldest entries are overridden for the new ones.
 	HardMaxCacheSize int
+	// OnRemove is a callback fired when the oldest entry is removed because of its expiration time or no space left
+	// for the new entry. Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
+	OnRemove func(key string, entry []byte)
 }
 
 // DefaultConfig initializes config with default values.

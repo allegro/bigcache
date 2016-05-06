@@ -10,6 +10,7 @@ before_install:
   - go get golang.org/x/tools/cmd/cover
   - go get golang.org/x/tools/cmd/goimports
   - go get github.com/golang/lint/golint
+  - go get github.com/stretchr/testify/assert
 script:
   - gofiles=$(find ./ -name '*.go') && [ -z "$gofiles" ] || unformatted=$(goimports -l $gofiles) && [ -z "$unformatted" ] || (echo >&2 "Go files must be formatted with gofmt. Following files has problem:\n $unformatted" && false)
   - golint ./... # This won't break the build, just show warnings
