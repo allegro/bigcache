@@ -72,18 +72,18 @@ Benchmark tests were made on MacBook Pro (3 GHz Processor Intel Core i7, 16GB Me
 ### Writes and reads
 
 ```
-cd caches_bench; go test -bench=. -benchtime=10s ./...
+cd caches_bench; go test -bench=. -benchtime=10s ./... -timeout 30m
 
-BenchmarkMapSet-4              	10000000	      1430 ns/op
-BenchmarkFreeCacheSet-4        	20000000	      1115 ns/op
-BenchmarkBigCacheSet-4         	20000000	       873 ns/op
-BenchmarkMapGet-4              	30000000	       558 ns/op
-BenchmarkFreeCacheGet-4        	20000000	       973 ns/op
-BenchmarkBigCacheGet-4         	20000000	       737 ns/op
-BenchmarkBigCacheSetParallel-4 	30000000	       545 ns/op
-BenchmarkFreeCacheSetParallel-4	20000000	       654 ns/op
-BenchmarkBigCacheGetParallel-4 	50000000	       426 ns/op
-BenchmarkFreeCacheGetParallel-4	50000000	       715 ns/op
+BenchmarkMapSet-4              	20000000	      1681 ns/op	     296 B/op	       3 allocs/op
+BenchmarkFreeCacheSet-4        	20000000	      1132 ns/op	     349 B/op	       3 allocs/op
+BenchmarkBigCacheSet-4         	20000000	       831 ns/op	     305 B/op	       2 allocs/op
+BenchmarkMapGet-4              	30000000	       540 ns/op	      24 B/op	       2 allocs/op
+BenchmarkFreeCacheGet-4        	20000000	       986 ns/op	     152 B/op	       4 allocs/op
+BenchmarkBigCacheGet-4         	20000000	       726 ns/op	      40 B/op	       3 allocs/op
+BenchmarkBigCacheSetParallel-4 	20000000	       532 ns/op	     313 B/op	       3 allocs/op
+BenchmarkFreeCacheSetParallel-4	20000000	       564 ns/op	     357 B/op	       4 allocs/op
+BenchmarkBigCacheGetParallel-4 	50000000	       338 ns/op	      40 B/op	       3 allocs/op
+BenchmarkFreeCacheGetParallel-4	30000000	       581 ns/op	     152 B/op	       4 allocs/op
 ```
 
 Writes and reads in bigcache are faster than in freecache.
