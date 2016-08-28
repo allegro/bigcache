@@ -30,28 +30,24 @@ func BenchmarkWriteToUnlimitedCacheWithSmallInitSizeAnd1Shard(b *testing.B) {
 	}
 }
 
-func BenchmarkWriteToCacheWith512Shards(b *testing.B) {
-	writeToCache(b, 512, 100*time.Second, b.N)
+func BenchmarkWriteToCache(b *testing.B) {
+	for _, shards := range []int{1, 512, 1024, 8192} {
+		b.Run(fmt.Sprintf("%d-shards", shards), func(b *testing.B) {
+			writeToCache(b, shards, 100*time.Second, b.N)
+		})
+	}
 }
 
-func BenchmarkWriteToCacheWith1024Shards(b *testing.B) {
-	writeToCache(b, 1024, 100*time.Second, b.N)
-}
-
-func BenchmarkWriteToCacheWith8192Shards(b *testing.B) {
-	writeToCache(b, 8192, 100*time.Second, b.N)
+func BenchmarkReadFromCache(b *testing.B) {
+	for _, shards := range []int{1, 512, 1024, 8192} {
+		b.Run(fmt.Sprintf("%d-shards", shards), func(b *testing.B) {
+			readFromCache(b, 1024)
+		})
+	}
 }
 
 func BenchmarkWriteToCacheWith1024ShardsAndSmallShardInitSize(b *testing.B) {
 	writeToCache(b, 1024, 100*time.Second, 100)
-}
-
-func BenchmarkReadFromCacheWith1024Shards(b *testing.B) {
-	readFromCache(b, 1024)
-}
-
-func BenchmarkReadFromCacheWith8192Shards(b *testing.B) {
-	readFromCache(b, 8192)
 }
 
 func writeToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsInLifeWindow int) {
