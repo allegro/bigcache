@@ -1,6 +1,8 @@
 package bigcache
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -111,6 +113,48 @@ func TestEntryUpdate(t *testing.T) {
 
 	// then
 	assert.Equal(t, []byte("value2"), cachedValue)
+}
+
+func TestKeysIterator(t *testing.T) {
+	//t.Parallel()
+
+	// given
+	keysCount := 10000
+	cache, _ := NewBigCache(Config{8, 6 * time.Second, 1, 256, false, nil, 0, nil})
+	value := []byte("value")
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	for i := 0; i < keysCount; i++ {
+		cache.Set(fmt.Sprintf("key%d", i), value)
+	}
+
+	// when
+	ch := cache.Keys()
+	keys := make(map[string]struct{})
+
+	go func() {
+	loop:
+		for {
+			select {
+			case entryInfo, opened := <-ch:
+				if !opened {
+					break loop
+				}
+
+				keys[entryInfo.Key] = struct{}{}
+
+			case <-time.After(time.Second * 1):
+				break loop
+			}
+		}
+
+		wg.Done()
+	}()
+
+	// then
+	wg.Wait()
+	assert.Equal(t, keysCount, len(keys))
 }
 
 func TestOldestEntryDeletionWhenMaxCacheSizeIsReached(t *testing.T) {

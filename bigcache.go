@@ -33,6 +33,16 @@ type cacheShard struct {
 	onRemove    func(wrappedEntry []byte)
 }
 
+// EntryInfo holds informations about entry in the cache
+type EntryInfo struct {
+	Key       string
+	Hash      uint64
+	Timestamp uint64
+}
+
+// KeysIterator allows to iterate over entries in the cache
+type KeysIterator chan EntryInfo
+
 // NewBigCache initialize new instance of BigCache
 func NewBigCache(config Config) (*BigCache, error) {
 	return newBigCache(config, &systemClock{})
@@ -142,6 +152,38 @@ func (c *BigCache) Set(key string, entry []byte) error {
 			return fmt.Errorf("Entry is bigger than max shard size.")
 		}
 	}
+}
+
+// Keys returns channel to iterate over EntryInfo's from whole cache
+func (c *BigCache) Keys() KeysIterator {
+	ch := make(KeysIterator, 1024)
+	var wg sync.WaitGroup
+	wg.Add(c.config.Shards)
+
+	for i := 0; i < c.config.Shards; i++ {
+		go func(shard *cacheShard) {
+			defer wg.Done()
+			shard.lock.RLock()
+			defer shard.lock.RUnlock()
+
+			for _, index := range shard.hashmap {
+				if entry, err := shard.entries.Get(int(index)); err == nil {
+					ch <- EntryInfo{
+						Key:       readKeyFromEntry(entry),
+						Hash:      readHashFromEntry(entry),
+						Timestamp: readTimestampFromEntry(entry),
+					}
+				}
+			}
+		}(c.shards[i])
+	}
+
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	return ch
 }
 
 func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func() error) {
