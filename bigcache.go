@@ -40,8 +40,11 @@ type EntryInfo struct {
 	Timestamp uint64
 }
 
-// KeysIterator allows to iterate over entries in the cache
-type KeysIterator chan EntryInfo
+// EntryInfoFilter function allows filtering of EntryInfo elements in the KeysIterator functions
+type EntryInfoFilter func(EntryInfo) bool
+
+// EntryInfoIterator allows to iterate over entries in the cache
+type EntryInfoIterator chan EntryInfo
 
 // NewBigCache initialize new instance of BigCache
 func NewBigCache(config Config) (*BigCache, error) {
@@ -154,9 +157,10 @@ func (c *BigCache) Set(key string, entry []byte) error {
 	}
 }
 
-// Keys returns channel to iterate over EntryInfo's from whole cache
-func (c *BigCache) Keys() KeysIterator {
-	ch := make(KeysIterator, 1024)
+// EntriesMatching returns channel to iterate over EntryInfo's matching filtering
+// from whole cache.
+func (c *BigCache) EntriesMatching(fun EntryInfoFilter) EntryInfoIterator {
+	ch := make(EntryInfoIterator, 1024)
 	var wg sync.WaitGroup
 	wg.Add(c.config.Shards)
 
@@ -168,10 +172,14 @@ func (c *BigCache) Keys() KeysIterator {
 
 			for _, index := range shard.hashmap {
 				if entry, err := shard.entries.Get(int(index)); err == nil {
-					ch <- EntryInfo{
+					ei := EntryInfo{
 						Key:       readKeyFromEntry(entry),
 						Hash:      readHashFromEntry(entry),
 						Timestamp: readTimestampFromEntry(entry),
+					}
+
+					if fun(ei) {
+						ch <- ei
 					}
 				}
 			}
