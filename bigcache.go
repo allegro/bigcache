@@ -38,13 +38,76 @@ type EntryInfo struct {
 	Key       string
 	Hash      uint64
 	Timestamp uint64
+	index     uint32
 }
 
 // EntryInfoFilter function allows filtering of EntryInfo elements in the KeysIterator functions
 type EntryInfoFilter func(EntryInfo) bool
 
 // EntryInfoIterator allows to iterate over entries in the cache
-type EntryInfoIterator chan EntryInfo
+type EntryInfoIterator struct {
+	cache        *BigCache
+	currentShard int
+	currentIndex int32
+	elements     []*EntryInfo
+}
+
+func copyCurrentShardMap(shard *cacheShard) []*EntryInfo {
+	shard.lock.RLock()
+	defer shard.lock.RUnlock()
+
+	elements := make([]*EntryInfo, 0)
+
+	for hash, index := range shard.hashmap {
+		elements = append(elements, &EntryInfo{
+			Hash:  hash,
+			index: index,
+		})
+	}
+
+	return elements
+}
+
+// Next returnes true if there is next element in the iterator
+func (it *EntryInfoIterator) Next() bool {
+	it.currentIndex++
+
+	if it.currentIndex >= int32(len(it.elements)) {
+		it.currentIndex = 0
+		it.currentShard++
+
+		if it.currentShard == it.cache.config.Shards {
+			return false
+		}
+
+		it.elements = copyCurrentShardMap(it.cache.shards[it.currentShard])
+	}
+
+	return true
+}
+
+func newIterator(cache *BigCache) *EntryInfoIterator {
+	return &EntryInfoIterator{
+		cache:        cache,
+		currentShard: 0,
+		currentIndex: -1,
+		elements:     copyCurrentShardMap(cache.shards[0]),
+	}
+}
+
+// Value returns current value from the iterator
+func (it *EntryInfoIterator) Value() (*EntryInfo, error) {
+	current := it.elements[it.currentIndex]
+
+	if entry, err := it.cache.shards[it.currentShard].entries.Get(int(current.index)); err != nil {
+		return nil, fmt.Errorf("Could not retrieve entry from cache")
+	} else {
+		current.Key = readKeyFromEntry(entry)
+		current.Timestamp = readTimestampFromEntry(entry)
+
+		return current, nil
+	}
+}
 
 // NewBigCache initialize new instance of BigCache
 func NewBigCache(config Config) (*BigCache, error) {
@@ -157,41 +220,9 @@ func (c *BigCache) Set(key string, entry []byte) error {
 	}
 }
 
-// EntriesMatching returns channel to iterate over EntryInfo's matching filtering
-// from whole cache.
-func (c *BigCache) EntriesMatching(fun EntryInfoFilter) EntryInfoIterator {
-	ch := make(EntryInfoIterator, 1024)
-	var wg sync.WaitGroup
-	wg.Add(c.config.Shards)
-
-	for i := 0; i < c.config.Shards; i++ {
-		go func(shard *cacheShard) {
-			defer wg.Done()
-			shard.lock.RLock()
-			defer shard.lock.RUnlock()
-
-			for _, index := range shard.hashmap {
-				if entry, err := shard.entries.Get(int(index)); err == nil {
-					ei := EntryInfo{
-						Key:       readKeyFromEntry(entry),
-						Hash:      readHashFromEntry(entry),
-						Timestamp: readTimestampFromEntry(entry),
-					}
-
-					if fun(ei) {
-						ch <- ei
-					}
-				}
-			}
-		}(c.shards[i])
-	}
-
-	go func() {
-		wg.Wait()
-		close(ch)
-	}()
-
-	return ch
+// Iterator returns iterator function to iterate over EntryInfo's from whole cache.
+func (c *BigCache) Iterator() *EntryInfoIterator {
+	return newIterator(c)
 }
 
 func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func() error) {
