@@ -41,9 +41,6 @@ type EntryInfo struct {
 	index     uint32
 }
 
-// EntryInfoFilter function allows filtering of EntryInfo elements in the KeysIterator functions
-type EntryInfoFilter func(EntryInfo) bool
-
 // EntryInfoIterator allows to iterate over entries in the cache
 type EntryInfoIterator struct {
 	cache        *BigCache
