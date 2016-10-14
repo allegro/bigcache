@@ -2,7 +2,6 @@ package bigcache
 
 import (
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 
@@ -115,15 +114,13 @@ func TestEntryUpdate(t *testing.T) {
 	assert.Equal(t, []byte("value2"), cachedValue)
 }
 
-func TestEntriesMatchingWithoutFilter(t *testing.T) {
-	//t.Parallel()
+func TestEntriesIterator(t *testing.T) {
+	t.Parallel()
 
 	// given
 	keysCount := 10000
 	cache, _ := NewBigCache(Config{8, 6 * time.Second, 1, 256, false, nil, 0, nil})
 	value := []byte("value")
-	var wg sync.WaitGroup
-	wg.Add(1)
 
 	for i := 0; i < keysCount; i++ {
 		cache.Set(fmt.Sprintf("key%d", i), value)
@@ -143,6 +140,59 @@ func TestEntriesMatchingWithoutFilter(t *testing.T) {
 
 	// then
 	assert.Equal(t, keysCount, len(keys))
+}
+
+func TestEntriesIteratorWithMostShardsEmpty(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{8, 6 * time.Second, 1, 256, false, nil, 0, nil})
+
+	cache.Set("key", []byte("value"))
+
+	// when
+	iterator := cache.Iterator()
+
+	// then
+	if !iterator.Next() {
+		t.Errorf("Iterator should contain at least single element")
+	}
+
+	current, err := iterator.Value()
+
+	// then
+	assert.Nil(t, err)
+	assert.Equal(t, current.Key, "key")
+}
+
+func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{1, time.Second, 1, 256, false, nil, 0, nil})
+
+	cache.Set("key", []byte("value"))
+
+	// when
+	iterator := cache.Iterator()
+
+	// then
+	if !iterator.Next() {
+		t.Errorf("Iterator should contain at least single element")
+	}
+
+	// Quite ugly but works
+	for i := 0; i < cache.config.Shards; i++ {
+		if oldestEntry, err := cache.shards[i].entries.Peek(); err == nil {
+			cache.onEvict(oldestEntry, 10, cache.shards[i].removeOldestEntry)
+		}
+	}
+
+	current, err := iterator.Value()
+
+	// then
+	assert.Equal(t, "Could not retrieve entry from cache", err.Error())
+	assert.Nil(t, current)
 }
 
 func TestOldestEntryDeletionWhenMaxCacheSizeIsReached(t *testing.T) {

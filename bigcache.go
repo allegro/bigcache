@@ -38,7 +38,7 @@ type EntryInfo struct {
 	Key       string
 	Hash      uint64
 	Timestamp uint64
-	index     uint32
+	Entry     []byte
 }
 
 // EntryInfoIterator allows to iterate over entries in the cache
@@ -46,20 +46,17 @@ type EntryInfoIterator struct {
 	cache        *BigCache
 	currentShard int
 	currentIndex int32
-	elements     []*EntryInfo
+	elements     []uint32
 }
 
-func copyCurrentShardMap(shard *cacheShard) []*EntryInfo {
+func copyCurrentShardMap(shard *cacheShard) []uint32 {
 	shard.lock.RLock()
 	defer shard.lock.RUnlock()
 
-	elements := make([]*EntryInfo, 0)
+	var elements []uint32
 
-	for hash, index := range shard.hashmap {
-		elements = append(elements, &EntryInfo{
-			Hash:  hash,
-			index: index,
-		})
+	for _, index := range shard.hashmap {
+		elements = append(elements, index)
 	}
 
 	return elements
@@ -70,6 +67,7 @@ func (it *EntryInfoIterator) Next() bool {
 	it.currentIndex++
 
 	if it.currentIndex >= int32(len(it.elements)) {
+	incrementShard:
 		it.currentIndex = 0
 		it.currentShard++
 
@@ -78,6 +76,11 @@ func (it *EntryInfoIterator) Next() bool {
 		}
 
 		it.elements = copyCurrentShardMap(it.cache.shards[it.currentShard])
+
+		// partition is empty - move to next
+		if len(it.elements) == 0 {
+			goto incrementShard
+		}
 	}
 
 	return true
@@ -96,14 +99,19 @@ func newIterator(cache *BigCache) *EntryInfoIterator {
 func (it *EntryInfoIterator) Value() (*EntryInfo, error) {
 	current := it.elements[it.currentIndex]
 
-	if entry, err := it.cache.shards[it.currentShard].entries.Get(int(current.index)); err != nil {
-		return nil, fmt.Errorf("Could not retrieve entry from cache")
-	} else {
-		current.Key = readKeyFromEntry(entry)
-		current.Timestamp = readTimestampFromEntry(entry)
+	var entry []byte
+	var err error
 
-		return current, nil
+	if entry, err = it.cache.shards[it.currentShard].entries.Get(int(current)); err != nil {
+		return nil, fmt.Errorf("Could not retrieve entry from cache")
 	}
+
+	return &EntryInfo{
+		Key:       readKeyFromEntry(entry),
+		Timestamp: readTimestampFromEntry(entry),
+		Hash:      readHashFromEntry(entry),
+		Entry:     readEntry(entry),
+	}, nil
 }
 
 // NewBigCache initialize new instance of BigCache
