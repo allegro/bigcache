@@ -35,10 +35,23 @@ type cacheShard struct {
 
 // EntryInfo holds informations about entry in the cache
 type EntryInfo struct {
-	Key       string
-	Hash      uint64
-	Timestamp uint64
-	Entry     []byte
+	entry []byte
+}
+
+func (e EntryInfo) Key() string {
+	return readKeyFromEntry(e.entry)
+}
+
+func (e EntryInfo) Hash() uint64 {
+	return readHashFromEntry(e.entry)
+}
+
+func (e EntryInfo) Timestamp() uint64 {
+	return readTimestampFromEntry(e.entry)
+}
+
+func (e EntryInfo) Value() []byte {
+	return readEntry(e.entry)
 }
 
 // EntryInfoIterator allows to iterate over entries in the cache
@@ -106,11 +119,11 @@ func (it *EntryInfoIterator) Value() (*EntryInfo, error) {
 		return nil, fmt.Errorf("Could not retrieve entry from cache")
 	}
 
+	var dst = make([]byte, len(entry))
+	copy(dst, entry)
+
 	return &EntryInfo{
-		Key:       readKeyFromEntry(entry),
-		Timestamp: readTimestampFromEntry(entry),
-		Hash:      readHashFromEntry(entry),
-		Entry:     readEntry(entry),
+		entry: dst,
 	}, nil
 }
 

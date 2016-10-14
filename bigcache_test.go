@@ -134,7 +134,7 @@ func TestEntriesIterator(t *testing.T) {
 		current, err := iterator.Value()
 
 		if err == nil {
-			keys[current.Key] = struct{}{}
+			keys[current.Key()] = struct{}{}
 		}
 	}
 
@@ -162,7 +162,7 @@ func TestEntriesIteratorWithMostShardsEmpty(t *testing.T) {
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, current.Key, "key")
+	assert.Equal(t, current.Key(), "key")
 }
 
 func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {

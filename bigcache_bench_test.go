@@ -46,6 +46,24 @@ func BenchmarkReadFromCache(b *testing.B) {
 	}
 }
 
+func BenchmarkIterateOverCache(b *testing.B) {
+	m := blob('a', 1024)
+
+	cache, _ := NewBigCache(Config{1024, 1000 * time.Second, max(b.N, 100), 500, false, nil, 0, nil})
+
+	for i := 0; i < b.N; i++ {
+		cache.Set(fmt.Sprintf("key-%d", i), m)
+	}
+
+	b.ResetTimer()
+	it := cache.Iterator()
+
+	for i := 0; i < b.N; i++ {
+		it.Next()
+		it.Value()
+	}
+}
+
 func BenchmarkWriteToCacheWith1024ShardsAndSmallShardInitSize(b *testing.B) {
 	writeToCache(b, 1024, 100*time.Second, 100)
 }
@@ -65,7 +83,7 @@ func writeToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsIn
 }
 
 func readFromCache(b *testing.B, shards int) {
-	cache, _ := NewBigCache(Config{8192, 1000 * time.Second, max(b.N, 100), 500, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{shards, 1000 * time.Second, max(b.N, 100), 500, false, nil, 0, nil})
 	for i := 0; i < b.N; i++ {
 		cache.Set(strconv.Itoa(i), message)
 	}
