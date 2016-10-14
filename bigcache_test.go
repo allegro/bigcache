@@ -146,7 +146,8 @@ func TestEntriesIteratorWithMostShardsEmpty(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{8, 6 * time.Second, 1, 256, false, nil, 0, nil})
+	clock := mockedClock{value: 0}
+	cache, _ := newBigCache(Config{8, 6 * time.Second, 1, 256, false, nil, 0, nil}, &clock)
 
 	cache.Set("key", []byte("value"))
 
@@ -163,6 +164,9 @@ func TestEntriesIteratorWithMostShardsEmpty(t *testing.T) {
 	// then
 	assert.Nil(t, err)
 	assert.Equal(t, current.Key(), "key")
+	assert.Equal(t, current.Hash(), uint64(0x3dc94a19365b10ec))
+	assert.Equal(t, current.Value(), []byte("value"))
+	assert.Equal(t, current.Timestamp(), uint64(0))
 }
 
 func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {
