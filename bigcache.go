@@ -75,7 +75,7 @@ func copyCurrentShardMap(shard *cacheShard) []uint32 {
 	return elements
 }
 
-// Next returnes true if there is next element in the iterator
+// Next returns true if there is next element in the iterator
 func (it *EntryInfoIterator) Next() bool {
 	it.currentIndex++
 
