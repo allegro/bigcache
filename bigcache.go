@@ -38,18 +38,22 @@ type EntryInfo struct {
 	entry []byte
 }
 
+// Key returns entry's underlying key
 func (e EntryInfo) Key() string {
 	return readKeyFromEntry(e.entry)
 }
 
+// Hash returns entry's hash value
 func (e EntryInfo) Hash() uint64 {
 	return readHashFromEntry(e.entry)
 }
 
+// Timestamp returns entry's timestamp (time of insertion)
 func (e EntryInfo) Timestamp() uint64 {
 	return readTimestampFromEntry(e.entry)
 }
 
+// Value returns entry's underlying value
 func (e EntryInfo) Value() []byte {
 	return readEntry(e.entry)
 }
@@ -60,6 +64,7 @@ type EntryInfoIterator struct {
 	currentShard int
 	currentIndex int32
 	elements     []uint32
+	sync.Mutex
 }
 
 func copyCurrentShardMap(shard *cacheShard) []uint32 {
@@ -77,6 +82,9 @@ func copyCurrentShardMap(shard *cacheShard) []uint32 {
 
 // Next returns true if there is next element in the iterator
 func (it *EntryInfoIterator) Next() bool {
+	it.Lock()
+	defer it.Unlock()
+
 	it.currentIndex++
 
 	if it.currentIndex >= int32(len(it.elements)) {
@@ -110,6 +118,9 @@ func newIterator(cache *BigCache) *EntryInfoIterator {
 
 // Value returns current value from the iterator
 func (it *EntryInfoIterator) Value() (*EntryInfo, error) {
+	it.Lock()
+	defer it.Unlock()
+
 	current := it.elements[it.currentIndex]
 
 	var entry []byte

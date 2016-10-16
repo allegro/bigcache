@@ -60,10 +60,12 @@ func BenchmarkIterateOverCache(b *testing.B) {
 			b.ResetTimer()
 			it := cache.Iterator()
 
-			for i := 0; i < b.N; i++ {
-				it.Next()
-				it.Value()
-			}
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					it.Next()
+					it.Value()
+				}
+			})
 		})
 	}
 }
