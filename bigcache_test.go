@@ -196,7 +196,7 @@ func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {
 
 	// then
 	assert.Equal(t, "Could not retrieve entry from cache", err.Error())
-	assert.Nil(t, current)
+	assert.Equal(t, EntryInfo{}, current)
 }
 
 func TestOldestEntryDeletionWhenMaxCacheSizeIsReached(t *testing.T) {

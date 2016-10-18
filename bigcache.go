@@ -62,7 +62,7 @@ func (e EntryInfo) Value() []byte {
 type EntryInfoIterator struct {
 	cache        *BigCache
 	currentShard int
-	currentIndex int32
+	currentIndex int
 	elements     []uint32
 	sync.Mutex
 }
@@ -87,20 +87,20 @@ func (it *EntryInfoIterator) Next() bool {
 
 	it.currentIndex++
 
-	if it.currentIndex >= int32(len(it.elements)) {
-	incrementShard:
-		it.currentIndex = 0
-		it.currentShard++
+	if it.currentIndex >= len(it.elements) {
 
-		if it.currentShard == it.cache.config.Shards {
+		// Last shard - no more entries
+		if it.currentShard == it.cache.config.Shards-1 {
 			return false
 		}
 
-		it.elements = copyCurrentShardMap(it.cache.shards[it.currentShard])
+		for i := it.currentShard + 1; i < it.cache.config.Shards; i++ {
+			it.currentShard, it.currentIndex, it.elements = i, 0, copyCurrentShardMap(it.cache.shards[i])
 
-		// partition is empty - move to next
-		if len(it.elements) == 0 {
-			goto incrementShard
+			// Non empty shard - stick with it
+			if len(it.elements) > 0 {
+				return true
+			}
 		}
 	}
 
@@ -117,23 +117,22 @@ func newIterator(cache *BigCache) *EntryInfoIterator {
 }
 
 // Value returns current value from the iterator
-func (it *EntryInfoIterator) Value() (*EntryInfo, error) {
+func (it *EntryInfoIterator) Value() (EntryInfo, error) {
 	it.Lock()
 	defer it.Unlock()
-
 	current := it.elements[it.currentIndex]
 
 	var entry []byte
 	var err error
 
 	if entry, err = it.cache.shards[it.currentShard].entries.Get(int(current)); err != nil {
-		return nil, fmt.Errorf("Could not retrieve entry from cache")
+		return EntryInfo{}, fmt.Errorf("Could not retrieve entry from cache")
 	}
 
 	var dst = make([]byte, len(entry))
 	copy(dst, entry)
 
-	return &EntryInfo{
+	return EntryInfo{
 		entry: dst,
 	}, nil
 }
