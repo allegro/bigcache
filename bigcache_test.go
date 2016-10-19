@@ -130,7 +130,7 @@ func TestEntriesIterator(t *testing.T) {
 	keys := make(map[string]struct{})
 	iterator := cache.Iterator()
 
-	for iterator.Next() {
+	for iterator.HasNext() {
 		current, err := iterator.Value()
 
 		if err == nil {
@@ -155,7 +155,7 @@ func TestEntriesIteratorWithMostShardsEmpty(t *testing.T) {
 	iterator := cache.Iterator()
 
 	// then
-	if !iterator.Next() {
+	if !iterator.HasNext() {
 		t.Errorf("Iterator should contain at least single element")
 	}
 
@@ -181,7 +181,7 @@ func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {
 	iterator := cache.Iterator()
 
 	// then
-	if !iterator.Next() {
+	if !iterator.HasNext() {
 		t.Errorf("Iterator should contain at least single element")
 	}
 
@@ -197,6 +197,36 @@ func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {
 	// then
 	assert.Equal(t, "Could not retrieve entry from cache", err.Error())
 	assert.Equal(t, EntryInfo{}, current)
+}
+
+func TestEntriesIteratorWithAllShardsEmpty(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{1, time.Second, 1, 256, false, nil, 0, nil})
+
+	// when
+	iterator := cache.Iterator()
+
+	// then
+	if iterator.HasNext() {
+		t.Errorf("Iterator should not contain any elements")
+	}
+}
+
+func TestEntriesIteratorInInvalidState(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{1, time.Second, 1, 256, false, nil, 0, nil})
+
+	// when
+	iterator := cache.Iterator()
+
+	// then
+	_, error := iterator.Value()
+	assert.EqualError(t, error, "Iterator is in invalid state. Use HasNext() to determine if there is next element.")
+
 }
 
 func TestOldestEntryDeletionWhenMaxCacheSizeIsReached(t *testing.T) {

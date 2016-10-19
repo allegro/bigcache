@@ -60,11 +60,12 @@ func (e EntryInfo) Value() []byte {
 
 // EntryInfoIterator allows to iterate over entries in the cache
 type EntryInfoIterator struct {
+	sync.Mutex
 	cache        *BigCache
 	currentShard int
 	currentIndex int
 	elements     []uint32
-	sync.Mutex
+	valid        bool
 }
 
 func copyCurrentShardMap(shard *cacheShard) []uint32 {
@@ -80,14 +81,15 @@ func copyCurrentShardMap(shard *cacheShard) []uint32 {
 	return elements
 }
 
-// Next returns true if there is next element in the iterator
-func (it *EntryInfoIterator) Next() bool {
+// HasNext returns true if there is next element in the iterator, false otherwise
+func (it *EntryInfoIterator) HasNext() bool {
 	it.Lock()
 	defer it.Unlock()
 
+	it.valid = false
 	it.currentIndex++
 
-	if it.currentIndex >= len(it.elements) {
+	if !(len(it.elements) > it.currentIndex) {
 
 		// Last shard - no more entries
 		if it.currentShard == it.cache.config.Shards-1 {
@@ -95,15 +97,19 @@ func (it *EntryInfoIterator) Next() bool {
 		}
 
 		for i := it.currentShard + 1; i < it.cache.config.Shards; i++ {
-			it.currentShard, it.currentIndex, it.elements = i, 0, copyCurrentShardMap(it.cache.shards[i])
+			it.currentShard = i
+			it.currentIndex = 0
+			it.elements = copyCurrentShardMap(it.cache.shards[i])
 
 			// Non empty shard - stick with it
 			if len(it.elements) > 0 {
+				it.valid = true
 				return true
 			}
 		}
 	}
 
+	it.valid = true
 	return true
 }
 
@@ -120,6 +126,11 @@ func newIterator(cache *BigCache) *EntryInfoIterator {
 func (it *EntryInfoIterator) Value() (EntryInfo, error) {
 	it.Lock()
 	defer it.Unlock()
+
+	if !it.valid {
+		return EntryInfo{}, fmt.Errorf("Iterator is in invalid state. Use HasNext() to determine if there is next element.")
+	}
+
 	current := it.elements[it.currentIndex]
 
 	var entry []byte
