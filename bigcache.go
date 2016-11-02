@@ -16,7 +16,7 @@ const (
 // ErrInvalidIteratorState is reported when iterator is in invalid state and cannot be used.
 var ErrInvalidIteratorState = errors.New("Iterator is in invalid state. Use SetNext() to move to next position.")
 
-// ErrCannotRetrieveEntry is reported when entry cannot be retrieved from underlying cache.
+// ErrCannotRetrieveEntry is reported when entry cannot be retrieved from underlying
 var ErrCannotRetrieveEntry = errors.New("Could not retrieve entry from cache")
 
 // BigCache is fast, concurrent, evicting cache created to keep big number of entries without impact on performance.
@@ -102,11 +102,6 @@ func (it *EntryInfoIterator) SetNext() bool {
 	if it.elementsCount > it.currentIndex {
 		it.valid = true
 		return true
-	}
-
-	// Last shard - no more entries
-	if it.currentShard == it.cache.config.Shards-1 {
-		return false
 	}
 
 	for i := it.currentShard + 1; i < it.cache.config.Shards; i++ {
