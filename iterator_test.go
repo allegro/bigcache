@@ -90,6 +90,7 @@ func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {
 
 	// then
 	assert.Equal(t, ErrCannotRetrieveEntry, err)
+	assert.Equal(t, "Could not retrieve entry from cache", err.Error())
 	assert.Equal(t, EntryInfo{}, current)
 }
 
@@ -118,6 +119,7 @@ func TestEntriesIteratorInInvalidState(t *testing.T) {
 	iterator := cache.Iterator()
 
 	// then
-	_, error := iterator.Value()
-	assert.Equal(t, ErrInvalidIteratorState, error)
+	_, err := iterator.Value()
+	assert.Equal(t, ErrInvalidIteratorState, err)
+	assert.Equal(t, "Iterator is in invalid state. Use SetNext() to move to next position", err.Error())
 }
