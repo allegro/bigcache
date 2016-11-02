@@ -1,6 +1,7 @@
 package bigcache
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -11,6 +12,12 @@ import (
 const (
 	minimumEntriesInShard = 10 // Minimum number of entries in single shard
 )
+
+// ErrInvalidIteratorState is reported when iterator is in invalid state and cannot be used.
+var ErrInvalidIteratorState = errors.New("Iterator is in invalid state. Use SetNext() to move to next position.")
+
+// ErrCannotRetrieveEntry is reported when entry cannot be retrieved from underlying cache.
+var ErrCannotRetrieveEntry = errors.New("Could not retrieve entry from cache")
 
 // BigCache is fast, concurrent, evicting cache created to keep big number of entries without impact on performance.
 // It keeps entries on heap but omits GC for them. To achieve that operations on bytes arrays take place,
@@ -61,24 +68,27 @@ func (e EntryInfo) Value() []byte {
 // EntryInfoIterator allows to iterate over entries in the cache
 type EntryInfoIterator struct {
 	sync.Mutex
-	cache        *BigCache
-	currentShard int
-	currentIndex int
-	elements     []uint32
-	valid        bool
+	cache         *BigCache
+	currentShard  int
+	currentIndex  int
+	elements      []uint32
+	elementsCount int
+	valid         bool
 }
 
-func copyCurrentShardMap(shard *cacheShard) []uint32 {
+func copyCurrentShardMap(shard *cacheShard) ([]uint32, int) {
 	shard.lock.RLock()
 	defer shard.lock.RUnlock()
 
-	var elements []uint32
+	var elements = make([]uint32, len(shard.hashmap))
+	next := 0
 
 	for _, index := range shard.hashmap {
-		elements = append(elements, index)
+		elements[next] = index
+		next++
 	}
 
-	return elements
+	return elements, next
 }
 
 // SetNext moves to next element and returns true if it exists.
@@ -89,7 +99,7 @@ func (it *EntryInfoIterator) SetNext() bool {
 	it.valid = false
 	it.currentIndex++
 
-	if len(it.elements) > it.currentIndex {
+	if it.elementsCount > it.currentIndex {
 		it.valid = true
 		return true
 	}
@@ -102,10 +112,10 @@ func (it *EntryInfoIterator) SetNext() bool {
 	for i := it.currentShard + 1; i < it.cache.config.Shards; i++ {
 		it.currentShard = i
 		it.currentIndex = 0
-		it.elements = copyCurrentShardMap(it.cache.shards[i])
+		it.elements, it.elementsCount = copyCurrentShardMap(it.cache.shards[i])
 
 		// Non empty shard - stick with it
-		if len(it.elements) > 0 {
+		if it.elementsCount > 0 {
 			it.valid = true
 			return true
 		}
@@ -115,11 +125,14 @@ func (it *EntryInfoIterator) SetNext() bool {
 }
 
 func newIterator(cache *BigCache) *EntryInfoIterator {
+	elements, count := copyCurrentShardMap(cache.shards[0])
+
 	return &EntryInfoIterator{
-		cache:        cache,
-		currentShard: 0,
-		currentIndex: -1,
-		elements:     copyCurrentShardMap(cache.shards[0]),
+		cache:         cache,
+		currentShard:  0,
+		currentIndex:  -1,
+		elements:      elements,
+		elementsCount: count,
 	}
 }
 
@@ -129,7 +142,7 @@ func (it *EntryInfoIterator) Value() (EntryInfo, error) {
 	defer it.Unlock()
 
 	if !it.valid {
-		return EntryInfo{}, fmt.Errorf("Iterator is in invalid state. Use HasNext() to determine if there is next element.")
+		return EntryInfo{}, ErrInvalidIteratorState
 	}
 
 	current := it.elements[it.currentIndex]
@@ -138,7 +151,7 @@ func (it *EntryInfoIterator) Value() (EntryInfo, error) {
 	var err error
 
 	if entry, err = it.cache.shards[it.currentShard].entries.Get(int(current)); err != nil {
-		return EntryInfo{}, fmt.Errorf("Could not retrieve entry from cache")
+		return EntryInfo{}, ErrCannotRetrieveEntry
 	}
 
 	var dst = make([]byte, len(entry))

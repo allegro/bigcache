@@ -225,7 +225,7 @@ func TestEntriesIteratorInInvalidState(t *testing.T) {
 
 	// then
 	_, error := iterator.Value()
-	assert.EqualError(t, error, "Iterator is in invalid state. Use HasNext() to determine if there is next element.")
+	assert.EqualError(t, error, "Iterator is in invalid state. Use SetNext() to move to next position.")
 
 }
 
