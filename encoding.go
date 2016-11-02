@@ -2,6 +2,8 @@ package bigcache
 
 import (
 	"encoding/binary"
+	"reflect"
+	"unsafe"
 )
 
 const (
@@ -40,7 +42,13 @@ func readTimestampFromEntry(data []byte) uint64 {
 
 func readKeyFromEntry(data []byte) string {
 	length := binary.LittleEndian.Uint16(data[timestampSizeInBytes+hashSizeInBytes:])
-	return string(data[headersSizeInBytes : headersSizeInBytes+length])
+	return bytesToString(data[headersSizeInBytes : headersSizeInBytes+length])
+}
+
+func bytesToString(b []byte) string {
+	bytesHeader := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+	strHeader := reflect.StringHeader{Data: bytesHeader.Data, Len: bytesHeader.Len}
+	return *(*string)(unsafe.Pointer(&strHeader))
 }
 
 func readHashFromEntry(data []byte) uint64 {
