@@ -25,7 +25,7 @@ func wrapEntry(timestamp uint64, hash uint64, key string, entry []byte, buffer *
 	binary.LittleEndian.PutUint64(blob, timestamp)
 	binary.LittleEndian.PutUint64(blob[timestampSizeInBytes:], hash)
 	binary.LittleEndian.PutUint16(blob[timestampSizeInBytes+hashSizeInBytes:], uint16(keyLength))
-	copy(blob[headersSizeInBytes:], []byte(key))
+	copy(blob[headersSizeInBytes:], stringToBytes(key))
 	copy(blob[headersSizeInBytes+keyLength:], entry)
 
 	return blob[:blobLength]
@@ -49,6 +49,11 @@ func bytesToString(b []byte) string {
 	bytesHeader := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 	strHeader := reflect.StringHeader{Data: bytesHeader.Data, Len: bytesHeader.Len}
 	return *(*string)(unsafe.Pointer(&strHeader))
+}
+
+func stringToBytes(s string) []byte {
+	sliceHeader := (*reflect.SliceHeader)(unsafe.Pointer(&s))
+	return *(*[]byte)(unsafe.Pointer(sliceHeader))
 }
 
 func readHashFromEntry(data []byte) uint64 {
