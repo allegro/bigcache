@@ -130,7 +130,7 @@ func TestEntriesIterator(t *testing.T) {
 	keys := make(map[string]struct{})
 	iterator := cache.Iterator()
 
-	for iterator.HasNext() {
+	for iterator.SetNext() {
 		current, err := iterator.Value()
 
 		if err == nil {
@@ -155,7 +155,7 @@ func TestEntriesIteratorWithMostShardsEmpty(t *testing.T) {
 	iterator := cache.Iterator()
 
 	// then
-	if !iterator.HasNext() {
+	if !iterator.SetNext() {
 		t.Errorf("Iterator should contain at least single element")
 	}
 
@@ -163,10 +163,10 @@ func TestEntriesIteratorWithMostShardsEmpty(t *testing.T) {
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, current.Key(), "key")
-	assert.Equal(t, current.Hash(), uint64(0x3dc94a19365b10ec))
-	assert.Equal(t, current.Value(), []byte("value"))
-	assert.Equal(t, current.Timestamp(), uint64(0))
+	assert.Equal(t, "key", current.Key())
+	assert.Equal(t, uint64(0x3dc94a19365b10ec), current.Hash())
+	assert.Equal(t, []byte("value"), current.Value())
+	assert.Equal(t, uint64(0), current.Timestamp())
 }
 
 func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {
@@ -181,7 +181,7 @@ func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {
 	iterator := cache.Iterator()
 
 	// then
-	if !iterator.HasNext() {
+	if !iterator.SetNext() {
 		t.Errorf("Iterator should contain at least single element")
 	}
 
@@ -209,7 +209,7 @@ func TestEntriesIteratorWithAllShardsEmpty(t *testing.T) {
 	iterator := cache.Iterator()
 
 	// then
-	if iterator.HasNext() {
+	if iterator.SetNext() {
 		t.Errorf("Iterator should not contain any elements")
 	}
 }

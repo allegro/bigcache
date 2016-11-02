@@ -81,36 +81,37 @@ func copyCurrentShardMap(shard *cacheShard) []uint32 {
 	return elements
 }
 
-// HasNext returns true if there is next element in the iterator, false otherwise
-func (it *EntryInfoIterator) HasNext() bool {
+// SetNext moves to next element and returns true if it exists.
+func (it *EntryInfoIterator) SetNext() bool {
 	it.Lock()
 	defer it.Unlock()
 
 	it.valid = false
 	it.currentIndex++
 
-	if !(len(it.elements) > it.currentIndex) {
+	if len(it.elements) > it.currentIndex {
+		it.valid = true
+		return true
+	}
 
-		// Last shard - no more entries
-		if it.currentShard == it.cache.config.Shards-1 {
-			return false
-		}
+	// Last shard - no more entries
+	if it.currentShard == it.cache.config.Shards-1 {
+		return false
+	}
 
-		for i := it.currentShard + 1; i < it.cache.config.Shards; i++ {
-			it.currentShard = i
-			it.currentIndex = 0
-			it.elements = copyCurrentShardMap(it.cache.shards[i])
+	for i := it.currentShard + 1; i < it.cache.config.Shards; i++ {
+		it.currentShard = i
+		it.currentIndex = 0
+		it.elements = copyCurrentShardMap(it.cache.shards[i])
 
-			// Non empty shard - stick with it
-			if len(it.elements) > 0 {
-				it.valid = true
-				return true
-			}
+		// Non empty shard - stick with it
+		if len(it.elements) > 0 {
+			it.valid = true
+			return true
 		}
 	}
 
-	it.valid = true
-	return true
+	return false
 }
 
 func newIterator(cache *BigCache) *EntryInfoIterator {

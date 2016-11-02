@@ -62,7 +62,7 @@ func BenchmarkIterateOverCache(b *testing.B) {
 
 			b.RunParallel(func(pb *testing.PB) {
 				for pb.Next() {
-					if it.HasNext() {
+					if it.SetNext() {
 						it.Value()
 					}
 				}
