@@ -17,6 +17,8 @@ func BenchmarkWriteToCacheWith1Shard(b *testing.B) {
 func BenchmarkWriteToLimitedCacheWithSmallInitSizeAnd1Shard(b *testing.B) {
 	m := blob('a', 1024)
 	cache, _ := NewBigCache(Config{1, 100 * time.Second, 100, 256, false, nil, 1, nil})
+
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		cache.Set(fmt.Sprintf("key-%d", i), m)
 	}
@@ -25,6 +27,8 @@ func BenchmarkWriteToLimitedCacheWithSmallInitSizeAnd1Shard(b *testing.B) {
 func BenchmarkWriteToUnlimitedCacheWithSmallInitSizeAnd1Shard(b *testing.B) {
 	m := blob('a', 1024)
 	cache, _ := NewBigCache(Config{1, 100 * time.Second, 100, 256, false, nil, 0, nil})
+
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		cache.Set(fmt.Sprintf("key-%d", i), m)
 	}
@@ -47,6 +51,7 @@ func BenchmarkReadFromCache(b *testing.B) {
 }
 
 func BenchmarkIterateOverCache(b *testing.B) {
+
 	m := blob('a', 1)
 
 	for _, shards := range []int{512, 1024, 8192} {
@@ -61,6 +66,8 @@ func BenchmarkIterateOverCache(b *testing.B) {
 			it := cache.Iterator()
 
 			b.RunParallel(func(pb *testing.PB) {
+				b.ReportAllocs()
+
 				for pb.Next() {
 					if it.SetNext() {
 						it.Value()
@@ -82,6 +89,8 @@ func writeToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsIn
 	b.RunParallel(func(pb *testing.PB) {
 		id := rand.Int()
 		counter := 0
+
+		b.ReportAllocs()
 		for pb.Next() {
 			cache.Set(fmt.Sprintf("key-%d-%d", id, counter), message)
 			counter = counter + 1
@@ -97,6 +106,8 @@ func readFromCache(b *testing.B, shards int) {
 	b.ResetTimer()
 
 	b.RunParallel(func(pb *testing.PB) {
+		b.ReportAllocs()
+
 		for pb.Next() {
 			cache.Get(strconv.Itoa(rand.Intn(b.N)))
 		}
