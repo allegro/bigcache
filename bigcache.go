@@ -105,12 +105,12 @@ func (it *EntryInfoIterator) SetNext() bool {
 	}
 
 	for i := it.currentShard + 1; i < it.cache.config.Shards; i++ {
-		it.currentShard = i
-		it.currentIndex = 0
 		it.elements, it.elementsCount = copyCurrentShardMap(it.cache.shards[i])
 
 		// Non empty shard - stick with it
 		if it.elementsCount > 0 {
+			it.currentIndex = 0
+			it.currentShard = i
 			it.valid = true
 			return true
 		}
