@@ -17,6 +17,8 @@ func BenchmarkWriteToCacheWith1Shard(b *testing.B) {
 func BenchmarkWriteToLimitedCacheWithSmallInitSizeAnd1Shard(b *testing.B) {
 	m := blob('a', 1024)
 	cache, _ := NewBigCache(Config{1, 100 * time.Second, 100, 256, false, nil, 1, nil})
+
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		cache.Set(fmt.Sprintf("key-%d", i), m)
 	}
@@ -25,6 +27,8 @@ func BenchmarkWriteToLimitedCacheWithSmallInitSizeAnd1Shard(b *testing.B) {
 func BenchmarkWriteToUnlimitedCacheWithSmallInitSizeAnd1Shard(b *testing.B) {
 	m := blob('a', 1024)
 	cache, _ := NewBigCache(Config{1, 100 * time.Second, 100, 256, false, nil, 0, nil})
+
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		cache.Set(fmt.Sprintf("key-%d", i), m)
 	}
@@ -46,6 +50,34 @@ func BenchmarkReadFromCache(b *testing.B) {
 	}
 }
 
+func BenchmarkIterateOverCache(b *testing.B) {
+
+	m := blob('a', 1)
+
+	for _, shards := range []int{512, 1024, 8192} {
+		b.Run(fmt.Sprintf("%d-shards", shards), func(b *testing.B) {
+			cache, _ := NewBigCache(Config{shards, 1000 * time.Second, max(b.N, 100), 500, false, nil, 0, nil})
+
+			for i := 0; i < b.N; i++ {
+				cache.Set(fmt.Sprintf("key-%d", i), m)
+			}
+
+			b.ResetTimer()
+			it := cache.Iterator()
+
+			b.RunParallel(func(pb *testing.PB) {
+				b.ReportAllocs()
+
+				for pb.Next() {
+					if it.SetNext() {
+						it.Value()
+					}
+				}
+			})
+		})
+	}
+}
+
 func BenchmarkWriteToCacheWith1024ShardsAndSmallShardInitSize(b *testing.B) {
 	writeToCache(b, 1024, 100*time.Second, 100)
 }
@@ -57,6 +89,8 @@ func writeToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsIn
 	b.RunParallel(func(pb *testing.PB) {
 		id := rand.Int()
 		counter := 0
+
+		b.ReportAllocs()
 		for pb.Next() {
 			cache.Set(fmt.Sprintf("key-%d-%d", id, counter), message)
 			counter = counter + 1
@@ -65,13 +99,15 @@ func writeToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsIn
 }
 
 func readFromCache(b *testing.B, shards int) {
-	cache, _ := NewBigCache(Config{8192, 1000 * time.Second, max(b.N, 100), 500, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{shards, 1000 * time.Second, max(b.N, 100), 500, false, nil, 0, nil})
 	for i := 0; i < b.N; i++ {
 		cache.Set(strconv.Itoa(i), message)
 	}
 	b.ResetTimer()
 
 	b.RunParallel(func(pb *testing.PB) {
+		b.ReportAllocs()
+
 		for pb.Next() {
 			cache.Get(strconv.Itoa(rand.Intn(b.N)))
 		}

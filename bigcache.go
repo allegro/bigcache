@@ -144,6 +144,11 @@ func (c *BigCache) Set(key string, entry []byte) error {
 	}
 }
 
+// Iterator returns iterator function to iterate over EntryInfo's from whole cache.
+func (c *BigCache) Iterator() *EntryInfoIterator {
+	return newIterator(c)
+}
+
 func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func() error) {
 	oldestTimestamp := readTimestampFromEntry(oldestEntry)
 	if currentTimestamp-oldestTimestamp > c.lifeWindow {
