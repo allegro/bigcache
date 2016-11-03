@@ -1,6 +1,7 @@
 package bigcache
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -92,6 +93,92 @@ func TestOnRemoveCallback(t *testing.T) {
 
 	// then
 	assert.True(t, onRemoveInvoked)
+}
+
+func TestCacheLen(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{8, time.Second, 1, 256, false, nil, 0, nil})
+	keys := 1337
+	// when
+
+	for i := 0; i < keys; i++ {
+		cache.Set(fmt.Sprintf("key%d", i), []byte("value"))
+	}
+
+	// then
+	assert.Equal(t, keys, cache.Len())
+}
+
+func TestCacheReset(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{8, time.Second, 1, 256, false, nil, 0, nil})
+	keys := 1337
+
+	// when
+	for i := 0; i < keys; i++ {
+		cache.Set(fmt.Sprintf("key%d", i), []byte("value"))
+	}
+
+	// then
+	assert.Equal(t, keys, cache.Len())
+
+	// and when
+	cache.Reset()
+
+	// then
+	assert.Equal(t, 0, cache.Len())
+
+	// and when
+	for i := 0; i < keys; i++ {
+		cache.Set(fmt.Sprintf("key%d", i), []byte("value"))
+	}
+
+	// then
+	assert.Equal(t, keys, cache.Len())
+}
+
+func TestIterateOnResetCache(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{8, time.Second, 1, 256, false, nil, 0, nil})
+	keys := 1337
+
+	// when
+	for i := 0; i < keys; i++ {
+		cache.Set(fmt.Sprintf("key%d", i), []byte("value"))
+	}
+	cache.Reset()
+
+	// then
+	iterator := cache.Iterator()
+
+	assert.Equal(t, false, iterator.SetNext())
+}
+
+func TestGetOnResetCache(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{8, time.Second, 1, 256, false, nil, 0, nil})
+	keys := 1337
+
+	// when
+	for i := 0; i < keys; i++ {
+		cache.Set(fmt.Sprintf("key%d", i), []byte("value"))
+	}
+
+	cache.Reset()
+
+	// then
+	value, err := cache.Get("key1")
+
+	assert.Equal(t, err.Error(), "Entry \"key1\" not found")
+	assert.Equal(t, value, []byte(nil))
 }
 
 func TestEntryUpdate(t *testing.T) {

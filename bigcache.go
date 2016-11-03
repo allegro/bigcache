@@ -3,9 +3,6 @@ package bigcache
 import (
 	"fmt"
 	"log"
-	"sync"
-
-	"github.com/allegro/bigcache/queue"
 )
 
 const (
@@ -23,14 +20,6 @@ type BigCache struct {
 	config       Config
 	shardMask    uint64
 	maxShardSize uint32
-}
-
-type cacheShard struct {
-	hashmap     map[uint64]uint32
-	entries     queue.BytesQueue
-	lock        sync.RWMutex
-	entryBuffer []byte
-	onRemove    func(wrappedEntry []byte)
 }
 
 // NewBigCache initialize new instance of BigCache
@@ -70,21 +59,11 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 		onRemove = cache.providedOnRemove
 	}
 
-	initShardSize := max(config.MaxEntriesInWindow/config.Shards, minimumEntriesInShard)
 	for i := 0; i < config.Shards; i++ {
-		cache.shards[i] = &cacheShard{
-			hashmap:     make(map[uint64]uint32, initShardSize),
-			entries:     *queue.NewBytesQueue(initShardSize*config.MaxEntrySize, maxShardSize, config.Verbose),
-			entryBuffer: make([]byte, config.MaxEntrySize+headersSizeInBytes),
-			onRemove:    onRemove,
-		}
+		cache.shards[i] = initNewShard(config, onRemove)
 	}
 
 	return cache, nil
-}
-
-func isPowerOfTwo(number int) bool {
-	return (number & (number - 1)) == 0
 }
 
 // Get reads entry for the key
@@ -144,6 +123,28 @@ func (c *BigCache) Set(key string, entry []byte) error {
 	}
 }
 
+// Reset empties all cache shards
+func (c *BigCache) Reset() error {
+	for _, shard := range c.shards {
+		shard.reset(c.config)
+	}
+
+	return nil
+}
+
+// Len computes number of entries in cache
+func (c *BigCache) Len() int {
+	var len int
+
+	for _, shard := range c.shards {
+		shard.lock.Lock()
+		len += shard.len()
+		shard.lock.Unlock()
+	}
+
+	return len
+}
+
 // Iterator returns iterator function to iterate over EntryInfo's from whole cache.
 func (c *BigCache) Iterator() *EntryInfoIterator {
 	return newIterator(c)
@@ -156,17 +157,6 @@ func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict fu
 	}
 }
 
-func (s *cacheShard) removeOldestEntry() error {
-	oldest, err := s.entries.Pop()
-	if err == nil {
-		hash := readHashFromEntry(oldest)
-		delete(s.hashmap, hash)
-		s.onRemove(oldest)
-		return nil
-	}
-	return err
-}
-
 func (c *BigCache) getShard(hashedKey uint64) (shard *cacheShard) {
 	return c.shards[hashedKey&c.shardMask]
 }
@@ -176,15 +166,4 @@ func (c *BigCache) providedOnRemove(wrappedEntry []byte) {
 }
 
 func (c *BigCache) notProvidedOnRemove(wrappedEntry []byte) {
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func convertMBToBytes(value int) int {
-	return value * 1024 * 1024
 }
