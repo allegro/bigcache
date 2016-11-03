@@ -59,6 +59,7 @@ func (q *BytesQueue) Reset() {
 	q.head = leftMarginIndex
 	q.rightMargin = leftMarginIndex
 	q.capacity = q.initialCapacity
+	q.count = 0
 }
 
 // Push copies entry at the end of queue and moves tail pointer. Allocates more space if needed.
