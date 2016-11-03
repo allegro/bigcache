@@ -37,11 +37,6 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 		config.Hasher = newDefaultHasher()
 	}
 
-	maxShardSize := 0
-	if config.HardMaxCacheSize > 0 {
-		maxShardSize = convertMBToBytes(config.HardMaxCacheSize) / config.Shards
-	}
-
 	cache := &BigCache{
 		shards:       make([]*cacheShard, config.Shards),
 		lifeWindow:   uint64(config.LifeWindow.Seconds()),
@@ -49,7 +44,7 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 		hash:         config.Hasher,
 		config:       config,
 		shardMask:    uint64(config.Shards - 1),
-		maxShardSize: uint32(maxShardSize),
+		maxShardSize: uint32(config.maximumShardSize()),
 	}
 
 	var onRemove func(wrappedEntry []byte)
