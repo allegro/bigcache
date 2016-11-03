@@ -44,7 +44,7 @@ func (e EntryInfo) Value() []byte {
 
 // EntryInfoIterator allows to iterate over entries in the cache
 type EntryInfoIterator struct {
-	sync.Mutex
+	mutex         sync.Mutex
 	cache         *BigCache
 	currentShard  int
 	currentIndex  int
@@ -70,8 +70,8 @@ func copyCurrentShardMap(shard *cacheShard) ([]uint32, int) {
 
 // SetNext moves to next element and returns true if it exists.
 func (it *EntryInfoIterator) SetNext() bool {
-	it.Lock()
-	defer it.Unlock()
+	it.mutex.Lock()
+	defer it.mutex.Unlock()
 
 	it.valid = false
 	it.currentIndex++
@@ -110,8 +110,8 @@ func newIterator(cache *BigCache) *EntryInfoIterator {
 
 // Value returns current value from the iterator
 func (it *EntryInfoIterator) Value() (EntryInfo, error) {
-	it.Lock()
-	defer it.Unlock()
+	it.mutex.Lock()
+	defer it.mutex.Unlock()
 
 	if !it.valid {
 		return EntryInfo{}, ErrInvalidIteratorState
