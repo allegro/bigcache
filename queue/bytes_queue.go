@@ -19,15 +19,16 @@ const (
 // BytesQueue is a non-thread safe queue type of fifo based on bytes array.
 // For every push operation index of entry is returned. It can be used to read the entry later
 type BytesQueue struct {
-	array        []byte
-	capacity     int
-	maxCapacity  int
-	head         int
-	tail         int
-	count        int
-	rightMargin  int
-	headerBuffer []byte
-	verbose      bool
+	array           []byte
+	capacity        int
+	maxCapacity     int
+	head            int
+	tail            int
+	count           int
+	rightMargin     int
+	headerBuffer    []byte
+	verbose         bool
+	initialCapacity int
 }
 
 type queueError struct {
@@ -39,15 +40,25 @@ type queueError struct {
 // When verbose flag is set then information about memory allocation are printed
 func NewBytesQueue(initialCapacity int, maxCapacity int, verbose bool) *BytesQueue {
 	return &BytesQueue{
-		array:        make([]byte, initialCapacity),
-		capacity:     initialCapacity,
-		maxCapacity:  maxCapacity,
-		headerBuffer: make([]byte, headerEntrySize),
-		tail:         leftMarginIndex,
-		head:         leftMarginIndex,
-		rightMargin:  leftMarginIndex,
-		verbose:      verbose,
+		array:           make([]byte, initialCapacity),
+		capacity:        initialCapacity,
+		maxCapacity:     maxCapacity,
+		headerBuffer:    make([]byte, headerEntrySize),
+		tail:            leftMarginIndex,
+		head:            leftMarginIndex,
+		rightMargin:     leftMarginIndex,
+		verbose:         verbose,
+		initialCapacity: initialCapacity,
 	}
+}
+
+// Reset removes all entries from queue
+func (q *BytesQueue) Reset() {
+	// Just reset indexes
+	q.tail = leftMarginIndex
+	q.head = leftMarginIndex
+	q.rightMargin = leftMarginIndex
+	q.count = 0
 }
 
 // Push copies entry at the end of queue and moves tail pointer. Allocates more space if needed.

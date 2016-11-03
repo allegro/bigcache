@@ -1,9 +1,6 @@
 package bigcache
 
-import (
-	"errors"
-	"sync"
-)
+import "sync"
 
 type iteratorError string
 
@@ -15,7 +12,7 @@ func (e iteratorError) Error() string {
 const ErrInvalidIteratorState = iteratorError("Iterator is in invalid state. Use SetNext() to move to next position")
 
 // ErrCannotRetrieveEntry is reported when entry cannot be retrieved from underlying
-var ErrCannotRetrieveEntry = errors.New("Could not retrieve entry from cache")
+const ErrCannotRetrieveEntry = iteratorError("Could not retrieve entry from cache")
 
 var emptyEntryInfo = EntryInfo{}
 
@@ -49,7 +46,7 @@ func (e EntryInfo) Value() []byte {
 
 // EntryInfoIterator allows to iterate over entries in the cache
 type EntryInfoIterator struct {
-	sync.Mutex
+	mutex         sync.Mutex
 	cache         *BigCache
 	currentShard  int
 	currentIndex  int
@@ -75,8 +72,8 @@ func copyCurrentShardMap(shard *cacheShard) ([]uint32, int) {
 
 // SetNext moves to next element and returns true if it exists.
 func (it *EntryInfoIterator) SetNext() bool {
-	it.Lock()
-	defer it.Unlock()
+	it.mutex.Lock()
+	defer it.mutex.Unlock()
 
 	it.valid = false
 	it.currentIndex++
@@ -115,8 +112,8 @@ func newIterator(cache *BigCache) *EntryInfoIterator {
 
 // Value returns current value from the iterator
 func (it *EntryInfoIterator) Value() (EntryInfo, error) {
-	it.Lock()
-	defer it.Unlock()
+	it.mutex.Lock()
+	defer it.mutex.Unlock()
 
 	if !it.valid {
 		return emptyEntryInfo, ErrInvalidIteratorState

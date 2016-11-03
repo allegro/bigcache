@@ -40,3 +40,19 @@ func DefaultConfig(eviction time.Duration) Config {
 		HardMaxCacheSize:   0,
 	}
 }
+
+// initialShardSize computes initial shard size
+func (c Config) initialShardSize() int {
+	return max(c.MaxEntriesInWindow/c.Shards, minimumEntriesInShard)
+}
+
+// maximumShardSize computes maximum shard size
+func (c Config) maximumShardSize() int {
+	maxShardSize := 0
+
+	if c.HardMaxCacheSize > 0 {
+		maxShardSize = convertMBToBytes(c.HardMaxCacheSize) / c.Shards
+	}
+
+	return maxShardSize
+}

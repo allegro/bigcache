@@ -65,6 +65,42 @@ func TestPeek(t *testing.T) {
 	assert.Equal(t, entry, read)
 }
 
+func TestReset(t *testing.T) {
+	t.Parallel()
+
+	// given
+	queue := NewBytesQueue(100, 0, false)
+	entry := []byte("hello")
+
+	// when
+	queue.Push(entry)
+	queue.Push(entry)
+	queue.Push(entry)
+
+	queue.Reset()
+	read, err := queue.Peek()
+
+	// then
+	assert.EqualError(t, err, "Empty queue")
+	assert.Nil(t, read)
+
+	// when
+	queue.Push(entry)
+	read, err = queue.Peek()
+
+	// then
+	assert.NoError(t, err)
+	assert.Equal(t, pop(queue), read)
+	assert.Equal(t, entry, read)
+
+	// when
+	read, err = queue.Peek()
+
+	// then
+	assert.EqualError(t, err, "Empty queue")
+	assert.Nil(t, read)
+}
+
 func TestReuseAvailableSpace(t *testing.T) {
 	t.Parallel()
 
