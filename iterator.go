@@ -17,6 +17,8 @@ const ErrInvalidIteratorState = iteratorError("Iterator is in invalid state. Use
 // ErrCannotRetrieveEntry is reported when entry cannot be retrieved from underlying
 var ErrCannotRetrieveEntry = errors.New("Could not retrieve entry from cache")
 
+var emptyEntryInfo = EntryInfo{}
+
 // EntryInfo holds informations about entry in the cache
 type EntryInfo struct {
 	timestamp uint64
@@ -117,13 +119,13 @@ func (it *EntryInfoIterator) Value() (EntryInfo, error) {
 	defer it.Unlock()
 
 	if !it.valid {
-		return EntryInfo{}, ErrInvalidIteratorState
+		return emptyEntryInfo, ErrInvalidIteratorState
 	}
 
 	entry, err := it.cache.shards[it.currentShard].entries.Get(int(it.elements[it.currentIndex]))
 
 	if err != nil {
-		return EntryInfo{}, ErrCannotRetrieveEntry
+		return emptyEntryInfo, ErrCannotRetrieveEntry
 	}
 
 	return EntryInfo{

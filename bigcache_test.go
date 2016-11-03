@@ -134,6 +134,26 @@ func TestOldestEntryDeletionWhenMaxCacheSizeIsReached(t *testing.T) {
 	assert.Equal(t, blob('c', 1024*800), entry3)
 }
 
+func TestRetrievingEntryShouldCopy(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{1, 5 * time.Second, 1, 1, false, nil, 1, nil})
+	cache.Set("key1", blob('a', 1024*400))
+	value, key1Err := cache.Get("key1")
+
+	// when
+	// override queue
+	cache.Set("key2", blob('b', 1024*400))
+	cache.Set("key3", blob('c', 1024*400))
+	cache.Set("key4", blob('d', 1024*400))
+	cache.Set("key5", blob('d', 1024*400))
+
+	// then
+	assert.Nil(t, key1Err)
+	assert.Equal(t, blob('a', 1024*400), value)
+}
+
 func TestEntryBiggerThanMaxShardSizeError(t *testing.T) {
 	t.Parallel()
 
