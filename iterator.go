@@ -1,9 +1,6 @@
 package bigcache
 
-import (
-	"errors"
-	"sync"
-)
+import "sync"
 
 type iteratorError string
 
@@ -15,7 +12,7 @@ func (e iteratorError) Error() string {
 const ErrInvalidIteratorState = iteratorError("Iterator is in invalid state. Use SetNext() to move to next position")
 
 // ErrCannotRetrieveEntry is reported when entry cannot be retrieved from underlying
-var ErrCannotRetrieveEntry = errors.New("Could not retrieve entry from cache")
+const ErrCannotRetrieveEntry = iteratorError("Could not retrieve entry from cache")
 
 // EntryInfo holds informations about entry in the cache
 type EntryInfo struct {
