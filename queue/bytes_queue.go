@@ -58,7 +58,6 @@ func (q *BytesQueue) Reset() {
 	q.tail = leftMarginIndex
 	q.head = leftMarginIndex
 	q.rightMargin = leftMarginIndex
-	q.capacity = q.initialCapacity
 	q.count = 0
 }
 
