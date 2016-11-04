@@ -24,7 +24,7 @@ script:
   - golint ./... # This won't break the build, just show warnings
   - ineffassign .
   - go vet ./...
-  - go test -coverprofile=web.coverprofile ./queue
-  - go test -coverprofile=main.coverprofile 
+  - go test -race -coverprofile=web.coverprofile ./queue
+  - go test -race -coverprofile=main.coverprofile 
   - $HOME/gopath/bin/gover
   - $HOME/gopath/bin/goveralls -coverprofile=gover.coverprofile -service travis-ci
