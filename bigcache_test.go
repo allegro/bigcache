@@ -73,6 +73,24 @@ func TestTimingEviction(t *testing.T) {
 	assert.EqualError(t, err, "Entry \"key\" not found")
 }
 
+func TestTimingEvictionShouldEvictOnlyFromUpdatedShard(t *testing.T) {
+	t.Parallel()
+
+	// given
+	clock := mockedClock{value: 0}
+	cache, _ := newBigCache(Config{4, time.Second, 1, 256, false, nil, 0, nil}, &clock)
+
+	// when
+	cache.Set("key", []byte("value"))
+	clock.set(5)
+	cache.Set("key2", []byte("value 2"))
+	value, err := cache.Get("key")
+
+	// then
+	assert.NoError(t, err, "Entry \"key\" not found")
+	assert.Equal(t, []byte("value"), value)
+}
+
 func TestOnRemoveCallback(t *testing.T) {
 	t.Parallel()
 
