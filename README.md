@@ -92,7 +92,7 @@ Writes to map are the slowest.
 ### GC pause time
 
 ```
-cd caches_bench; go run caches_gc_overhead_comparsion.go
+cd caches_bench; go run caches_gc_overhead_comparison.go
 
 Number of entries:  20000000
 GC pause for bigcache:  27.81671ms
