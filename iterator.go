@@ -57,7 +57,6 @@ type EntryInfoIterator struct {
 
 func copyCurrentShardMap(shard *cacheShard) ([]uint32, int) {
 	shard.lock.RLock()
-	defer shard.lock.RUnlock()
 
 	var elements = make([]uint32, len(shard.hashmap))
 	next := 0
@@ -67,6 +66,7 @@ func copyCurrentShardMap(shard *cacheShard) ([]uint32, int) {
 		next++
 	}
 
+	shard.lock.RUnlock()
 	return elements, next
 }
 
