@@ -66,7 +66,6 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	shard.lock.RLock()
-	defer shard.lock.RUnlock()
 
 	itemIndex := shard.hashmap[hashedKey]
 
