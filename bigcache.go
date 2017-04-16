@@ -70,11 +70,13 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 	itemIndex := shard.hashmap[hashedKey]
 
 	if itemIndex == 0 {
+		shard.lock.RUnlock()
 		return nil, notFound(key)
 	}
 
 	wrappedEntry, err := shard.entries.Get(int(itemIndex))
 	if err != nil {
+		shard.lock.RUnlock()
 		return nil, err
 	}
 	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
@@ -84,6 +86,7 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 		shard.lock.RUnlock()
 		return nil, notFound(key)
 	}
+	shard.lock.RUnlock()
 	return readEntry(wrappedEntry), nil
 }
 
