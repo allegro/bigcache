@@ -3,6 +3,7 @@ package bigcache
 import (
 	"fmt"
 	"log"
+        "errors"
 )
 
 const (
@@ -79,6 +80,17 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 		shard.lock.RUnlock()
 		return nil, err
 	}
+
+        /*
+               if the entry is expired, return nil
+        */
+        wrappedEntryTimestamp := readTimestampFromEntry(wrappedEntry)
+        currentTimestamp := uint64(c.clock.epoch())
+        if currentTimestamp-wrappedEntryTimestamp > c.lifeWindow {
+                shard.lock.RUnlock()
+                return nil, errors.New("key expired")
+        }
+
 	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
 		if c.config.Verbose {
 			log.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
