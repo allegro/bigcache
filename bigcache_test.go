@@ -2,6 +2,7 @@ package bigcache
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -28,7 +29,7 @@ func TestConstructCacheWithDefaultHasher(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{16, 5 * time.Second, 10, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{16, 5 * time.Second, 10, 256, false, nil, 0, nil, false, nil})
 
 	assert.IsType(t, fnv64a{}, cache.hash)
 }
@@ -37,17 +38,17 @@ func TestWillReturnErrorOnInvalidNumberOfPartitions(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, error := NewBigCache(Config{18, 5 * time.Second, 10, 256, false, nil, 0, nil})
+	cache, error := NewBigCache(Config{18, 5 * time.Second, 10, 256, false, nil, 0, nil, false, nil})
 
 	assert.Nil(t, cache)
-	assert.Error(t, error, "Shards number must be power of two")
+	assert.Error(t, error, "shards number must be power of two")
 }
 
 func TestEntryNotFound(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{16, 5 * time.Second, 10, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{16, 5 * time.Second, 10, 256, false, nil, 0, nil, false, nil})
 
 	// when
 	_, err := cache.Get("nonExistingKey")
@@ -61,7 +62,7 @@ func TestTimingEviction(t *testing.T) {
 
 	// given
 	clock := mockedClock{value: 0}
-	cache, _ := newBigCache(Config{1, time.Second, 1, 256, false, nil, 0, nil}, &clock)
+	cache, _ := newBigCache(Config{1, time.Second, 1, 256, false, nil, 0, nil, false, nil}, &clock)
 
 	// when
 	cache.Set("key", []byte("value"))
@@ -78,7 +79,7 @@ func TestTimingEvictionShouldEvictOnlyFromUpdatedShard(t *testing.T) {
 
 	// given
 	clock := mockedClock{value: 0}
-	cache, _ := newBigCache(Config{4, time.Second, 1, 256, false, nil, 0, nil}, &clock)
+	cache, _ := newBigCache(Config{4, time.Second, 1, 256, false, nil, 0, nil, false, nil}, &clock)
 
 	// when
 	cache.Set("key", []byte("value"))
@@ -102,7 +103,7 @@ func TestOnRemoveCallback(t *testing.T) {
 		assert.Equal(t, "key", key)
 		assert.Equal(t, []byte("value"), entry)
 	}
-	cache, _ := newBigCache(Config{1, time.Second, 1, 256, false, nil, 0, onRemove}, &clock)
+	cache, _ := newBigCache(Config{1, time.Second, 1, 256, false, nil, 0, onRemove, false, nil}, &clock)
 
 	// when
 	cache.Set("key", []byte("value"))
@@ -117,7 +118,7 @@ func TestCacheLen(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{8, time.Second, 1, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{8, time.Second, 1, 256, false, nil, 0, nil, false, nil})
 	keys := 1337
 	// when
 
@@ -133,7 +134,7 @@ func TestCacheReset(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{8, time.Second, 1, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{8, time.Second, 1, 256, false, nil, 0, nil, false, nil})
 	keys := 1337
 
 	// when
@@ -163,7 +164,7 @@ func TestIterateOnResetCache(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{8, time.Second, 1, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{8, time.Second, 1, 256, false, nil, 0, nil, false, nil})
 	keys := 1337
 
 	// when
@@ -182,7 +183,7 @@ func TestGetOnResetCache(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{8, time.Second, 1, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{8, time.Second, 1, 256, false, nil, 0, nil, false, nil})
 	keys := 1337
 
 	// when
@@ -204,7 +205,7 @@ func TestEntryUpdate(t *testing.T) {
 
 	// given
 	clock := mockedClock{value: 0}
-	cache, _ := newBigCache(Config{1, 6 * time.Second, 1, 256, false, nil, 0, nil}, &clock)
+	cache, _ := newBigCache(Config{1, 6 * time.Second, 1, 256, false, nil, 0, nil, false, nil}, &clock)
 
 	// when
 	cache.Set("key", []byte("value"))
@@ -222,7 +223,7 @@ func TestOldestEntryDeletionWhenMaxCacheSizeIsReached(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{1, 5 * time.Second, 1, 1, false, nil, 1, nil})
+	cache, _ := NewBigCache(Config{1, 5 * time.Second, 1, 1, false, nil, 1, nil, false, nil})
 
 	// when
 	cache.Set("key1", blob('a', 1024*400))
@@ -243,7 +244,7 @@ func TestRetrievingEntryShouldCopy(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{1, 5 * time.Second, 1, 1, false, nil, 1, nil})
+	cache, _ := NewBigCache(Config{1, 5 * time.Second, 1, 1, false, nil, 1, nil, false, nil})
 	cache.Set("key1", blob('a', 1024*400))
 	value, key1Err := cache.Get("key1")
 
@@ -263,7 +264,7 @@ func TestEntryBiggerThanMaxShardSizeError(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{1, 5 * time.Second, 1, 1, false, nil, 1, nil})
+	cache, _ := NewBigCache(Config{1, 5 * time.Second, 1, 1, false, nil, 1, nil, false, nil})
 
 	// when
 	err := cache.Set("key1", blob('a', 1024*1025))
@@ -276,7 +277,7 @@ func TestHashCollision(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{16, 5 * time.Second, 10, 256, true, hashStub(5), 0, nil})
+	cache, _ := NewBigCache(Config{16, 5 * time.Second, 10, 256, true, hashStub(5), 0, nil, false, nil})
 
 	// when
 	cache.Set("liquid", []byte("value"))
@@ -300,6 +301,83 @@ func TestHashCollision(t *testing.T) {
 	// then
 	assert.Error(t, err)
 	assert.Nil(t, cachedValue)
+}
+
+func TestBigCacheFlushOnEviction(t *testing.T) {
+	t.Parallel()
+
+	// TODO (mxplusb): need to figure out why flush isn't writing to disk on eviction.
+
+	// test locally to disk.
+	tmpFile, err := os.Create("TestBigCacheFlushOnEviction.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// new timer so we can wait.
+	timer := time.NewTimer(3 * time.Second)
+	defer timer.Stop()
+
+	// given
+	cache, err := NewBigCache(Config{16, 1 * time.Second, 10, 256, true, hashStub(5), 0, nil, true, tmpFile})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// when
+	if err = cache.Set("testGobWriter", []byte("testData")); err != nil {
+		t.Fatal(err)
+	}
+
+	// then wait for eviction
+	<-timer.C
+
+	// cleanup
+	tmpFile.Close()
+	if err = os.Remove("TestBigCacheFlushOnEviction.json"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBigCacheFlush(t *testing.T) {
+	t.Parallel()
+
+	// test locally to disk.
+	tmpFile, err := os.Create("TestBigCacheFlush.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// given
+	cache, err := NewBigCache(Config{16, 3 * time.Second, 10, 256, true, hashStub(5), 0, nil, false, tmpFile})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// when
+	if err = cache.Set("testGobWriter", []byte("testData")); err != nil {
+		t.Fatal(err)
+	}
+
+	// then
+	if err = cache.Flush(); err != nil {
+		t.Fatal(err)
+	}
+
+	// then
+	tmpFile.Close()
+
+	// then make sure it was written to disk
+	file, _ := os.Open("TestBigCacheFlush.json")
+	fInfo, _ := file.Stat()
+	if fInfo.Size() == 0 {
+		t.Fatal("Cache not written to disk on Flush()")
+	}
+	file.Close()
+
+	if err = os.Remove("TestBigCacheFlush.json"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 type mockedClock struct {

@@ -7,20 +7,20 @@ import (
 )
 
 type cacheShard struct {
-	hashmap     map[uint64]uint32
-	entries     queue.BytesQueue
+	Hashmap     map[uint64]uint32 `json:"hashmap"`
+	Entries     queue.BytesQueue  `json:"entries"`
 	lock        sync.RWMutex
-	entryBuffer []byte
+	EntryBuffer []byte `json:"entry_buffer"`
 	onRemove    func(wrappedEntry []byte)
 }
 
 type onRemoveCallback func(wrappedEntry []byte)
 
 func (s *cacheShard) removeOldestEntry() error {
-	oldest, err := s.entries.Pop()
+	oldest, err := s.Entries.Pop()
 	if err == nil {
 		hash := readHashFromEntry(oldest)
-		delete(s.hashmap, hash)
+		delete(s.Hashmap, hash)
 		s.onRemove(oldest)
 		return nil
 	}
@@ -30,22 +30,22 @@ func (s *cacheShard) removeOldestEntry() error {
 func (s *cacheShard) reset(config Config) {
 	s.lock.Lock()
 
-	s.hashmap = make(map[uint64]uint32, config.initialShardSize())
-	s.entryBuffer = make([]byte, config.MaxEntrySize+headersSizeInBytes)
-	s.entries.Reset()
+	s.Hashmap = make(map[uint64]uint32, config.initialShardSize())
+	s.EntryBuffer = make([]byte, config.MaxEntrySize+headersSizeInBytes)
+	s.Entries.Reset()
 
 	s.lock.Unlock()
 }
 
 func (s *cacheShard) len() int {
-	return len(s.hashmap)
+	return len(s.Hashmap)
 }
 
 func initNewShard(config Config, callback onRemoveCallback) *cacheShard {
 	return &cacheShard{
-		hashmap:     make(map[uint64]uint32, config.initialShardSize()),
-		entries:     *queue.NewBytesQueue(config.initialShardSize()*config.MaxEntrySize, config.maximumShardSize(), config.Verbose),
-		entryBuffer: make([]byte, config.MaxEntrySize+headersSizeInBytes),
+		Hashmap:     make(map[uint64]uint32, config.initialShardSize()),
+		Entries:     *queue.NewBytesQueue(config.initialShardSize()*config.MaxEntrySize, config.maximumShardSize(), config.Verbose),
+		EntryBuffer: make([]byte, config.MaxEntrySize+headersSizeInBytes),
 		onRemove:    callback,
 	}
 }

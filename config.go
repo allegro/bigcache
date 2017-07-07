@@ -1,6 +1,9 @@
 package bigcache
 
-import "time"
+import (
+	"io"
+	"time"
+)
 
 // Config for BigCache
 type Config struct {
@@ -16,7 +19,7 @@ type Config struct {
 	// Verbose mode prints information about new memory allocation
 	Verbose bool
 	// Hasher used to map between string keys and unsigned 64bit integers, by default fnv64 hashing is used.
-	Hasher Hasher
+	Hasher Hasher `json:"-"`
 	// HardMaxCacheSize is a limit for cache size in MB. Cache will not allocate more memory than this limit.
 	// It can protect application from consuming all available memory on machine, therefore from running OOM Killer.
 	// Default value is 0 which means unlimited size. When the limit is higher than 0 and reached then
@@ -24,7 +27,11 @@ type Config struct {
 	HardMaxCacheSize int
 	// OnRemove is a callback fired when the oldest entry is removed because of its expiration time or no space left
 	// for the new entry. Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
-	OnRemove func(key string, entry []byte)
+	OnRemove func(key string, entry []byte) `json:"-"`
+	// Store will determine if the cache should be written to the StoreWriter on cache eviction.
+	Store bool
+	// StoreWriter is the destination writer for bigcache.Flush(), so the cache can be sent to either a file or network destionation.
+	StoreWriter io.Writer `json:"-"`
 }
 
 // DefaultConfig initializes config with default values.
@@ -38,6 +45,7 @@ func DefaultConfig(eviction time.Duration) Config {
 		Verbose:            true,
 		Hasher:             newDefaultHasher(),
 		HardMaxCacheSize:   0,
+		Store:              false,
 	}
 }
 
