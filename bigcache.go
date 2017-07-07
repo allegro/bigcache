@@ -1,7 +1,7 @@
 package bigcache
 
 import (
-	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"log"
 )
@@ -14,13 +14,13 @@ const (
 // It keeps entries on heap but omits GC for them. To achieve that operations on bytes arrays take place,
 // therefore entries (de)serialization in front of the cache will be needed in most use cases.
 type BigCache struct {
-	shards       []*cacheShard
-	lifeWindow   uint64
+	Shards       []*cacheShard
+	LifeWindow   uint64
 	clock        clock
 	hash         Hasher
-	config       Config
-	shardMask    uint64
-	maxShardSize uint32
+	Config       Config
+	ShardMask    uint64
+	MaxShardSize uint32
 }
 
 // NewBigCache initialize new instance of BigCache
@@ -31,7 +31,7 @@ func NewBigCache(config Config) (*BigCache, error) {
 func newBigCache(config Config, clock clock) (*BigCache, error) {
 
 	if !isPowerOfTwo(config.Shards) {
-		return nil, fmt.Errorf("Shards number must be power of two")
+		return nil, fmt.Errorf("shards number must be power of two")
 	}
 
 	if config.Hasher == nil {
@@ -39,13 +39,13 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 	}
 
 	cache := &BigCache{
-		shards:       make([]*cacheShard, config.Shards),
-		lifeWindow:   uint64(config.LifeWindow.Seconds()),
+		Shards:       make([]*cacheShard, config.Shards),
+		LifeWindow:   uint64(config.LifeWindow.Seconds()),
 		clock:        clock,
 		hash:         config.Hasher,
-		config:       config,
-		shardMask:    uint64(config.Shards - 1),
-		maxShardSize: uint32(config.maximumShardSize()),
+		Config:       config,
+		ShardMask:    uint64(config.Shards - 1),
+		MaxShardSize: uint32(config.maximumShardSize()),
 	}
 
 	var onRemove func(wrappedEntry []byte)
@@ -56,7 +56,7 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 	}
 
 	for i := 0; i < config.Shards; i++ {
-		cache.shards[i] = initNewShard(config, onRemove)
+		cache.Shards[i] = initNewShard(config, onRemove)
 	}
 
 	return cache, nil
@@ -68,20 +68,20 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 	shard := c.getShard(hashedKey)
 	shard.lock.RLock()
 
-	itemIndex := shard.hashmap[hashedKey]
+	itemIndex := shard.Hashmap[hashedKey]
 
 	if itemIndex == 0 {
 		shard.lock.RUnlock()
 		return nil, notFound(key)
 	}
 
-	wrappedEntry, err := shard.entries.Get(int(itemIndex))
+	wrappedEntry, err := shard.Entries.Get(int(itemIndex))
 	if err != nil {
 		shard.lock.RUnlock()
 		return nil, err
 	}
 	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
-		if c.config.Verbose {
+		if c.Config.Verbose {
 			log.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
 		}
 		shard.lock.RUnlock()
@@ -99,23 +99,23 @@ func (c *BigCache) Set(key string, entry []byte) error {
 
 	currentTimestamp := uint64(c.clock.epoch())
 
-	if previousIndex := shard.hashmap[hashedKey]; previousIndex != 0 {
-		if previousEntry, err := shard.entries.Get(int(previousIndex)); err == nil {
+	if previousIndex := shard.Hashmap[hashedKey]; previousIndex != 0 {
+		if previousEntry, err := shard.Entries.Get(int(previousIndex)); err == nil {
 			resetKeyFromEntry(previousEntry)
 		}
 	}
 
-	if oldestEntry, err := shard.entries.Peek(); err == nil {
+	if oldestEntry, err := shard.Entries.Peek(); err == nil {
 		if err = c.onEvict(oldestEntry, currentTimestamp, shard.removeOldestEntry); err != nil {
 			return err
 		}
 	}
 
-	w := wrapEntry(currentTimestamp, hashedKey, key, entry, &shard.entryBuffer)
+	w := wrapEntry(currentTimestamp, hashedKey, key, entry, &shard.EntryBuffer)
 
 	for {
-		if index, err := shard.entries.Push(w); err == nil {
-			shard.hashmap[hashedKey] = uint32(index)
+		if index, err := shard.Entries.Push(w); err == nil {
+			shard.Hashmap[hashedKey] = uint32(index)
 			shard.lock.Unlock()
 			return nil
 		} else if shard.removeOldestEntry() != nil {
@@ -127,8 +127,8 @@ func (c *BigCache) Set(key string, entry []byte) error {
 
 // Reset empties all cache shards
 func (c *BigCache) Reset() error {
-	for _, shard := range c.shards {
-		shard.reset(c.config)
+	for _, shard := range c.Shards {
+		shard.reset(c.Config)
 	}
 
 	return nil
@@ -138,7 +138,7 @@ func (c *BigCache) Reset() error {
 func (c *BigCache) Len() int {
 	var len int
 
-	for _, shard := range c.shards {
+	for _, shard := range c.Shards {
 		shard.lock.Lock()
 		len += shard.len()
 		shard.lock.Unlock()
@@ -154,8 +154,8 @@ func (c *BigCache) Iterator() *EntryInfoIterator {
 
 func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func() error) error {
 	oldestTimestamp := readTimestampFromEntry(oldestEntry)
-	if currentTimestamp-oldestTimestamp > c.lifeWindow {
-		if c.config.Store {
+	if currentTimestamp-oldestTimestamp > c.LifeWindow {
+		if c.Config.Store {
 			if err := c.Flush(); err != nil {
 				return err
 			}
@@ -166,19 +166,23 @@ func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict fu
 }
 
 func (c *BigCache) getShard(hashedKey uint64) (shard *cacheShard) {
-	return c.shards[hashedKey&c.shardMask]
+	return c.Shards[hashedKey&c.ShardMask]
 }
 
 func (c *BigCache) providedOnRemove(wrappedEntry []byte) {
-	c.config.OnRemove(readKeyFromEntry(wrappedEntry), readEntry(wrappedEntry))
+	c.Config.OnRemove(readKeyFromEntry(wrappedEntry), readEntry(wrappedEntry))
 }
 
 func (c *BigCache) notProvidedOnRemove(wrappedEntry []byte) {
 }
 
 func (c *BigCache) Flush() error {
-	enc := gob.NewEncoder(c.config.StoreWriter)
-	if err := enc.Encode(c); err != nil {
+	encoded, err := json.Marshal(c)
+	if err != nil {
+		return err
+	}
+	_, err = c.Config.StoreWriter.Write(encoded)
+	if err != nil {
 		return err
 	}
 	return nil

@@ -41,7 +41,7 @@ func TestWillReturnErrorOnInvalidNumberOfPartitions(t *testing.T) {
 	cache, error := NewBigCache(Config{18, 5 * time.Second, 10, 256, false, nil, 0, nil, false, nil})
 
 	assert.Nil(t, cache)
-	assert.Error(t, error, "Shards number must be power of two")
+	assert.Error(t, error, "shards number must be power of two")
 }
 
 func TestEntryNotFound(t *testing.T) {
@@ -306,8 +306,10 @@ func TestHashCollision(t *testing.T) {
 func TestBigCacheFlushOnEviction(t *testing.T) {
 	t.Parallel()
 
+	// TODO (mxplusb): need to figure out why flush isn't writing to disk on eviction.
+
 	// test locally to disk.
-	tmpFile, err := os.Create("TestBigCacheFlushOnEviction.gob")
+	tmpFile, err := os.Create("TestBigCacheFlushOnEviction.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -332,7 +334,7 @@ func TestBigCacheFlushOnEviction(t *testing.T) {
 
 	// cleanup
 	tmpFile.Close()
-	if err = os.Remove("TestBigCacheFlushOnEviction.gob"); err != nil {
+	if err = os.Remove("TestBigCacheFlushOnEviction.json"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -341,13 +343,13 @@ func TestBigCacheFlush(t *testing.T) {
 	t.Parallel()
 
 	// test locally to disk.
-	tmpFile, err := os.Create("TestBigCacheFlush.gob")
+	tmpFile, err := os.Create("TestBigCacheFlush.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// given
-	cache, err := NewBigCache(Config{16, 1 * time.Second, 10, 256, true, hashStub(5), 0, nil, false, tmpFile})
+	cache, err := NewBigCache(Config{16, 3 * time.Second, 10, 256, true, hashStub(5), 0, nil, false, tmpFile})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -358,20 +360,22 @@ func TestBigCacheFlush(t *testing.T) {
 	}
 
 	// then
-	cache.Flush()
+	if err = cache.Flush(); err != nil {
+		t.Fatal(err)
+	}
 
 	// then
 	tmpFile.Close()
 
 	// then make sure it was written to disk
-	file, _ := os.Open("TestBigCacheFlush.gob")
+	file, _ := os.Open("TestBigCacheFlush.json")
 	fInfo, _ := file.Stat()
 	if fInfo.Size() == 0 {
 		t.Fatal("Cache not written to disk on Flush()")
 	}
 	file.Close()
 
-	if err = os.Remove("TestBigCacheFlush.gob"); err != nil {
+	if err = os.Remove("TestBigCacheFlush.json"); err != nil {
 		t.Fatal(err)
 	}
 }
