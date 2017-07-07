@@ -13,7 +13,7 @@ func TestEntriesIterator(t *testing.T) {
 
 	// given
 	keysCount := 1000
-	cache, _ := NewBigCache(Config{8, 6 * time.Second, 1, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{8, 6 * time.Second, 1, 256, false, nil, 0, nil, false, nil})
 	value := []byte("value")
 
 	for i := 0; i < keysCount; i++ {
@@ -41,7 +41,7 @@ func TestEntriesIteratorWithMostShardsEmpty(t *testing.T) {
 
 	// given
 	clock := mockedClock{value: 0}
-	cache, _ := newBigCache(Config{8, 6 * time.Second, 1, 256, false, nil, 0, nil}, &clock)
+	cache, _ := newBigCache(Config{8, 6 * time.Second, 1, 256, false, nil, 0, nil, false, nil}, &clock)
 
 	cache.Set("key", []byte("value"))
 
@@ -67,7 +67,7 @@ func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{1, time.Second, 1, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{1, time.Second, 1, 256, false, nil, 0, nil, false, nil})
 
 	cache.Set("key", []byte("value"))
 
@@ -82,7 +82,9 @@ func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {
 	// Quite ugly but works
 	for i := 0; i < cache.config.Shards; i++ {
 		if oldestEntry, err := cache.shards[i].entries.Peek(); err == nil {
-			cache.onEvict(oldestEntry, 10, cache.shards[i].removeOldestEntry)
+			if err = cache.onEvict(oldestEntry, 10, cache.shards[i].removeOldestEntry); err != nil {
+				t.Error(err)
+			}
 		}
 	}
 
@@ -98,7 +100,7 @@ func TestEntriesIteratorWithAllShardsEmpty(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{1, time.Second, 1, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{1, time.Second, 1, 256, false, nil, 0, nil, false, nil})
 
 	// when
 	iterator := cache.Iterator()
@@ -113,7 +115,7 @@ func TestEntriesIteratorInInvalidState(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{1, time.Second, 1, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{1, time.Second, 1, 256, false, nil, 0, nil, false, nil})
 
 	// when
 	iterator := cache.Iterator()

@@ -1,6 +1,9 @@
 package bigcache
 
-import "time"
+import (
+	"time"
+	"io"
+)
 
 // Config for BigCache
 type Config struct {
@@ -25,6 +28,10 @@ type Config struct {
 	// OnRemove is a callback fired when the oldest entry is removed because of its expiration time or no space left
 	// for the new entry. Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
 	OnRemove func(key string, entry []byte)
+	// Store will determine if the cache should be written to the StoreWriter on cache eviction.
+	Store bool
+	// StoreWriter is the destination writer for bigcache.Flush(), so the cache can be sent to either a file or network destionation.
+	StoreWriter io.Writer
 }
 
 // DefaultConfig initializes config with default values.
@@ -38,6 +45,7 @@ func DefaultConfig(eviction time.Duration) Config {
 		Verbose:            true,
 		Hasher:             newDefaultHasher(),
 		HardMaxCacheSize:   0,
+		Store: false,
 	}
 }
 

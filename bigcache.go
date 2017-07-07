@@ -1,6 +1,7 @@
 package bigcache
 
 import (
+	"encoding/gob"
 	"fmt"
 	"log"
 )
@@ -105,7 +106,9 @@ func (c *BigCache) Set(key string, entry []byte) error {
 	}
 
 	if oldestEntry, err := shard.entries.Peek(); err == nil {
-		c.onEvict(oldestEntry, currentTimestamp, shard.removeOldestEntry)
+		if err = c.onEvict(oldestEntry, currentTimestamp, shard.removeOldestEntry); err != nil {
+			return err
+		}
 	}
 
 	w := wrapEntry(currentTimestamp, hashedKey, key, entry, &shard.entryBuffer)
@@ -149,11 +152,17 @@ func (c *BigCache) Iterator() *EntryInfoIterator {
 	return newIterator(c)
 }
 
-func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func() error) {
+func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func() error) error {
 	oldestTimestamp := readTimestampFromEntry(oldestEntry)
 	if currentTimestamp-oldestTimestamp > c.lifeWindow {
+		if c.config.Store {
+			if err := c.Flush(); err != nil {
+				return err
+			}
+		}
 		evict()
 	}
+	return nil
 }
 
 func (c *BigCache) getShard(hashedKey uint64) (shard *cacheShard) {
@@ -165,4 +174,12 @@ func (c *BigCache) providedOnRemove(wrappedEntry []byte) {
 }
 
 func (c *BigCache) notProvidedOnRemove(wrappedEntry []byte) {
+}
+
+func (c *BigCache) Flush() error {
+	enc := gob.NewEncoder(c.config.StoreWriter)
+	if err := enc.Encode(c); err != nil {
+		return err
+	}
+	return nil
 }
