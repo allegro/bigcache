@@ -1,8 +1,8 @@
 package bigcache
 
 import (
-	"time"
 	"io"
+	"time"
 )
 
 // Config for BigCache
@@ -45,7 +45,7 @@ func DefaultConfig(eviction time.Duration) Config {
 		Verbose:            true,
 		Hasher:             newDefaultHasher(),
 		HardMaxCacheSize:   0,
-		Store: false,
+		Store:              false,
 	}
 }
 

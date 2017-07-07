@@ -307,16 +307,50 @@ func TestBigCacheFlushOnEviction(t *testing.T) {
 	t.Parallel()
 
 	// test locally to disk.
-	tmpFile, err := os.Create("temp.gob")
+	tmpFile, err := os.Create("TestBigCacheFlushOnEviction.gob")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// new timer so we can wait.
 	timer := time.NewTimer(3 * time.Second)
+	defer timer.Stop()
 
 	// given
-	cache, _ := NewBigCache(Config{16, 1 * time.Second, 10, 256, true, hashStub(5), 0, nil, true, tmpFile})
+	cache, err := NewBigCache(Config{16, 1 * time.Second, 10, 256, true, hashStub(5), 0, nil, true, tmpFile})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// when
+	if err = cache.Set("testGobWriter", []byte("testData")); err != nil {
+		t.Fatal(err)
+	}
+
+	// then wait for eviction
+	<-timer.C
+
+	// cleanup
+	tmpFile.Close()
+	if err = os.Remove("TestBigCacheFlushOnEviction.gob"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBigCacheFlush(t *testing.T) {
+	t.Parallel()
+
+	// test locally to disk.
+	tmpFile, err := os.Create("TestBigCacheFlush.gob")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// given
+	cache, err := NewBigCache(Config{16, 1 * time.Second, 10, 256, true, hashStub(5), 0, nil, false, tmpFile})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// when
 	if err = cache.Set("testGobWriter", []byte("testData")); err != nil {
@@ -324,10 +358,22 @@ func TestBigCacheFlushOnEviction(t *testing.T) {
 	}
 
 	// then
-	<-timer.C
+	cache.Flush()
 
-	// cleanup
+	// then
 	tmpFile.Close()
+
+	// then make sure it was written to disk
+	file, _ := os.Open("TestBigCacheFlush.gob")
+	fInfo, _ := file.Stat()
+	if fInfo.Size() == 0 {
+		t.Fatal("Cache not written to disk on Flush()")
+	}
+	file.Close()
+
+	if err = os.Remove("TestBigCacheFlush.gob"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 type mockedClock struct {
