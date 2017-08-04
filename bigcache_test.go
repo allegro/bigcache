@@ -28,7 +28,12 @@ func TestConstructCacheWithDefaultHasher(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{16, 5 * time.Second, 10, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{
+		Shards:             16,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 10,
+		MaxEntrySize:       256,
+	})
 
 	assert.IsType(t, fnv64a{}, cache.hash)
 }
@@ -37,7 +42,12 @@ func TestWillReturnErrorOnInvalidNumberOfPartitions(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, error := NewBigCache(Config{18, 5 * time.Second, 10, 256, false, nil, 0, nil})
+	cache, error := NewBigCache(Config{
+		Shards:             18,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 10,
+		MaxEntrySize:       256,
+	})
 
 	assert.Nil(t, cache)
 	assert.Error(t, error, "Shards number must be power of two")
@@ -47,7 +57,12 @@ func TestEntryNotFound(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{16, 5 * time.Second, 10, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{
+		Shards:             16,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 10,
+		MaxEntrySize:       256,
+	})
 
 	// when
 	_, err := cache.Get("nonExistingKey")
@@ -61,7 +76,12 @@ func TestTimingEviction(t *testing.T) {
 
 	// given
 	clock := mockedClock{value: 0}
-	cache, _ := newBigCache(Config{1, time.Second, 1, 256, false, nil, 0, nil}, &clock)
+	cache, _ := newBigCache(Config{
+		Shards:             1,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	}, &clock)
 
 	// when
 	cache.Set("key", []byte("value"))
@@ -78,7 +98,12 @@ func TestTimingEvictionShouldEvictOnlyFromUpdatedShard(t *testing.T) {
 
 	// given
 	clock := mockedClock{value: 0}
-	cache, _ := newBigCache(Config{4, time.Second, 1, 256, false, nil, 0, nil}, &clock)
+	cache, _ := newBigCache(Config{
+		Shards:             4,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	}, &clock)
 
 	// when
 	cache.Set("key", []byte("value"))
@@ -102,7 +127,13 @@ func TestOnRemoveCallback(t *testing.T) {
 		assert.Equal(t, "key", key)
 		assert.Equal(t, []byte("value"), entry)
 	}
-	cache, _ := newBigCache(Config{1, time.Second, 1, 256, false, nil, 0, onRemove}, &clock)
+	cache, _ := newBigCache(Config{
+		Shards:             1,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+		OnRemove:           onRemove,
+	}, &clock)
 
 	// when
 	cache.Set("key", []byte("value"))
@@ -117,7 +148,12 @@ func TestCacheLen(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{8, time.Second, 1, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{
+		Shards:             8,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	})
 	keys := 1337
 	// when
 
@@ -133,7 +169,12 @@ func TestCacheReset(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{8, time.Second, 1, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{
+		Shards:             8,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	})
 	keys := 1337
 
 	// when
@@ -163,7 +204,12 @@ func TestIterateOnResetCache(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{8, time.Second, 1, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{
+		Shards:             8,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	})
 	keys := 1337
 
 	// when
@@ -182,7 +228,12 @@ func TestGetOnResetCache(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{8, time.Second, 1, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{
+		Shards:             8,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	})
 	keys := 1337
 
 	// when
@@ -204,7 +255,12 @@ func TestEntryUpdate(t *testing.T) {
 
 	// given
 	clock := mockedClock{value: 0}
-	cache, _ := newBigCache(Config{1, 6 * time.Second, 1, 256, false, nil, 0, nil}, &clock)
+	cache, _ := newBigCache(Config{
+		Shards:             1,
+		LifeWindow:         6 * time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	}, &clock)
 
 	// when
 	cache.Set("key", []byte("value"))
@@ -222,7 +278,13 @@ func TestOldestEntryDeletionWhenMaxCacheSizeIsReached(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{1, 5 * time.Second, 1, 1, false, nil, 1, nil})
+	cache, _ := NewBigCache(Config{
+		Shards:             1,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       1,
+		HardMaxCacheSize:   1,
+	})
 
 	// when
 	cache.Set("key1", blob('a', 1024*400))
@@ -243,7 +305,13 @@ func TestRetrievingEntryShouldCopy(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{1, 5 * time.Second, 1, 1, false, nil, 1, nil})
+	cache, _ := NewBigCache(Config{
+		Shards:             1,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       1,
+		HardMaxCacheSize:   1,
+	})
 	cache.Set("key1", blob('a', 1024*400))
 	value, key1Err := cache.Get("key1")
 
@@ -263,7 +331,13 @@ func TestEntryBiggerThanMaxShardSizeError(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{1, 5 * time.Second, 1, 1, false, nil, 1, nil})
+	cache, _ := NewBigCache(Config{
+		Shards:             1,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       1,
+		HardMaxCacheSize:   1,
+	})
 
 	// when
 	err := cache.Set("key1", blob('a', 1024*1025))
@@ -276,7 +350,14 @@ func TestHashCollision(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{16, 5 * time.Second, 10, 256, true, hashStub(5), 0, nil})
+	cache, _ := NewBigCache(Config{
+		Shards:             16,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 10,
+		MaxEntrySize:       256,
+		Verbose:            true,
+		Hasher:             hashStub(5),
+	})
 
 	// when
 	cache.Set("liquid", []byte("value"))

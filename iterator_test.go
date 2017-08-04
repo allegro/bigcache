@@ -13,7 +13,12 @@ func TestEntriesIterator(t *testing.T) {
 
 	// given
 	keysCount := 1000
-	cache, _ := NewBigCache(Config{8, 6 * time.Second, 1, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{
+		Shards:             8,
+		LifeWindow:         6 * time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	})
 	value := []byte("value")
 
 	for i := 0; i < keysCount; i++ {
@@ -41,7 +46,12 @@ func TestEntriesIteratorWithMostShardsEmpty(t *testing.T) {
 
 	// given
 	clock := mockedClock{value: 0}
-	cache, _ := newBigCache(Config{8, 6 * time.Second, 1, 256, false, nil, 0, nil}, &clock)
+	cache, _ := newBigCache(Config{
+		Shards:             8,
+		LifeWindow:         6 * time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	}, &clock)
 
 	cache.Set("key", []byte("value"))
 
@@ -67,7 +77,12 @@ func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{1, time.Second, 1, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{
+		Shards:             1,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	})
 
 	cache.Set("key", []byte("value"))
 
@@ -98,7 +113,12 @@ func TestEntriesIteratorWithAllShardsEmpty(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{1, time.Second, 1, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{
+		Shards:             1,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	})
 
 	// when
 	iterator := cache.Iterator()
@@ -113,7 +133,12 @@ func TestEntriesIteratorInInvalidState(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{1, time.Second, 1, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{
+		Shards:             1,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	})
 
 	// when
 	iterator := cache.Iterator()

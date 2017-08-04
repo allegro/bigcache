@@ -16,7 +16,13 @@ func BenchmarkWriteToCacheWith1Shard(b *testing.B) {
 
 func BenchmarkWriteToLimitedCacheWithSmallInitSizeAnd1Shard(b *testing.B) {
 	m := blob('a', 1024)
-	cache, _ := NewBigCache(Config{1, 100 * time.Second, 100, 256, false, nil, 1, nil})
+	cache, _ := NewBigCache(Config{
+		Shards:             1,
+		LifeWindow:         100 * time.Second,
+		MaxEntriesInWindow: 100,
+		MaxEntrySize:       256,
+		HardMaxCacheSize:   1,
+	})
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -26,7 +32,12 @@ func BenchmarkWriteToLimitedCacheWithSmallInitSizeAnd1Shard(b *testing.B) {
 
 func BenchmarkWriteToUnlimitedCacheWithSmallInitSizeAnd1Shard(b *testing.B) {
 	m := blob('a', 1024)
-	cache, _ := NewBigCache(Config{1, 100 * time.Second, 100, 256, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{
+		Shards:             1,
+		LifeWindow:         100 * time.Second,
+		MaxEntriesInWindow: 100,
+		MaxEntrySize:       256,
+	})
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -56,7 +67,12 @@ func BenchmarkIterateOverCache(b *testing.B) {
 
 	for _, shards := range []int{512, 1024, 8192} {
 		b.Run(fmt.Sprintf("%d-shards", shards), func(b *testing.B) {
-			cache, _ := NewBigCache(Config{shards, 1000 * time.Second, max(b.N, 100), 500, false, nil, 0, nil})
+			cache, _ := NewBigCache(Config{
+				Shards:             shards,
+				LifeWindow:         1000 * time.Second,
+				MaxEntriesInWindow: max(b.N, 100),
+				MaxEntrySize:       500,
+			})
 
 			for i := 0; i < b.N; i++ {
 				cache.Set(fmt.Sprintf("key-%d", i), m)
@@ -83,7 +99,12 @@ func BenchmarkWriteToCacheWith1024ShardsAndSmallShardInitSize(b *testing.B) {
 }
 
 func writeToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsInLifeWindow int) {
-	cache, _ := NewBigCache(Config{shards, lifeWindow, max(requestsInLifeWindow, 100), 500, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{
+		Shards:             shards,
+		LifeWindow:         lifeWindow,
+		MaxEntriesInWindow: max(requestsInLifeWindow, 100),
+		MaxEntrySize:       500,
+	})
 	rand.Seed(time.Now().Unix())
 
 	b.RunParallel(func(pb *testing.PB) {
@@ -99,7 +120,12 @@ func writeToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsIn
 }
 
 func readFromCache(b *testing.B, shards int) {
-	cache, _ := NewBigCache(Config{shards, 1000 * time.Second, max(b.N, 100), 500, false, nil, 0, nil})
+	cache, _ := NewBigCache(Config{
+		Shards:             shards,
+		LifeWindow:         1000 * time.Second,
+		MaxEntriesInWindow: max(b.N, 100),
+		MaxEntrySize:       500,
+	})
 	for i := 0; i < b.N; i++ {
 		cache.Set(strconv.Itoa(i), message)
 	}
