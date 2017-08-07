@@ -116,6 +116,28 @@ func TestTimingEvictionShouldEvictOnlyFromUpdatedShard(t *testing.T) {
 	assert.Equal(t, []byte("value"), value)
 }
 
+func TestCleanShouldEvictAll(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{
+		Shards:             4,
+		LifeWindow:         time.Second,
+		CleanWindow:        time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	})
+
+	// when
+	cache.Set("key", []byte("value"))
+	<-time.After(3 * time.Second)
+	value, err := cache.Get("key")
+
+	// then
+	assert.EqualError(t, err, "Entry \"key\" not found")
+	assert.Equal(t, value, []byte(nil))
+}
+
 func TestOnRemoveCallback(t *testing.T) {
 	t.Parallel()
 

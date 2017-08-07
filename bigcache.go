@@ -3,6 +3,7 @@ package bigcache
 import (
 	"fmt"
 	"log"
+	"time"
 )
 
 const (
@@ -56,6 +57,14 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 
 	for i := 0; i < config.Shards; i++ {
 		cache.shards[i] = initNewShard(config, onRemove)
+	}
+
+	if config.CleanWindow > 0 {
+		go func() {
+			for t := range time.Tick(config.CleanWindow) {
+				cache.cleanUp(uint64(t.Unix()))
+			}
+		}()
 	}
 
 	return cache, nil
@@ -149,10 +158,26 @@ func (c *BigCache) Iterator() *EntryInfoIterator {
 	return newIterator(c)
 }
 
-func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func() error) {
+func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func() error) bool {
 	oldestTimestamp := readTimestampFromEntry(oldestEntry)
 	if currentTimestamp-oldestTimestamp > c.lifeWindow {
 		evict()
+		return true
+	}
+	return false
+}
+
+func (c *BigCache) cleanUp(currentTimestamp uint64) {
+	for _, shard := range c.shards {
+		shard.lock.Lock()
+		for {
+			if oldestEntry, err := shard.entries.Peek(); err != nil {
+				break
+			} else if evicted := c.onEvict(oldestEntry, currentTimestamp, shard.removeOldestEntry); !evicted {
+				break
+			}
+		}
+		shard.lock.Unlock()
 	}
 }
 
