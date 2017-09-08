@@ -145,9 +145,9 @@ func (c *BigCache) Len() int {
 	var len int
 
 	for _, shard := range c.shards {
-		shard.lock.Lock()
+		shard.lock.RLock()
 		len += shard.len()
-		shard.lock.Unlock()
+		shard.lock.RUnlock()
 	}
 
 	return len
