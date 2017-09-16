@@ -75,27 +75,24 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	shard.lock.RLock()
+	defer shard.lock.RUnlock()
 
 	itemIndex := shard.hashmap[hashedKey]
 
 	if itemIndex == 0 {
-		shard.lock.RUnlock()
 		return nil, notFound(key)
 	}
 
 	wrappedEntry, err := shard.entries.Get(int(itemIndex))
 	if err != nil {
-		shard.lock.RUnlock()
 		return nil, err
 	}
 	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
 		if c.config.Verbose {
 			log.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
 		}
-		shard.lock.RUnlock()
 		return nil, notFound(key)
 	}
-	shard.lock.RUnlock()
 	return readEntry(wrappedEntry), nil
 }
 
@@ -104,6 +101,7 @@ func (c *BigCache) Set(key string, entry []byte) error {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	shard.lock.Lock()
+	defer shard.lock.Unlock()
 
 	currentTimestamp := uint64(c.clock.epoch())
 
@@ -122,10 +120,8 @@ func (c *BigCache) Set(key string, entry []byte) error {
 	for {
 		if index, err := shard.entries.Push(w); err == nil {
 			shard.hashmap[hashedKey] = uint32(index)
-			shard.lock.Unlock()
 			return nil
 		} else if shard.removeOldestEntry() != nil {
-			shard.lock.Unlock()
 			return fmt.Errorf("Entry is bigger than max shard size.")
 		}
 	}
