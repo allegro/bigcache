@@ -134,7 +134,9 @@ func (c *BigCache) Set(key string, entry []byte) error {
 // Reset empties all cache shards
 func (c *BigCache) Reset() error {
 	for _, shard := range c.shards {
+		shard.lock.Lock()
 		shard.reset(c.config)
+		shard.lock.Unlock()
 	}
 
 	return nil
