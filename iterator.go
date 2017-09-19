@@ -73,13 +73,13 @@ func copyCurrentShardMap(shard *cacheShard) ([]uint32, int) {
 // SetNext moves to next element and returns true if it exists.
 func (it *EntryInfoIterator) SetNext() bool {
 	it.mutex.Lock()
-	defer it.mutex.Unlock()
 
 	it.valid = false
 	it.currentIndex++
 
 	if it.elementsCount > it.currentIndex {
 		it.valid = true
+		it.mutex.Unlock()
 		return true
 	}
 
@@ -91,10 +91,11 @@ func (it *EntryInfoIterator) SetNext() bool {
 			it.currentIndex = 0
 			it.currentShard = i
 			it.valid = true
+			it.mutex.Unlock()
 			return true
 		}
 	}
-
+	it.mutex.Unlock()
 	return false
 }
 
@@ -113,17 +114,19 @@ func newIterator(cache *BigCache) *EntryInfoIterator {
 // Value returns current value from the iterator
 func (it *EntryInfoIterator) Value() (EntryInfo, error) {
 	it.mutex.Lock()
-	defer it.mutex.Unlock()
 
 	if !it.valid {
+		it.mutex.Unlock()
 		return emptyEntryInfo, ErrInvalidIteratorState
 	}
 
 	entry, err := it.cache.shards[it.currentShard].entries.Get(int(it.elements[it.currentIndex]))
 
 	if err != nil {
+		it.mutex.Unlock()
 		return emptyEntryInfo, ErrCannotRetrieveEntry
 	}
+	it.mutex.Unlock()
 
 	return EntryInfo{
 		timestamp: readTimestampFromEntry(entry),
