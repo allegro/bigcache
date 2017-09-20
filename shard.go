@@ -28,13 +28,9 @@ func (s *cacheShard) removeOldestEntry() error {
 }
 
 func (s *cacheShard) reset(config Config) {
-	s.lock.Lock()
-
 	s.hashmap = make(map[uint64]uint32, config.initialShardSize())
 	s.entryBuffer = make([]byte, config.MaxEntrySize+headersSizeInBytes)
 	s.entries.Reset()
-
-	s.lock.Unlock()
 }
 
 func (s *cacheShard) len() int {
