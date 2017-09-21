@@ -86,6 +86,7 @@ func (s *cacheShard) onEvict(oldestEntry []byte, currentTimestamp uint64, evict 
 }
 
 func (s *cacheShard) cleanUp(currentTimestamp uint64) {
+	s.lock.Lock()
 	for {
 		if oldestEntry, err := s.entries.Peek(); err != nil {
 			break
@@ -93,6 +94,7 @@ func (s *cacheShard) cleanUp(currentTimestamp uint64) {
 			break
 		}
 	}
+	s.lock.Unlock()
 }
 
 func (s *cacheShard) oldest() ([]byte, error) {
