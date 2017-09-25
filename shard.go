@@ -97,27 +97,26 @@ func (s *cacheShard) cleanUp(currentTimestamp uint64) {
 	s.lock.Unlock()
 }
 
-func (s *cacheShard) oldest() ([]byte, error) {
+func (s *cacheShard) getOldestEntry() ([]byte, error) {
 	return s.entries.Peek()
 }
 
-func (s *cacheShard) getIndex(index int) ([]byte, error) {
+func (s *cacheShard) getEntry(index int) ([]byte, error) {
 	return s.entries.Get(index)
 }
 
-func (s *cacheShard) copyKeys() ([]uint32, int) {
+func (s *cacheShard) copyKeys() (keys []uint32, next int) {
+	keys = make([]uint32, len(s.hashmap))
+
 	s.lock.RLock()
 
-	var elements = make([]uint32, len(s.hashmap))
-	next := 0
-
 	for _, index := range s.hashmap {
-		elements[next] = index
+		keys[next] = index
 		next++
 	}
 
 	s.lock.RUnlock()
-	return elements, next
+	return keys, next
 }
 
 func (s *cacheShard) removeOldestEntry() error {

@@ -121,8 +121,7 @@ func (c *BigCache) cleanUp(currentTimestamp uint64) {
 }
 
 func (c *BigCache) getShard(hashedKey uint64) (shard *cacheShard) {
-	index := hashedKey & c.shardMask
-	return c.shards[index]
+	return c.shards[hashedKey&c.shardMask]
 }
 
 func (c *BigCache) providedOnRemove(wrappedEntry []byte) {
