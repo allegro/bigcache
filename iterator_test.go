@@ -96,7 +96,7 @@ func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {
 
 	// Quite ugly but works
 	for i := 0; i < cache.config.Shards; i++ {
-		if oldestEntry, err := cache.shards[i].entries.Peek(); err == nil {
+		if oldestEntry, err := cache.shards[i].getOldestEntry(); err == nil {
 			cache.onEvict(oldestEntry, 10, cache.shards[i].removeOldestEntry)
 		}
 	}
