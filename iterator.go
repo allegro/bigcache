@@ -105,7 +105,7 @@ func (it *EntryInfoIterator) Value() (EntryInfo, error) {
 		return emptyEntryInfo, ErrInvalidIteratorState
 	}
 
-	entry, err := it.cache.shards[it.currentShard].getIndex(int(it.elements[it.currentIndex]))
+	entry, err := it.cache.shards[it.currentShard].getEntry(int(it.elements[it.currentIndex]))
 
 	if err != nil {
 		it.mutex.Unlock()
