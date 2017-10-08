@@ -28,6 +28,10 @@ type Config struct {
 	// OnRemove is a callback fired when the oldest entry is removed because of its expiration time or no space left
 	// for the new entry. Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
 	OnRemove func(key string, entry []byte)
+
+	// Logger is a logging interface and used in combination with `Verbose`
+	// Defaults to `DefaultLogger()`
+	Logger Logger
 }
 
 // DefaultConfig initializes config with default values.
@@ -42,6 +46,7 @@ func DefaultConfig(eviction time.Duration) Config {
 		Verbose:            true,
 		Hasher:             newDefaultHasher(),
 		HardMaxCacheSize:   0,
+		Logger:             DefaultLogger(),
 	}
 }
 
