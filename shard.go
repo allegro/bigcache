@@ -2,7 +2,6 @@ package bigcache
 
 import (
 	"fmt"
-	"log"
 	"sync"
 
 	"github.com/allegro/bigcache/queue"
@@ -16,6 +15,7 @@ type cacheShard struct {
 	onRemove    func(wrappedEntry []byte)
 
 	isVerbose  bool
+	logger     Logger
 	clock      clock
 	lifeWindow uint64
 }
@@ -38,7 +38,7 @@ func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
 	}
 	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
 		if s.isVerbose {
-			log.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
+			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
 		}
 		s.lock.RUnlock()
 		return nil, notFound(key)
@@ -153,6 +153,7 @@ func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheS
 		onRemove:    callback,
 
 		isVerbose:  config.Verbose,
+		logger:     newLogger(config.Logger),
 		clock:      clock,
 		lifeWindow: uint64(config.LifeWindow.Seconds()),
 	}
