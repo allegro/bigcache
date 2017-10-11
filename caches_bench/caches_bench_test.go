@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,6 +17,13 @@ func BenchmarkMapSet(b *testing.B) {
 	m := make(map[string][]byte)
 	for i := 0; i < b.N; i++ {
 		m[key(i)] = value()
+	}
+}
+
+func BenchmarkConcurrentMapSet(b *testing.B) {
+	var m sync.Map
+	for i := 0; i < b.N; i++ {
+		m.Store(key(i), value())
 	}
 }
 
@@ -45,6 +53,23 @@ func BenchmarkMapGet(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		if m[key(i)] != nil {
 			hitCount++
+		}
+	}
+}
+
+func BenchmarkConcurrentMapGet(b *testing.B) {
+	b.StopTimer()
+	var m sync.Map
+	for i := 0; i < b.N; i++ {
+		m.Store(key(i), value())
+	}
+
+	b.StartTimer()
+	hitCounter := 0
+	for i := 0; i < b.N; i++ {
+		_, ok := m.Load(key(i))
+		if ok {
+			hitCounter++
 		}
 	}
 }
@@ -103,6 +128,17 @@ func BenchmarkFreeCacheSetParallel(b *testing.B) {
 	})
 }
 
+func BenchmarkConcurrentMapSetParallel(b *testing.B) {
+	var m sync.Map
+
+	b.RunParallel(func(pb *testing.PB) {
+		id := rand.Intn(1000)
+		for pb.Next() {
+			m.Store(key(id), value())
+		}
+	})
+}
+
 func BenchmarkBigCacheGetParallel(b *testing.B) {
 	b.StopTimer()
 	cache := initBigCache(b.N)
@@ -133,6 +169,27 @@ func BenchmarkFreeCacheGetParallel(b *testing.B) {
 		for pb.Next() {
 			cache.Get([]byte(key(counter)))
 			counter = counter + 1
+		}
+	})
+}
+
+func BenchmarkConcurrentMapGetParallel(b *testing.B) {
+	b.StopTimer()
+	var m sync.Map
+	for i := 0; i < b.N; i++ {
+		m.Store(key(i), value())
+	}
+
+	b.StartTimer()
+	hitCount := 0
+
+	b.RunParallel(func(pb *testing.PB) {
+		id := rand.Intn(1000)
+		for pb.Next() {
+			_, ok := m.Load(key(id))
+			if ok {
+				hitCount++
+			}
 		}
 	})
 }
