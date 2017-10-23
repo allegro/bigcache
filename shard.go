@@ -76,6 +76,28 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 	}
 }
 
+func (s *cacheShard) del(key string, hashedKey uint64) error {
+	s.lock.RLock()
+	itemIndex := s.hashmap[hashedKey]
+
+	if itemIndex == 0 {
+		s.lock.RUnlock()
+		return notFound(key)
+	}
+
+	wrappedEntry, err := s.entries.Get(int(itemIndex))
+	if err != nil {
+		s.lock.RUnlock()
+		return err
+	}
+
+	resetKeyFromEntry(wrappedEntry)
+	delete(s.hashmap, hashedKey)
+	s.onRemove(wrappedEntry)
+	s.lock.RUnlock()
+	return nil
+}
+
 func (s *cacheShard) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func() error) bool {
 	oldestTimestamp := readTimestampFromEntry(oldestEntry)
 	if currentTimestamp-oldestTimestamp > s.lifeWindow {
