@@ -91,9 +91,9 @@ func (s *cacheShard) del(key string, hashedKey uint64) error {
 		return err
 	}
 
-	resetKeyFromEntry(wrappedEntry)
 	delete(s.hashmap, hashedKey)
 	s.onRemove(wrappedEntry)
+	resetKeyFromEntry(wrappedEntry)
 	s.lock.RUnlock()
 	return nil
 }
