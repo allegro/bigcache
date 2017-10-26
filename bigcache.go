@@ -2,8 +2,7 @@ package bigcache
 
 import (
 	"fmt"
-	"log"
-        "errors"
+	"time"
 )
 
 const (
@@ -56,7 +55,15 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 	}
 
 	for i := 0; i < config.Shards; i++ {
-		cache.shards[i] = initNewShard(config, onRemove)
+		cache.shards[i] = initNewShard(config, onRemove, clock)
+	}
+
+	if config.CleanWindow > 0 {
+		go func() {
+			for t := range time.Tick(config.CleanWindow) {
+				cache.cleanUp(uint64(t.Unix()))
+			}
+		}()
 	}
 
 	return cache, nil
@@ -66,72 +73,14 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 func (c *BigCache) Get(key string) ([]byte, error) {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
-	shard.lock.RLock()
-
-	itemIndex := shard.hashmap[hashedKey]
-
-	if itemIndex == 0 {
-		shard.lock.RUnlock()
-		return nil, notFound(key)
-	}
-
-	wrappedEntry, err := shard.entries.Get(int(itemIndex))
-	if err != nil {
-		shard.lock.RUnlock()
-		return nil, err
-	}
-
-        /*
-               if the entry is expired, return nil
-        */
-        wrappedEntryTimestamp := readTimestampFromEntry(wrappedEntry)
-        currentTimestamp := uint64(c.clock.epoch())
-        if currentTimestamp-wrappedEntryTimestamp > c.lifeWindow {
-                shard.lock.RUnlock()
-                return nil, errors.New("key expired")
-        }
-
-	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
-		if c.config.Verbose {
-			log.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
-		}
-		shard.lock.RUnlock()
-		return nil, notFound(key)
-	}
-	shard.lock.RUnlock()
-	return readEntry(wrappedEntry), nil
+	return shard.get(key, hashedKey)
 }
 
 // Set saves entry under the key
 func (c *BigCache) Set(key string, entry []byte) error {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
-	shard.lock.Lock()
-
-	currentTimestamp := uint64(c.clock.epoch())
-
-	if previousIndex := shard.hashmap[hashedKey]; previousIndex != 0 {
-		if previousEntry, err := shard.entries.Get(int(previousIndex)); err == nil {
-			resetKeyFromEntry(previousEntry)
-		}
-	}
-
-	if oldestEntry, err := shard.entries.Peek(); err == nil {
-		c.onEvict(oldestEntry, currentTimestamp, shard.removeOldestEntry)
-	}
-
-	w := wrapEntry(currentTimestamp, hashedKey, key, entry, &shard.entryBuffer)
-
-	for {
-		if index, err := shard.entries.Push(w); err == nil {
-			shard.hashmap[hashedKey] = uint32(index)
-			shard.lock.Unlock()
-			return nil
-		} else if shard.removeOldestEntry() != nil {
-			shard.lock.Unlock()
-			return fmt.Errorf("Entry is bigger than max shard size.")
-		}
-	}
+	return shard.set(key, hashedKey, entry)
 }
 
 // Reset empties all cache shards
@@ -139,20 +88,15 @@ func (c *BigCache) Reset() error {
 	for _, shard := range c.shards {
 		shard.reset(c.config)
 	}
-
 	return nil
 }
 
 // Len computes number of entries in cache
 func (c *BigCache) Len() int {
 	var len int
-
 	for _, shard := range c.shards {
-		shard.lock.Lock()
 		len += shard.len()
-		shard.lock.Unlock()
 	}
-
 	return len
 }
 
@@ -161,10 +105,18 @@ func (c *BigCache) Iterator() *EntryInfoIterator {
 	return newIterator(c)
 }
 
-func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func() error) {
+func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func() error) bool {
 	oldestTimestamp := readTimestampFromEntry(oldestEntry)
 	if currentTimestamp-oldestTimestamp > c.lifeWindow {
 		evict()
+		return true
+	}
+	return false
+}
+
+func (c *BigCache) cleanUp(currentTimestamp uint64) {
+	for _, shard := range c.shards {
+		shard.cleanUp(currentTimestamp)
 	}
 }
 

@@ -55,51 +55,37 @@ type EntryInfoIterator struct {
 	valid         bool
 }
 
-func copyCurrentShardMap(shard *cacheShard) ([]uint32, int) {
-	shard.lock.RLock()
-
-	var elements = make([]uint32, len(shard.hashmap))
-	next := 0
-
-	for _, index := range shard.hashmap {
-		elements[next] = index
-		next++
-	}
-
-	shard.lock.RUnlock()
-	return elements, next
-}
-
 // SetNext moves to next element and returns true if it exists.
 func (it *EntryInfoIterator) SetNext() bool {
 	it.mutex.Lock()
-	defer it.mutex.Unlock()
 
 	it.valid = false
 	it.currentIndex++
 
 	if it.elementsCount > it.currentIndex {
 		it.valid = true
+		it.mutex.Unlock()
 		return true
 	}
 
 	for i := it.currentShard + 1; i < it.cache.config.Shards; i++ {
-		it.elements, it.elementsCount = copyCurrentShardMap(it.cache.shards[i])
+		it.elements, it.elementsCount = it.cache.shards[i].copyKeys()
 
 		// Non empty shard - stick with it
 		if it.elementsCount > 0 {
 			it.currentIndex = 0
 			it.currentShard = i
 			it.valid = true
+			it.mutex.Unlock()
 			return true
 		}
 	}
-
+	it.mutex.Unlock()
 	return false
 }
 
 func newIterator(cache *BigCache) *EntryInfoIterator {
-	elements, count := copyCurrentShardMap(cache.shards[0])
+	elements, count := cache.shards[0].copyKeys()
 
 	return &EntryInfoIterator{
 		cache:         cache,
@@ -113,17 +99,19 @@ func newIterator(cache *BigCache) *EntryInfoIterator {
 // Value returns current value from the iterator
 func (it *EntryInfoIterator) Value() (EntryInfo, error) {
 	it.mutex.Lock()
-	defer it.mutex.Unlock()
 
 	if !it.valid {
+		it.mutex.Unlock()
 		return emptyEntryInfo, ErrInvalidIteratorState
 	}
 
-	entry, err := it.cache.shards[it.currentShard].entries.Get(int(it.elements[it.currentIndex]))
+	entry, err := it.cache.shards[it.currentShard].getEntry(int(it.elements[it.currentIndex]))
 
 	if err != nil {
+		it.mutex.Unlock()
 		return emptyEntryInfo, ErrCannotRetrieveEntry
 	}
+	it.mutex.Unlock()
 
 	return EntryInfo{
 		timestamp: readTimestampFromEntry(entry),

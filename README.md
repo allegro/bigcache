@@ -67,23 +67,27 @@ if entry, err := cache.Get("my-unique-key"); err == nil {
 ## Benchmarks
 
 Three caches were compared: bigcache, [freecache](https://github.com/coocood/freecache) and map.
-Benchmark tests were made on MacBook Pro (3 GHz Processor Intel Core i7, 16GB Memory).
+Benchmark tests were made using an i7-6700K with 32GB of RAM on Windows 10.
 
 ### Writes and reads
 
 ```
 cd caches_bench; go test -bench=. -benchtime=10s ./... -timeout 30m
 
-BenchmarkMapSet-4              	20000000	      1681 ns/op	     296 B/op	       3 allocs/op
-BenchmarkFreeCacheSet-4        	20000000	      1132 ns/op	     349 B/op	       3 allocs/op
-BenchmarkBigCacheSet-4         	20000000	       831 ns/op	     305 B/op	       2 allocs/op
-BenchmarkMapGet-4              	30000000	       540 ns/op	      24 B/op	       2 allocs/op
-BenchmarkFreeCacheGet-4        	20000000	       986 ns/op	     152 B/op	       4 allocs/op
-BenchmarkBigCacheGet-4         	20000000	       726 ns/op	      40 B/op	       3 allocs/op
-BenchmarkBigCacheSetParallel-4 	20000000	       532 ns/op	     313 B/op	       3 allocs/op
-BenchmarkFreeCacheSetParallel-4	20000000	       564 ns/op	     357 B/op	       4 allocs/op
-BenchmarkBigCacheGetParallel-4 	50000000	       338 ns/op	      40 B/op	       3 allocs/op
-BenchmarkFreeCacheGetParallel-4	30000000	       581 ns/op	     152 B/op	       4 allocs/op
+BenchmarkMapSet-8                     	 2000000	       716 ns/op	     336 B/op	       3 allocs/op
+BenchmarkConcurrentMapSet-8           	 1000000	      1292 ns/op	     347 B/op	       8 allocs/op
+BenchmarkFreeCacheSet-8               	 3000000	       501 ns/op	     371 B/op	       3 allocs/op
+BenchmarkBigCacheSet-8                	 3000000	       482 ns/op	     303 B/op	       2 allocs/op
+BenchmarkMapGet-8                     	 5000000	       309 ns/op	      24 B/op	       1 allocs/op
+BenchmarkConcurrentMapGet-8           	 2000000	       659 ns/op	      24 B/op	       2 allocs/op
+BenchmarkFreeCacheGet-8               	 3000000	       541 ns/op	     152 B/op	       3 allocs/op
+BenchmarkBigCacheGet-8                	 3000000	       420 ns/op	     152 B/op	       3 allocs/op
+BenchmarkBigCacheSetParallel-8        	10000000	       184 ns/op	     313 B/op	       3 allocs/op
+BenchmarkFreeCacheSetParallel-8       	10000000	       195 ns/op	     357 B/op	       4 allocs/op
+BenchmarkConcurrentMapSetParallel-8   	 5000000	       242 ns/op	     200 B/op	       6 allocs/op
+BenchmarkBigCacheGetParallel-8        	20000000	       100 ns/op	     152 B/op	       4 allocs/op
+BenchmarkFreeCacheGetParallel-8       	10000000	       133 ns/op	     152 B/op	       4 allocs/op
+BenchmarkConcurrentMapGetParallel-8   	10000000	       202 ns/op	      24 B/op	       2 allocs/op
 ```
 
 Writes and reads in bigcache are faster than in freecache.
