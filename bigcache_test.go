@@ -202,9 +202,11 @@ func TestCacheDel(t *testing.T) {
 	// and when
 	cache.Set("existingKey", nil)
 	err = cache.Del("existingKey")
+	cachedValue, _ := cache.Get("existingKey")
 
 	// then
 	assert.Nil(t, err)
+	assert.Len(t, cachedValue, 0)
 }
 
 func TestCacheReset(t *testing.T) {
