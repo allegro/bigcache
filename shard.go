@@ -3,8 +3,8 @@ package bigcache
 import (
 	"fmt"
 	"sync"
-
-	"github.com/allegro/bigcache/queue"
+	"errors"
+	"github.com/media-net/bigcache/queue"
 )
 
 type cacheShard struct {
@@ -36,6 +36,16 @@ func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
 		s.lock.RUnlock()
 		return nil, err
 	}
+	/*
+			  if the entry is expired, return nil
+	   */
+	wrappedEntryTimestamp := readTimestampFromEntry(wrappedEntry)
+	currentTimestamp := uint64(s.clock.epoch())
+	if currentTimestamp-wrappedEntryTimestamp > s.lifeWindow {
+		s.lock.RUnlock()
+		return nil, errors.New("key expired")
+	}
+	
 	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
 		if s.isVerbose {
 			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
