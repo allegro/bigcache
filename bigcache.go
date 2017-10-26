@@ -83,8 +83,8 @@ func (c *BigCache) Set(key string, entry []byte) error {
 	return shard.set(key, hashedKey, entry)
 }
 
-// Del removes the key
-func (c *BigCache) Del(key string) error {
+// Delete removes the key
+func (c *BigCache) Delete(key string) error {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	return shard.del(key, hashedKey)

@@ -194,14 +194,14 @@ func TestCacheDel(t *testing.T) {
 	cache, _ := NewBigCache(DefaultConfig(time.Second))
 
 	// when
-	err := cache.Del("nonExistingKey")
+	err := cache.Delete("nonExistingKey")
 
 	// then
 	assert.Equal(t, err.Error(), "Entry \"nonExistingKey\" not found")
 
 	// and when
 	cache.Set("existingKey", nil)
-	err = cache.Del("existingKey")
+	err = cache.Delete("existingKey")
 	cachedValue, _ := cache.Get("existingKey")
 
 	// then
