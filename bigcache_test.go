@@ -187,6 +187,28 @@ func TestCacheLen(t *testing.T) {
 	assert.Equal(t, keys, cache.Len())
 }
 
+func TestCacheDel(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(DefaultConfig(time.Second))
+
+	// when
+	err := cache.Delete("nonExistingKey")
+
+	// then
+	assert.Equal(t, err.Error(), "Entry \"nonExistingKey\" not found")
+
+	// and when
+	cache.Set("existingKey", nil)
+	err = cache.Delete("existingKey")
+	cachedValue, _ := cache.Get("existingKey")
+
+	// then
+	assert.Nil(t, err)
+	assert.Len(t, cachedValue, 0)
+}
+
 func TestCacheReset(t *testing.T) {
 	t.Parallel()
 
