@@ -387,7 +387,7 @@ func TestEntryBiggerThanMaxShardSizeError(t *testing.T) {
 	err := cache.Set("key1", blob('a', 1024*1025))
 
 	// then
-	assert.EqualError(t, err, "Entry is bigger than max shard size.")
+	assert.EqualError(t, err, "entry is bigger than max shard size")
 }
 
 func TestHashCollision(t *testing.T) {
