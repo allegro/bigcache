@@ -107,6 +107,19 @@ func (c *BigCache) Len() int {
 	return len
 }
 
+// Stats returns cache's statistics
+func (c *BigCache) Stats() Stats {
+	var s Stats
+	for _, shard := range c.shards {
+		tmp := shard.getStats()
+		s.Hits += tmp.Hits
+		s.Misses += tmp.Misses
+		s.DelHits += tmp.DelHits
+		s.DelMisses += tmp.DelMisses
+	}
+	return s
+}
+
 // Iterator returns iterator function to iterate over EntryInfo's from whole cache.
 func (c *BigCache) Iterator() *EntryInfoIterator {
 	return newIterator(c)
