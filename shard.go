@@ -31,14 +31,14 @@ func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
 
 	if itemIndex == 0 {
 		s.lock.RUnlock()
-		atomic.AddInt64(&s.stats.Misses, 1)
+		s.miss()
 		return nil, notFound(key)
 	}
 
 	wrappedEntry, err := s.entries.Get(int(itemIndex))
 	if err != nil {
 		s.lock.RUnlock()
-		atomic.AddInt64(&s.stats.Misses, 1)
+		s.miss()
 		return nil, err
 	}
 	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
@@ -46,11 +46,11 @@ func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
 			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
 		}
 		s.lock.RUnlock()
-		atomic.AddInt64(&s.stats.Misses, 1)
+		s.miss()
 		return nil, notFound(key)
 	}
 	s.lock.RUnlock()
-	atomic.AddInt64(&s.stats.Hits, 1)
+	s.hit()
 	return readEntry(wrappedEntry), nil
 }
 
@@ -90,14 +90,14 @@ func (s *cacheShard) del(key string, hashedKey uint64) error {
 
 	if itemIndex == 0 {
 		s.lock.RUnlock()
-		atomic.AddInt64(&s.stats.DelMisses, 1)
+		s.delmiss()
 		return notFound(key)
 	}
 
 	wrappedEntry, err := s.entries.Get(int(itemIndex))
 	if err != nil {
 		s.lock.RUnlock()
-		atomic.AddInt64(&s.stats.DelMisses, 1)
+		s.delmiss()
 		return err
 	}
 
@@ -105,7 +105,7 @@ func (s *cacheShard) del(key string, hashedKey uint64) error {
 	s.onRemove(wrappedEntry)
 	resetKeyFromEntry(wrappedEntry)
 	s.lock.RUnlock()
-	atomic.AddInt64(&s.stats.DelHits, 1)
+	s.delhit()
 	return nil
 }
 
@@ -180,6 +180,22 @@ func (s *cacheShard) len() int {
 
 func (s *cacheShard) getStats() Stats {
 	return s.stats
+}
+
+func (s *cacheShard) hit() {
+	atomic.AddInt64(&s.stats.Hits, 1)
+}
+
+func (s *cacheShard) miss() {
+	atomic.AddInt64(&s.stats.Misses, 1)
+}
+
+func (s *cacheShard) delhit() {
+	atomic.AddInt64(&s.stats.DelHits, 1)
+}
+
+func (s *cacheShard) delmiss() {
+	atomic.AddInt64(&s.stats.DelMisses, 1)
 }
 
 func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheShard {

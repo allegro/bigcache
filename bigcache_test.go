@@ -187,6 +187,48 @@ func TestCacheLen(t *testing.T) {
 	assert.Equal(t, keys, cache.Len())
 }
 
+func TestCacheStats(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{
+		Shards:             8,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	})
+
+	// when
+	for i := 0; i < 100; i++ {
+		cache.Set(fmt.Sprintf("key%d", i), []byte("value"))
+	}
+
+	for i := 0; i < 10; i++ {
+		value, err := cache.Get(fmt.Sprintf("key%d", i))
+		assert.Nil(t, err)
+		assert.Equal(t, string(value), "value")
+	}
+	for i := 100; i < 110; i++ {
+		_, err := cache.Get(fmt.Sprintf("key%d", i))
+		assert.NotNil(t, err)
+	}
+	for i := 10; i < 20; i++ {
+		err := cache.Delete(fmt.Sprintf("key%d", i))
+		assert.Nil(t, err)
+	}
+	for i := 110; i < 120; i++ {
+		err := cache.Delete(fmt.Sprintf("key%d", i))
+		assert.NotNil(t, err)
+	}
+
+	// then
+	stats := cache.Stats()
+	assert.Equal(t, stats.Hits, int64(10))
+	assert.Equal(t, stats.Misses, int64(10))
+	assert.Equal(t, stats.DelHits, int64(10))
+	assert.Equal(t, stats.DelMisses, int64(10))
+}
+
 func TestCacheDel(t *testing.T) {
 	t.Parallel()
 
