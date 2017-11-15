@@ -116,6 +116,7 @@ func (c *BigCache) Stats() Stats {
 		s.Misses += tmp.Misses
 		s.DelHits += tmp.DelHits
 		s.DelMisses += tmp.DelMisses
+		s.Collisions += tmp.Collisions
 	}
 	return s
 }

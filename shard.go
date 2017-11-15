@@ -46,7 +46,7 @@ func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
 			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
 		}
 		s.lock.RUnlock()
-		s.miss()
+		s.collision()
 		return nil, notFound(key)
 	}
 	s.lock.RUnlock()
@@ -196,6 +196,10 @@ func (s *cacheShard) delhit() {
 
 func (s *cacheShard) delmiss() {
 	atomic.AddInt64(&s.stats.DelMisses, 1)
+}
+
+func (s *cacheShard) collision() {
+	atomic.AddInt64(&s.stats.Collisions, 1)
 }
 
 func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheShard {

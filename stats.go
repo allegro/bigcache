@@ -10,4 +10,6 @@ type Stats struct {
 	DelHits int64
 	// DelMisses is a number of not deleted keys
 	DelMisses int64
+	// Collisions is a number of happened key-collisions
+	Collisions int64
 }

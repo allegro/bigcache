@@ -210,7 +210,7 @@ func TestCacheStats(t *testing.T) {
 	}
 	for i := 100; i < 110; i++ {
 		_, err := cache.Get(fmt.Sprintf("key%d", i))
-		assert.NotNil(t, err)
+		assert.Error(t, err)
 	}
 	for i := 10; i < 20; i++ {
 		err := cache.Delete(fmt.Sprintf("key%d", i))
@@ -218,7 +218,7 @@ func TestCacheStats(t *testing.T) {
 	}
 	for i := 110; i < 120; i++ {
 		err := cache.Delete(fmt.Sprintf("key%d", i))
-		assert.NotNil(t, err)
+		assert.Error(t, err)
 	}
 
 	// then
@@ -471,6 +471,7 @@ func TestHashCollision(t *testing.T) {
 	assert.Nil(t, cachedValue)
 
 	assert.NotEqual(t, "", ml.lastFormat)
+	assert.Equal(t, cache.Stats().Collisions, int64(1))
 }
 
 type mockedLogger struct {
