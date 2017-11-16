@@ -1,4 +1,10 @@
 .idea
 .DS_Store
 /server/server.exe
+<<<<<<< HEAD
+<<<<<<< HEAD
 /server/server
+=======
+>>>>>>> 8f04827... Added basic HTTP server implementation.
+=======
+>>>>>>> Added basic HTTP server implementation.
