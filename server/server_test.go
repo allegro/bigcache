@@ -145,7 +145,7 @@ func TestDeleteKey(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	if err := cache.Set("testDeleteKey", []byte("123")); err != nil {
-		t.Errorf("can't set key for testing.", err)
+		t.Errorf("can't set key for testing. %s", err)
 	}
 
 	deleteCacheHandler(rr, req)
