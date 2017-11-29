@@ -1,9 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
-	"encoding/json"
 )
 
 // index for stats handle
@@ -11,7 +11,7 @@ func statsIndexHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			getCacheStatsHandler(w,r)
+			getCacheStatsHandler(w, r)
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}

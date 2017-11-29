@@ -2,11 +2,11 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io/ioutil"
 	"net/http/httptest"
 	"testing"
 	"time"
-	"encoding/json"
 
 	"github.com/allegro/bigcache"
 )
@@ -126,7 +126,7 @@ func TestDeleteEmptyKey(t *testing.T) {
 
 func TestDeleteInvalidKey(t *testing.T) {
 	t.Parallel()
-	
+
 	req := httptest.NewRequest("DELETE", testBaseString+"/api/v1/cache/invalidDeleteKey", bytes.NewBuffer([]byte("123")))
 	rr := httptest.NewRecorder()
 

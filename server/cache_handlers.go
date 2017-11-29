@@ -1,10 +1,10 @@
 package main
 
 import (
-	"net/http"
-	"log"
-	"strings"
 	"io/ioutil"
+	"log"
+	"net/http"
+	"strings"
 )
 
 func cacheIndexHandler() http.Handler {
@@ -14,6 +14,8 @@ func cacheIndexHandler() http.Handler {
 			getCacheHandler(w, r)
 		case http.MethodPut:
 			putCacheHandler(w, r)
+		case http.MethodDelete:
+			deleteCacheHandler(w, r)
 		}
 	})
 }

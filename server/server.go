@@ -27,7 +27,7 @@ const (
 var (
 	port    int
 	logfile string
-	ver bool
+	ver     bool
 
 	// cache-specific settings.
 	cache  *bigcache.BigCache
