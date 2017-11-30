@@ -71,7 +71,7 @@ Benchmark tests were made using an i7-6700K with 32GB of RAM on Windows 10.
 
 ### Writes and reads
 
-```
+```bash
 cd caches_bench; go test -bench=. -benchtime=10s ./... -timeout 30m
 
 BenchmarkMapSet-8                     	 2000000	       716 ns/op	     336 B/op	       3 allocs/op
@@ -95,7 +95,7 @@ Writes to map are the slowest.
 
 ### GC pause time
 
-```
+```bash
 cd caches_bench; go run caches_gc_overhead_comparison.go
 
 Number of entries:  20000000
@@ -120,6 +120,7 @@ Bytes array size can grow to gigabytes without impact on performance
 because GC will only see single pointer to it.
 
 ## Bigcache vs Freecache
+
 Both caches provide the same core features but they reduce GC overhead in different ways.
 Bigcache relies on `map[uint64]uint32`, freecache implements its own mapping built on
 slices to reduce number of pointers.
@@ -131,6 +132,9 @@ it can allocate additional memory for new entries instead of
 overwriting existing ones as freecache does currently.
 However hard max size in bigcache also can be set, check [HardMaxCacheSize](https://godoc.org/github.com/allegro/bigcache#Config).
 
+## HTTP Server
+
+This package also includes an easily deployable HTTP implementation of BigCache, which can be found in the [server](/server) package.
 
 ## More
 
