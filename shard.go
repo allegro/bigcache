@@ -100,11 +100,16 @@ func (s *cacheShard) del(key string, hashedKey uint64) error {
 		s.delmiss()
 		return err
 	}
-
-	delete(s.hashmap, hashedKey)
-	s.onRemove(wrappedEntry)
-	resetKeyFromEntry(wrappedEntry)
 	s.lock.RUnlock()
+
+	s.lock.Lock()
+	{
+		delete(s.hashmap, hashedKey)
+		s.onRemove(wrappedEntry)
+		resetKeyFromEntry(wrappedEntry)
+	}
+	s.lock.Unlock()
+
 	s.delhit()
 	return nil
 }
@@ -179,7 +184,14 @@ func (s *cacheShard) len() int {
 }
 
 func (s *cacheShard) getStats() Stats {
-	return s.stats
+	var stats = Stats{
+		Hits:       atomic.LoadInt64(&s.stats.Hits),
+		Misses:     atomic.LoadInt64(&s.stats.Misses),
+		DelHits:    atomic.LoadInt64(&s.stats.DelHits),
+		DelMisses:  atomic.LoadInt64(&s.stats.DelMisses),
+		Collisions: atomic.LoadInt64(&s.stats.Collisions),
+	}
+	return stats
 }
 
 func (s *cacheShard) hit() {
