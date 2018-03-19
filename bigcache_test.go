@@ -2,11 +2,48 @@ package bigcache
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 )
+
+var sink []byte
+
+func TestParallel(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(DefaultConfig(5 * time.Second))
+	value := []byte("value")
+	var wg sync.WaitGroup
+	wg.Add(3)
+	keys := 1337
+
+	// when
+	go func() {
+		defer wg.Done()
+		for i := 0; i < keys; i++ {
+			cache.Set(fmt.Sprintf("key%d", i), value)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < keys; i++ {
+			sink, _ = cache.Get(fmt.Sprintf("key%d", i))
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < keys; i++ {
+			cache.Delete(fmt.Sprintf("key%d", i))
+		}
+	}()
+
+	// then
+	wg.Wait()
+}
 
 func TestWriteAndGetOnCache(t *testing.T) {
 	t.Parallel()
@@ -177,8 +214,8 @@ func TestCacheLen(t *testing.T) {
 		MaxEntrySize:       256,
 	})
 	keys := 1337
-	// when
 
+	// when
 	for i := 0; i < keys; i++ {
 		cache.Set(fmt.Sprintf("key%d", i), []byte("value"))
 	}
