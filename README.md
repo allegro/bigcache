@@ -99,9 +99,9 @@ Writes to map are the slowest.
 cd caches_bench; go run caches_gc_overhead_comparison.go
 
 Number of entries:  20000000
-GC pause for bigcache:  27.81671ms
-GC pause for freecache:  30.218371ms
-GC pause for map:  11.590772251s
+GC pause for bigcache:  5.8658ms
+GC pause for freecache:  32.4341ms
+GC pause for map:  52.9661ms
 ```
 
 Test shows how long are the GC pauses for caches filled with 20mln of entries.
