@@ -131,8 +131,6 @@ GC pause for map:  52.9661ms
 
 Test shows how long are the GC pauses for caches filled with 20mln of entries.
 Bigcache and freecache have very similar GC pause time.
-It is clear that both reduce GC overhead in contrast to map
-which GC pause time took more than 10 seconds.
 
 ### Memory usage
 
