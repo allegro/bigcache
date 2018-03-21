@@ -14,7 +14,7 @@ func gcPause() time.Duration {
 	runtime.GC()
 	var stats debug.GCStats
 	debug.ReadGCStats(&stats)
-	return stats.Pause[0]
+	return stats.PauseTotal
 }
 
 const (
