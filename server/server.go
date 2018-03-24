@@ -21,13 +21,17 @@ const (
 	statsPath = apiBasePath + "stats"
 
 	// server version.
-	version = "1.0.0"
+	version = "1.1.0"
 )
 
 var (
-	port    int
-	logfile string
-	ver     bool
+	port        int
+	logfile     string
+	ver         bool
+	noSSL       bool
+	defaultPort int = 443
+	serverCert  string
+	serverKey   string
 
 	// cache-specific settings.
 	cache  *bigcache.BigCache
@@ -41,9 +45,12 @@ func init() {
 	flag.DurationVar(&config.LifeWindow, "lifetime", 100000*100000*60, "Lifetime of each cache object.")
 	flag.IntVar(&config.HardMaxCacheSize, "max", 8192, "Maximum amount of data in the cache in MB.")
 	flag.IntVar(&config.MaxEntrySize, "maxShardEntrySize", 500, "The maximum size of each object stored in a shard. Used only in initial memory allocation.")
-	flag.IntVar(&port, "port", 9090, "The port to listen on.")
+	flag.IntVar(&port, "port", 443, "The port to listen on.")
 	flag.StringVar(&logfile, "logfile", "", "Location of the logfile.")
 	flag.BoolVar(&ver, "version", false, "Print server version.")
+	flag.BoolVar(&noSSL, "NoSecurityForMe", false, "Disables SSL support. This is HIGHLY discouraged.")
+	flag.StringVar(&serverCert, "server-cert", "", "Certificate for the server.")
+	flag.StringVar(&serverKey, "server-key", "", "Private key for the certificate.")
 }
 
 func main() {
@@ -80,6 +87,18 @@ func main() {
 
 	logger.Printf("starting server on :%d", port)
 
+	if !noSSL && (serverCert == "" || serverKey == "") {
+		log.Fatal("you need to pass the proper certificate files!")
+	}
+
 	strPort := ":" + strconv.Itoa(port)
-	log.Fatal("ListenAndServe: ", http.ListenAndServe(strPort, nil))
+
+	if noSSL {
+		if defaultPort == 443 {
+			log.Fatal("you cannot use port 443 without SSL.")
+		}
+		log.Fatal("ListenAndServe: ", http.ListenAndServe(strPort, nil))
+	} else {
+		log.Fatal("ListenAndServe: ", http.ListenAndServeTLS(strPort, serverCert, serverKey, nil))
+	}
 }
