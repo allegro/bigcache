@@ -112,7 +112,7 @@ which GC pause time took more than 10 seconds.
 ## How it works
 
 BigCache relies on optimization presented in 1.5 version of Go ([issue-9477](https://github.com/golang/go/issues/9477)).
-This optimization states that if map without pointers in keys and values is used then GC will omit it’s content.
+This optimization states that if map without pointers in keys and values is used then GC will omit its content.
 Therefore BigCache uses `map[uint64]uint32` where keys are hashed and values are offsets of entries.
 
 Entries are kept in bytes array, to omit GC again.
