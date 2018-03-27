@@ -511,6 +511,43 @@ func TestHashCollision(t *testing.T) {
 	assert.Equal(t, cache.Stats().Collisions, int64(1))
 }
 
+func TestNilValueCaching(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{
+		Shards:             1,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       1,
+		HardMaxCacheSize:   1,
+	})
+
+	// when
+	cache.Set("Kierkegaard", []byte{})
+	cachedValue, err := cache.Get("Kierkegaard")
+
+	// then
+	assert.NoError(t, err)
+	assert.Equal(t, []byte{}, cachedValue)
+
+	// when
+	cache.Set("Sartre", nil)
+	cachedValue, err = cache.Get("Sartre")
+
+	// then
+	assert.NoError(t, err)
+	assert.Equal(t, []byte{}, cachedValue)
+
+	// when
+	cache.Set("Nietzsche", []byte(nil))
+	cachedValue, err = cache.Get("Nietzsche")
+
+	// then
+	assert.NoError(t, err)
+	assert.Equal(t, []byte{}, cachedValue)
+}
+
 type mockedLogger struct {
 	lastFormat string
 	lastArgs   []interface{}
