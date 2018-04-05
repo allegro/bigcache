@@ -46,10 +46,15 @@ config := bigcache.Config {
 		// if value is reached then the oldest entries can be overridden for the new ones
 		// 0 value means no size limit
 		HardMaxCacheSize: 8192,
-		// callback fired when the oldest entry is removed because of its
-		// expiration time or no space left for the new entry. Default value is nil which
-		// means no callback and it prevents from unwrapping the oldest entry.
+		// callback fired when the oldest entry is removed because of its expiration time or no space left
+		// for the new entry, or because delete was called. A bitmask representing the reason will be returned.
+		// Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
 		OnRemove: nil,
+		// OnRemoveWithReason is a callback fired when the oldest entry is removed because of its expiration time or no space left
+		// for the new entry, or because delete was called. A constant representing the reason will be passed through.
+		// Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
+		// Ignored if OnRemove is specified.
+		OnRemoveWithReason: nil,
 	}
 
 cache, initErr := bigcache.NewBigCache(config)
