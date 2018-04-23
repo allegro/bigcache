@@ -181,10 +181,14 @@ func TestOnRemoveCallback(t *testing.T) {
 	// given
 	clock := mockedClock{value: 0}
 	onRemoveInvoked := false
+	onRemoveExtInvoked := false
 	onRemove := func(key string, entry []byte) {
 		onRemoveInvoked = true
 		assert.Equal(t, "key", key)
 		assert.Equal(t, []byte("value"), entry)
+	}
+	onRemoveExt := func(key string, entry []byte, reason RemoveReason) {
+		onRemoveExtInvoked = true
 	}
 	cache, _ := newBigCache(Config{
 		Shards:             1,
@@ -192,12 +196,77 @@ func TestOnRemoveCallback(t *testing.T) {
 		MaxEntriesInWindow: 1,
 		MaxEntrySize:       256,
 		OnRemove:           onRemove,
+		OnRemoveWithReason: onRemoveExt,
 	}, &clock)
 
 	// when
 	cache.Set("key", []byte("value"))
 	clock.set(5)
 	cache.Set("key2", []byte("value2"))
+
+	// then
+	assert.True(t, onRemoveInvoked)
+	assert.False(t, onRemoveExtInvoked)
+}
+
+func TestOnRemoveWithReasonCallback(t *testing.T) {
+	t.Parallel()
+
+	// given
+	clock := mockedClock{value: 0}
+	onRemoveInvoked := false
+	onRemove := func(key string, entry []byte, reason RemoveReason) {
+		onRemoveInvoked = true
+		assert.Equal(t, "key", key)
+		assert.Equal(t, []byte("value"), entry)
+		assert.Equal(t, reason, RemoveReason(Expired))
+	}
+	cache, _ := newBigCache(Config{
+		Shards:             1,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+		OnRemoveWithReason: onRemove,
+	}, &clock)
+
+	// when
+	cache.Set("key", []byte("value"))
+	clock.set(5)
+	cache.Set("key2", []byte("value2"))
+
+	// then
+	assert.True(t, onRemoveInvoked)
+}
+
+func TestOnRemoveFilter(t *testing.T) {
+	t.Parallel()
+
+	// given
+	clock := mockedClock{value: 0}
+	onRemoveInvoked := false
+	onRemove := func(key string, entry []byte, reason RemoveReason) {
+		onRemoveInvoked = true
+	}
+	c := Config{
+		Shards:             1,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+		OnRemoveWithReason: onRemove,
+	}.OnRemoveFilterSet(Deleted, NoSpace)
+
+	cache, _ := newBigCache(c, &clock)
+
+	// when
+	cache.Set("key", []byte("value"))
+	clock.set(5)
+	cache.Set("key2", []byte("value2"))
+
+	// then
+	assert.False(t, onRemoveInvoked)
+
+	// and when
+	cache.Delete("key2")
 
 	// then
 	assert.True(t, onRemoveInvoked)
