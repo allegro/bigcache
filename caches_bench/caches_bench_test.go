@@ -14,7 +14,7 @@ import (
 const maxEntrySize = 256
 
 func BenchmarkMapSet(b *testing.B) {
-	m := make(map[string][]byte)
+	m := make(map[string][]byte, b.N)
 	for i := 0; i < b.N; i++ {
 		m[key(i)] = value()
 	}
