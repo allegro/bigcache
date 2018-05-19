@@ -145,6 +145,17 @@ This package also includes an easily deployable HTTP implementation of BigCache,
 
 Bigcache genesis is described in allegro.tech blog post: [writing a very fast cache service in Go](http://allegro.tech/2016/03/writing-fast-cache-service-in-go.html)
 
+## Working with Protobufs
+
+To generate changes to the protobufs, use these commands:
+
+```powershell
+# generate the shard protobuf
+protoc.exe -I .\queue\queue.proto -I. --gofast_out=$env:GOPATH\src\ .\shard.proto
+# generate the byte queue protobufs
+protoc.exe queue\queue.proto --gofast_out=$env:GOPATH\src
+```
+
 ## License
 
 BigCache is released under the Apache 2.0 license (see [LICENSE](LICENSE))

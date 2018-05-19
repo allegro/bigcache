@@ -28,4 +28,4 @@ script:
   - go test -race -count=1 -coverprofile=server.coverprofile ./server
   - go test -race -count=1 -coverprofile=main.coverprofile
   - $HOME/gopath/bin/gover
-  - $HOME/gopath/bin/goveralls -coverprofile=gover.coverprofile -service travis-ci
+  - $HOME/gopath/bin/goveralls -coverprofile=gover.coverprofile -service travis-ci -ignore "pb/*.go,queue/pb/*.go"

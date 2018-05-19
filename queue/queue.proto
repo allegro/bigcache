@@ -1,0 +1,18 @@
+syntax = "proto3";
+package queue;
+
+option go_package = "github.com/allegro/bigcache/queue/pb";
+
+// our bytequeue encoder.
+message BytesQueue {
+    bytes array = 1;
+    uint64 queuecapacity = 2;
+    uint64 maxCapacity = 3;
+    uint64 head = 4;
+    uint64 tail = 5;
+    uint64 count = 6;
+    uint64 rightMargin = 7;
+    bytes headerBuffer = 8;
+    bool verbose = 9;
+    uint64 initialCapacity = 10;
+}

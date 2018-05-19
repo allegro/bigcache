@@ -178,13 +178,13 @@ func TestAllocateAdditionalSpaceForInsufficientFreeFragmentedSpaceWhereTailIsBef
 	queue.Push(blob('a', 70)) // header + entry + left margin = 75 bytes
 	queue.Push(blob('b', 10)) // 75 + 10 + 4 = 89 bytes
 	queue.Pop()               // space freed at the beginning
-	queue.Push(blob('c', 30)) // 34 bytes used at the beginning, tail pointer is before head pointer
+	queue.Push(blob('c', 30)) // 34 bytes used at the beginning, Tail pointer is before Head pointer
 	queue.Push(blob('d', 40)) // 44 bytes needed but no available in one segment, allocate new memory
 
 	// then
 	assert.Equal(t, 200, queue.Capacity())
 	assert.Equal(t, blob('c', 30), pop(queue))
-	// empty blob fills space between tail and head,
+	// empty blob fills space between Tail and Head,
 	// created when additional memory was allocated,
 	// it keeps current entries indexes unchanged
 	assert.Equal(t, blob(0, 36), pop(queue))
@@ -202,7 +202,7 @@ func TestUnchangedEntriesIndexesAfterAdditionalMemoryAllocationWhereTailIsBefore
 	queue.Push(blob('a', 70))                   // header + entry + left margin = 75 bytes
 	index, _ := queue.Push(blob('b', 10))       // 75 + 10 + 4 = 89 bytes
 	queue.Pop()                                 // space freed at the beginning
-	queue.Push(blob('c', 30))                   // 34 bytes used at the beginning, tail pointer is before head pointer
+	queue.Push(blob('c', 30))                   // 34 bytes used at the beginning, Tail pointer is before Head pointer
 	newestIndex, _ := queue.Push(blob('d', 40)) // 44 bytes needed but no available in one segment, allocate new memory
 
 	// then

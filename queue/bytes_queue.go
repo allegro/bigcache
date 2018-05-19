@@ -11,24 +11,24 @@ const (
 	headerEntrySize = 4
 	// Bytes before left margin are not used. Zero index means element does not exist in queue, useful while reading slice from index
 	leftMarginIndex = 1
-	// Minimum empty blob size in bytes. Empty blob fills space between tail and head in additional memory allocation.
+	// Minimum empty blob size in bytes. Empty blob fills space between Tail and Head in additional memory allocation.
 	// It keeps entries indexes unchanged
 	minimumEmptyBlobSize = 32 + headerEntrySize
 )
 
-// BytesQueue is a non-thread safe queue type of fifo based on bytes array.
+// BytesQueue is a non-thread safe queue type of fifo based on bytes Array.
 // For every push operation index of entry is returned. It can be used to read the entry later
 type BytesQueue struct {
-	array           []byte
-	capacity        int
-	maxCapacity     int
-	head            int
-	tail            int
-	count           int
-	rightMargin     int
-	headerBuffer    []byte
-	verbose         bool
-	initialCapacity int
+	Array           []byte
+	QueueCapacity   int
+	MaxCapacity     int
+	Head            int
+	Tail            int
+	Count           int
+	RightMargin     int
+	HeaderBuffer    []byte
+	Verbose         bool
+	InitialCapacity int
 }
 
 type queueError struct {
@@ -36,47 +36,47 @@ type queueError struct {
 }
 
 // NewBytesQueue initialize new bytes queue.
-// Initial capacity is used in bytes array allocation
-// When verbose flag is set then information about memory allocation are printed
+// Initial QueueCapacity is used in bytes Array allocation
+// When Verbose flag is set then information about memory allocation are printed
 func NewBytesQueue(initialCapacity int, maxCapacity int, verbose bool) *BytesQueue {
 	return &BytesQueue{
-		array:           make([]byte, initialCapacity),
-		capacity:        initialCapacity,
-		maxCapacity:     maxCapacity,
-		headerBuffer:    make([]byte, headerEntrySize),
-		tail:            leftMarginIndex,
-		head:            leftMarginIndex,
-		rightMargin:     leftMarginIndex,
-		verbose:         verbose,
-		initialCapacity: initialCapacity,
+		Array:           make([]byte, initialCapacity),
+		QueueCapacity:   initialCapacity,
+		MaxCapacity:     maxCapacity,
+		HeaderBuffer:    make([]byte, headerEntrySize),
+		Tail:            leftMarginIndex,
+		Head:            leftMarginIndex,
+		RightMargin:     leftMarginIndex,
+		Verbose:         verbose,
+		InitialCapacity: initialCapacity,
 	}
 }
 
 // Reset removes all entries from queue
 func (q *BytesQueue) Reset() {
 	// Just reset indexes
-	q.tail = leftMarginIndex
-	q.head = leftMarginIndex
-	q.rightMargin = leftMarginIndex
-	q.count = 0
+	q.Tail = leftMarginIndex
+	q.Head = leftMarginIndex
+	q.RightMargin = leftMarginIndex
+	q.Count = 0
 }
 
-// Push copies entry at the end of queue and moves tail pointer. Allocates more space if needed.
+// Push copies entry at the end of queue and moves Tail pointer. Allocates more space if needed.
 // Returns index for pushed data or error if maximum size queue limit is reached.
 func (q *BytesQueue) Push(data []byte) (int, error) {
 	dataLen := len(data)
 
 	if q.availableSpaceAfterTail() < dataLen+headerEntrySize {
 		if q.availableSpaceBeforeHead() >= dataLen+headerEntrySize {
-			q.tail = leftMarginIndex
-		} else if q.capacity+headerEntrySize+dataLen >= q.maxCapacity && q.maxCapacity > 0 {
+			q.Tail = leftMarginIndex
+		} else if q.QueueCapacity+headerEntrySize+dataLen >= q.MaxCapacity && q.MaxCapacity > 0 {
 			return -1, &queueError{"Full queue. Maximum size limit reached."}
 		} else {
 			q.allocateAdditionalMemory(dataLen + headerEntrySize)
 		}
 	}
 
-	index := q.tail
+	index := q.Tail
 
 	q.push(data, dataLen)
 
@@ -85,74 +85,74 @@ func (q *BytesQueue) Push(data []byte) (int, error) {
 
 func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 	start := time.Now()
-	if q.capacity < minimum {
-		q.capacity += minimum
+	if q.QueueCapacity < minimum {
+		q.QueueCapacity += minimum
 	}
-	q.capacity = q.capacity * 2
-	if q.capacity > q.maxCapacity && q.maxCapacity > 0 {
-		q.capacity = q.maxCapacity
+	q.QueueCapacity = q.QueueCapacity * 2
+	if q.QueueCapacity > q.MaxCapacity && q.MaxCapacity > 0 {
+		q.QueueCapacity = q.MaxCapacity
 	}
 
-	oldArray := q.array
-	q.array = make([]byte, q.capacity)
+	oldArray := q.Array
+	q.Array = make([]byte, q.QueueCapacity)
 
-	if leftMarginIndex != q.rightMargin {
-		copy(q.array, oldArray[:q.rightMargin])
+	if leftMarginIndex != q.RightMargin {
+		copy(q.Array, oldArray[:q.RightMargin])
 
-		if q.tail < q.head {
-			emptyBlobLen := q.head - q.tail - headerEntrySize
+		if q.Tail < q.Head {
+			emptyBlobLen := q.Head - q.Tail - headerEntrySize
 			q.push(make([]byte, emptyBlobLen), emptyBlobLen)
-			q.head = leftMarginIndex
-			q.tail = q.rightMargin
+			q.Head = leftMarginIndex
+			q.Tail = q.RightMargin
 		}
 	}
 
-	if q.verbose {
-		log.Printf("Allocated new queue in %s; Capacity: %d \n", time.Since(start), q.capacity)
+	if q.Verbose {
+		log.Printf("Allocated new queue in %s; QueueCapacity: %d \n", time.Since(start), q.QueueCapacity)
 	}
 }
 
 func (q *BytesQueue) push(data []byte, len int) {
-	binary.LittleEndian.PutUint32(q.headerBuffer, uint32(len))
-	q.copy(q.headerBuffer, headerEntrySize)
+	binary.LittleEndian.PutUint32(q.HeaderBuffer, uint32(len))
+	q.copy(q.HeaderBuffer, headerEntrySize)
 
 	q.copy(data, len)
 
-	if q.tail > q.head {
-		q.rightMargin = q.tail
+	if q.Tail > q.Head {
+		q.RightMargin = q.Tail
 	}
 
-	q.count++
+	q.Count++
 }
 
 func (q *BytesQueue) copy(data []byte, len int) {
-	q.tail += copy(q.array[q.tail:], data[:len])
+	q.Tail += copy(q.Array[q.Tail:], data[:len])
 }
 
-// Pop reads the oldest entry from queue and moves head pointer to the next one
+// Pop reads the oldest entry from queue and moves Head pointer to the next one
 func (q *BytesQueue) Pop() ([]byte, error) {
-	data, size, err := q.peek(q.head)
+	data, size, err := q.peek(q.Head)
 	if err != nil {
 		return nil, err
 	}
 
-	q.head += headerEntrySize + size
-	q.count--
+	q.Head += headerEntrySize + size
+	q.Count--
 
-	if q.head == q.rightMargin {
-		q.head = leftMarginIndex
-		if q.tail == q.rightMargin {
-			q.tail = leftMarginIndex
+	if q.Head == q.RightMargin {
+		q.Head = leftMarginIndex
+		if q.Tail == q.RightMargin {
+			q.Tail = leftMarginIndex
 		}
-		q.rightMargin = q.tail
+		q.RightMargin = q.Tail
 	}
 
 	return data, nil
 }
 
-// Peek reads the oldest entry from list without moving head pointer
+// Peek reads the oldest entry from list without moving Head pointer
 func (q *BytesQueue) Peek() ([]byte, error) {
-	data, _, err := q.peek(q.head)
+	data, _, err := q.peek(q.Head)
 	return data, err
 }
 
@@ -164,12 +164,12 @@ func (q *BytesQueue) Get(index int) ([]byte, error) {
 
 // Capacity returns number of allocated bytes for queue
 func (q *BytesQueue) Capacity() int {
-	return q.capacity
+	return q.QueueCapacity
 }
 
 // Len returns number of entries kept in queue
 func (q *BytesQueue) Len() int {
-	return q.count
+	return q.Count
 }
 
 // Error returns error message
@@ -179,7 +179,7 @@ func (e *queueError) Error() string {
 
 func (q *BytesQueue) peek(index int) ([]byte, int, error) {
 
-	if q.count == 0 {
+	if q.Count == 0 {
 		return nil, 0, &queueError{"Empty queue"}
 	}
 
@@ -187,24 +187,24 @@ func (q *BytesQueue) peek(index int) ([]byte, int, error) {
 		return nil, 0, &queueError{"Index must be grater than zero. Invalid index."}
 	}
 
-	if index+headerEntrySize >= len(q.array) {
+	if index+headerEntrySize >= len(q.Array) {
 		return nil, 0, &queueError{"Index out of range"}
 	}
 
-	blockSize := int(binary.LittleEndian.Uint32(q.array[index : index+headerEntrySize]))
-	return q.array[index+headerEntrySize : index+headerEntrySize+blockSize], blockSize, nil
+	blockSize := int(binary.LittleEndian.Uint32(q.Array[index : index+headerEntrySize]))
+	return q.Array[index+headerEntrySize : index+headerEntrySize+blockSize], blockSize, nil
 }
 
 func (q *BytesQueue) availableSpaceAfterTail() int {
-	if q.tail >= q.head {
-		return q.capacity - q.tail
+	if q.Tail >= q.Head {
+		return q.QueueCapacity - q.Tail
 	}
-	return q.head - q.tail - minimumEmptyBlobSize
+	return q.Head - q.Tail - minimumEmptyBlobSize
 }
 
 func (q *BytesQueue) availableSpaceBeforeHead() int {
-	if q.tail >= q.head {
-		return q.head - leftMarginIndex - minimumEmptyBlobSize
+	if q.Tail >= q.Head {
+		return q.Head - leftMarginIndex - minimumEmptyBlobSize
 	}
-	return q.head - q.tail - minimumEmptyBlobSize
+	return q.Head - q.Tail - minimumEmptyBlobSize
 }

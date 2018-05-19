@@ -1,0 +1,32 @@
+syntax = "proto3";
+package bigcache;
+
+import "queue/queue.proto";
+option go_package = "github.com/allegro/bigcache/pb";
+
+// our stats encoder.
+message Stats {
+    int64 hits = 1;
+    int64 misses = 2;
+    int64 delHits = 3;
+    int64 delMisses = 4;
+    int64 collisions = 5;
+}
+
+// our shard encoder. we can't easily encode all aspect of the shard, such as a logger, so we use the important
+// aspects, such as the raw data.
+message CacheShard {
+    map<uint64, uint32> hashmap = 1;
+    queue.BytesQueue entries = 2;
+    bytes entrybuffer = 3;
+    bool isVerbose = 4;
+    uint64 lifeWindow = 5;
+    Stats stats = 6;
+}
+
+// this is for transfering individual shards. we need to know the index of the original shard's location so we can
+// insert it into the new cache as a preexisting shard. so we are enveloping the shard in a transfer message.
+message ShardTransfer {
+    uint64 shardIndex = 1;
+    CacheShard shard = 2;
+}
