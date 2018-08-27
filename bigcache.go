@@ -20,6 +20,7 @@ type BigCache struct {
 	config       Config
 	shardMask    uint64
 	maxShardSize uint32
+	close        chan struct{}
 }
 
 // RemoveReason is a value used to signal to the user why a particular key was removed in the OnRemove callback.
@@ -58,6 +59,7 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 		config:       config,
 		shardMask:    uint64(config.Shards - 1),
 		maxShardSize: uint32(config.maximumShardSize()),
+		close:        make(chan struct{}),
 	}
 
 	var onRemove func(wrappedEntry []byte, reason RemoveReason)
@@ -75,13 +77,28 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 
 	if config.CleanWindow > 0 {
 		go func() {
-			for t := range time.Tick(config.CleanWindow) {
-				cache.cleanUp(uint64(t.Unix()))
+			ticker := time.NewTicker(config.CleanWindow)
+			defer ticker.Stop()
+			for {
+				select {
+				case t := <-ticker.C:
+					cache.cleanUp(uint64(t.Unix()))
+				case <-cache.close:
+					return
+				}
 			}
 		}()
 	}
 
 	return cache, nil
+}
+
+// Close is used to signal a shutdown of the cache when you are done with it.
+// This allows the cleaning goroutines to exit and ensures references are not
+// kept to the cache preventing GC of the entire cache.
+func (c *BigCache) Close() error {
+	close(c.close)
+	return nil
 }
 
 // Get reads entry for the key.
