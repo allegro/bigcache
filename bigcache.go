@@ -124,6 +124,15 @@ func (c *BigCache) Len() int {
 	return len
 }
 
+// Capacity returns amount of bytes store in the cache.
+func (c *BigCache) Capacity() int {
+	var len int
+	for _, shard := range c.shards {
+		len += shard.capacity()
+	}
+	return len
+}
+
 // Stats returns cache's statistics
 func (c *BigCache) Stats() Stats {
 	var s Stats
