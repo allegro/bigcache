@@ -10,7 +10,7 @@ const (
 )
 
 // BigCache is fast, concurrent, evicting cache created to keep big number of entries without impact on performance.
-// It keeps entries on heap but omits GC for them. To achieve that operations on bytes arrays take place,
+// It keeps entries on heap but omits GC for them. To achieve that, operations take place on byte arrays,
 // therefore entries (de)serialization in front of the cache will be needed in most use cases.
 type BigCache struct {
 	shards       []*cacheShard
