@@ -183,6 +183,13 @@ func (s *cacheShard) len() int {
 	return res
 }
 
+func (s *cacheShard) capacity() int {
+	s.lock.RLock()
+	res := s.entries.Capacity()
+	s.lock.RUnlock()
+	return res
+}
+
 func (s *cacheShard) getStats() Stats {
 	var stats = Stats{
 		Hits:       atomic.LoadInt64(&s.stats.Hits),

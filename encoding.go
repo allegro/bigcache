@@ -2,8 +2,6 @@ package bigcache
 
 import (
 	"encoding/binary"
-	"reflect"
-	"unsafe"
 )
 
 const (
@@ -53,12 +51,6 @@ func readKeyFromEntry(data []byte) string {
 	copy(dst, data[headersSizeInBytes:headersSizeInBytes+length])
 
 	return bytesToString(dst)
-}
-
-func bytesToString(b []byte) string {
-	bytesHeader := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	strHeader := reflect.StringHeader{Data: bytesHeader.Data, Len: bytesHeader.Len}
-	return *(*string)(unsafe.Pointer(&strHeader))
 }
 
 func readHashFromEntry(data []byte) uint64 {

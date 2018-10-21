@@ -631,6 +631,9 @@ func TestClosing(t *testing.T) {
 		cache.Close()
 	}
 
+	// wait till all goroutines are stopped.
+	time.Sleep(200 * time.Millisecond)
+
 	// then
 	endGR := runtime.NumGoroutine()
 	assert.True(t, endGR >= startGR)
