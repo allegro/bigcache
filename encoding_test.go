@@ -44,3 +44,21 @@ func TestAllocateBiggerBuffer(t *testing.T) {
 	assert.Equal(t, data, readEntry(wrapped))
 	assert.Equal(t, 2+headersSizeInBytes, len(buffer))
 }
+
+func TestExactEncodeDecode(t *testing.T) {
+	// given
+	now := uint64(time.Now().Unix())
+	hash := uint64(42)
+	key := "key"
+	data := []byte("data")
+	buffer := make([]byte, wrapEntrySize(key, data))
+
+	// when
+	wrapEntryExact(now, hash, key, data, buffer)
+
+	// then
+	assert.Equal(t, key, readKeyFromEntry(buffer))
+	assert.Equal(t, hash, readHashFromEntry(buffer))
+	assert.Equal(t, now, readTimestampFromEntry(buffer))
+	assert.Equal(t, data, readEntry(buffer))
+}

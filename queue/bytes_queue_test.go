@@ -26,6 +26,28 @@ func TestPushAndPop(t *testing.T) {
 	assert.Equal(t, entry, pop(queue))
 }
 
+func TestPushAndPopDirty(t *testing.T) {
+	t.Parallel()
+
+	// given
+	queue := NewBytesQueue(10, 0, true)
+	entry := []byte("hello")
+
+	// when
+	_, err := queue.Pop()
+
+	// then
+	assert.EqualError(t, err, "Empty queue")
+
+	// when
+	_, buf, _ := queue.PushDirty(len(entry))
+	assert.Equal(t, len(entry), len(buf))
+	copy(buf, entry)
+
+	// then
+	assert.Equal(t, entry, pop(queue))
+}
+
 func TestLen(t *testing.T) {
 	t.Parallel()
 

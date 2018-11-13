@@ -69,10 +69,10 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 		s.onEvict(oldestEntry, currentTimestamp, s.removeOldestEntry)
 	}
 
-	w := wrapEntry(currentTimestamp, hashedKey, key, entry, &s.entryBuffer)
-
+	blobLen := wrapEntrySize(key, entry)
 	for {
-		if index, err := s.entries.Push(w); err == nil {
+		if index, buff, err := s.entries.PushDirty(blobLen); err == nil {
+			wrapEntryExact(currentTimestamp, hashedKey, key, entry, buff)
 			s.hashmap[hashedKey] = uint32(index)
 			s.lock.Unlock()
 			return nil

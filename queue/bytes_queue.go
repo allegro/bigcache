@@ -83,6 +83,26 @@ func (q *BytesQueue) Push(data []byte) (int, error) {
 	return index, nil
 }
 
+// PushDirty works like Push but w/o copying data, caller should write
+// data immediately.
+func (q *BytesQueue) PushDirty(dataLen int) (int, []byte, error) {
+	if q.availableSpaceAfterTail() < dataLen+headerEntrySize {
+		if q.availableSpaceBeforeHead() >= dataLen+headerEntrySize {
+			q.tail = leftMarginIndex
+		} else if q.capacity+headerEntrySize+dataLen >= q.maxCapacity && q.maxCapacity > 0 {
+			return -1, nil, &queueError{"Full queue. Maximum size limit reached."}
+		} else {
+			q.allocateAdditionalMemory(dataLen + headerEntrySize)
+		}
+	}
+
+	index := q.tail
+
+	data := q.pushNoCopy(dataLen)
+
+	return index, data, nil
+}
+
 func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 	start := time.Now()
 	if q.capacity < minimum {
@@ -123,6 +143,20 @@ func (q *BytesQueue) push(data []byte, len int) {
 	}
 
 	q.count++
+}
+
+func (q *BytesQueue) pushNoCopy(len int) []byte {
+	binary.LittleEndian.PutUint32(q.headerBuffer, uint32(len))
+	q.copy(q.headerBuffer, headerEntrySize)
+	oldTail := q.tail
+	q.tail += len
+	if q.tail > q.head {
+		q.rightMargin = q.tail
+	}
+
+	q.count++
+
+	return q.array[oldTail : oldTail+len]
 }
 
 func (q *BytesQueue) copy(data []byte, len int) {
