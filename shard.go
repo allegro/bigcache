@@ -140,13 +140,16 @@ func (s *cacheShard) getOldestEntry() ([]byte, error) {
 }
 
 func (s *cacheShard) getEntry(index int) ([]byte, error) {
-	return s.entries.Get(index)
+	s.lock.RLock()
+	entry, err := s.entries.Get(index)
+	s.lock.RUnlock()
+
+	return entry, err
 }
 
 func (s *cacheShard) copyKeys() (keys []uint32, next int) {
-	keys = make([]uint32, len(s.hashmap))
-
 	s.lock.RLock()
+	keys = make([]uint32, len(s.hashmap))
 
 	for _, index := range s.hashmap {
 		keys[next] = index
