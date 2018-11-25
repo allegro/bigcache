@@ -144,9 +144,8 @@ func (s *cacheShard) getEntry(index int) ([]byte, error) {
 }
 
 func (s *cacheShard) copyKeys() (keys []uint32, next int) {
-	keys = make([]uint32, len(s.hashmap))
-
 	s.lock.RLock()
+	keys = make([]uint32, len(s.hashmap))
 
 	for _, index := range s.hashmap {
 		keys[next] = index
