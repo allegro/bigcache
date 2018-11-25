@@ -2,6 +2,9 @@ package bigcache
 
 import (
 	"fmt"
+	"runtime"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -147,4 +150,33 @@ func TestEntriesIteratorInInvalidState(t *testing.T) {
 	_, err := iterator.Value()
 	assert.Equal(t, ErrInvalidIteratorState, err)
 	assert.Equal(t, "Iterator is in invalid state. Use SetNext() to move to next position", err.Error())
+}
+
+func TestEntriesIteratorParallelAdd(t *testing.T) {
+	bc, err := NewBigCache(DefaultConfig(1 * time.Minute))
+	if err != nil {
+		panic(err)
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		for i := 0; i < 10000; i++ {
+			err := bc.Set(strconv.Itoa(i), []byte("aaaaaaa"))
+			if err != nil {
+				panic(err)
+			}
+
+			runtime.Gosched()
+		}
+		wg.Done()
+	}()
+
+	for i := 0; i < 100; i++ {
+		iter := bc.Iterator()
+		for iter.SetNext() {
+			_, _ = iter.Value()
+		}
+	}
+	wg.Wait()
 }
