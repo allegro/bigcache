@@ -106,7 +106,7 @@ func TestEntryNotFound(t *testing.T) {
 	_, err := cache.Get("nonExistingKey")
 
 	// then
-	assert.EqualError(t, err, "Entry not found")
+	assert.EqualError(t, err, ErrEntryNotFound.Error())
 }
 
 func TestTimingEviction(t *testing.T) {
@@ -128,7 +128,7 @@ func TestTimingEviction(t *testing.T) {
 	_, err := cache.Get("key")
 
 	// then
-	assert.EqualError(t, err, "Entry not found")
+	assert.EqualError(t, err, ErrEntryNotFound.Error())
 }
 
 func TestTimingEvictionShouldEvictOnlyFromUpdatedShard(t *testing.T) {
@@ -150,7 +150,7 @@ func TestTimingEvictionShouldEvictOnlyFromUpdatedShard(t *testing.T) {
 	value, err := cache.Get("key")
 
 	// then
-	assert.NoError(t, err, "Entry not found")
+	assert.NoError(t, err, ErrEntryNotFound.Error())
 	assert.Equal(t, []byte("value"), value)
 }
 
@@ -172,7 +172,7 @@ func TestCleanShouldEvictAll(t *testing.T) {
 	value, err := cache.Get("key")
 
 	// then
-	assert.EqualError(t, err, "Entry not found")
+	assert.EqualError(t, err, ErrEntryNotFound.Error())
 	assert.Equal(t, value, []byte(nil))
 }
 
@@ -346,7 +346,7 @@ func TestCacheDel(t *testing.T) {
 	err := cache.Delete("nonExistingKey")
 
 	// then
-	assert.Equal(t, err.Error(), "Entry not found")
+	assert.Equal(t, err.Error(), ErrEntryNotFound.Error())
 
 	// and when
 	cache.Set("existingKey", nil)
@@ -439,7 +439,7 @@ func TestGetOnResetCache(t *testing.T) {
 	// then
 	value, err := cache.Get("key1")
 
-	assert.Equal(t, err.Error(), "Entry not found")
+	assert.Equal(t, err.Error(), ErrEntryNotFound.Error())
 	assert.Equal(t, value, []byte(nil))
 }
 
@@ -489,8 +489,8 @@ func TestOldestEntryDeletionWhenMaxCacheSizeIsReached(t *testing.T) {
 	entry3, _ := cache.Get("key3")
 
 	// then
-	assert.EqualError(t, key1Err, "Entry not found")
-	assert.EqualError(t, key2Err, "Entry not found")
+	assert.EqualError(t, key1Err, ErrEntryNotFound.Error())
+	assert.EqualError(t, key2Err, ErrEntryNotFound.Error())
 	assert.Equal(t, blob('c', 1024*800), entry3)
 }
 
