@@ -183,3 +183,41 @@ func TestGetStats(t *testing.T) {
 		t.Errorf("want: > 0; got: 0.\n\thandler not properly returning stats info.")
 	}
 }
+
+func TestGetStatsIndex(t *testing.T) {
+	t.Parallel()
+	var testStats bigcache.Stats
+
+	getreq := httptest.NewRequest("GET", testBaseString+"/api/v1/stats", nil)
+	putreq := httptest.NewRequest("PUT", testBaseString+"/api/v1/stats", nil)
+	rr := httptest.NewRecorder()
+
+	// manually enter a key so there are some stats. get it so there's at least 1 hit.
+	if err := cache.Set("incrementStats", []byte("123")); err != nil {
+		t.Errorf("error setting cache value. error %s", err)
+	}
+	// it's okay if this fails, since we'll catch it downstream.
+	if _, err := cache.Get("incrementStats"); err != nil {
+		t.Errorf("can't find incrementStats. error: %s", err)
+	}
+
+	testHandlers := statsIndexHandler()
+	testHandlers.ServeHTTP(rr, getreq)
+	resp := rr.Result()
+
+	if err := json.NewDecoder(resp.Body).Decode(&testStats); err != nil {
+		t.Errorf("error decoding cache stats. error: %s", err)
+	}
+
+	if testStats.Hits == 0 {
+		t.Errorf("want: > 0; got: 0.\n\thandler not properly returning stats info.")
+	}
+
+	testHandlers = statsIndexHandler()
+	testHandlers.ServeHTTP(rr, putreq)
+	resp = rr.Result()
+	_, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Errorf("cannot deserialise test response: %s", err)
+	}
+}
