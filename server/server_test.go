@@ -221,3 +221,29 @@ func TestGetStatsIndex(t *testing.T) {
 		t.Errorf("cannot deserialise test response: %s", err)
 	}
 }
+
+func TestCacheIndexHandler(t *testing.T) {
+	getreq := httptest.NewRequest("PUT", testBaseString+"/api/v1/cache/getKey", nil)
+	putreq := httptest.NewRequest("PUT", testBaseString+"/api/v1/cache/putKey", bytes.NewBuffer([]byte("123")))
+	delreq := httptest.NewRequest("DELETE", testBaseString+"/api/v1/cache/testDeleteKey", bytes.NewBuffer([]byte("123")))
+
+	rr := httptest.NewRecorder()
+	testHandlers := cacheIndexHandler()
+
+	testHandlers.ServeHTTP(rr, putreq)
+	resp := rr.Result()
+	if resp.StatusCode != 200 {
+		t.Errorf("want: 200; got: %d.\n\tcan't delete keys.", resp.StatusCode)
+	}
+	testHandlers.ServeHTTP(rr, getreq)
+	resp = rr.Result()
+	if resp.StatusCode != 200 {
+		t.Errorf("want: 200; got: %d.\n\tcan't delete keys.", resp.StatusCode)
+	}
+
+	testHandlers.ServeHTTP(rr, delreq)
+	resp = rr.Result()
+	if resp.StatusCode != 200 {
+		t.Errorf("want: 200; got: %d.\n\tcan't delete keys.", resp.StatusCode)
+	}
+}
