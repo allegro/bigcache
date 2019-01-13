@@ -223,26 +223,27 @@ func TestGetStatsIndex(t *testing.T) {
 }
 
 func TestCacheIndexHandler(t *testing.T) {
-	getreq := httptest.NewRequest("PUT", testBaseString+"/api/v1/cache/getKey", nil)
-	putreq := httptest.NewRequest("PUT", testBaseString+"/api/v1/cache/putKey", bytes.NewBuffer([]byte("123")))
-	delreq := httptest.NewRequest("DELETE", testBaseString+"/api/v1/cache/testDeleteKey", bytes.NewBuffer([]byte("123")))
+	getreq := httptest.NewRequest("GET", testBaseString+"/api/v1/cache/testkey", nil)
+	putreq := httptest.NewRequest("PUT", testBaseString+"/api/v1/cache/testkey", bytes.NewBuffer([]byte("123")))
+	delreq := httptest.NewRequest("DELETE", testBaseString+"/api/v1/cache/testkey", bytes.NewBuffer([]byte("123")))
 
-	rr := httptest.NewRecorder()
+	getrr := httptest.NewRecorder()
+	putrr := httptest.NewRecorder()
+	delrr := httptest.NewRecorder()
 	testHandlers := cacheIndexHandler()
 
-	testHandlers.ServeHTTP(rr, putreq)
-	resp := rr.Result()
-	if resp.StatusCode != 200 {
-		t.Errorf("want: 200; got: %d.\n\tcan't delete keys.", resp.StatusCode)
+	testHandlers.ServeHTTP(putrr, putreq)
+	resp := putrr.Result()
+	if resp.StatusCode != 201 {
+		t.Errorf("want: 201; got: %d.\n\tcan't put keys.", resp.StatusCode)
 	}
-	testHandlers.ServeHTTP(rr, getreq)
-	resp = rr.Result()
+	testHandlers.ServeHTTP(getrr, getreq)
+	resp = getrr.Result()
 	if resp.StatusCode != 200 {
-		t.Errorf("want: 200; got: %d.\n\tcan't delete keys.", resp.StatusCode)
+		t.Errorf("want: 200; got: %d.\n\tcan't get keys.", resp.StatusCode)
 	}
-
-	testHandlers.ServeHTTP(rr, delreq)
-	resp = rr.Result()
+	testHandlers.ServeHTTP(delrr, delreq)
+	resp = delrr.Result()
 	if resp.StatusCode != 200 {
 		t.Errorf("want: 200; got: %d.\n\tcan't delete keys.", resp.StatusCode)
 	}
