@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http/httptest"
 	"testing"
@@ -247,4 +248,44 @@ func TestCacheIndexHandler(t *testing.T) {
 	if resp.StatusCode != 200 {
 		t.Errorf("want: 200; got: %d.\n\tcan't delete keys.", resp.StatusCode)
 	}
+}
+
+func TestInvalidPutWhenExceedShardCap(t *testing.T) {
+	t.Parallel()
+	req := httptest.NewRequest("PUT", testBaseString+"/api/v1/cache/putKey", bytes.NewBuffer(blob('a', 8*1024*1024)))
+	rr := httptest.NewRecorder()
+
+	putCacheHandler(rr, req)
+	resp := rr.Result()
+
+	if resp.StatusCode != 500 {
+		t.Errorf("want: 500; got: %d", resp.StatusCode)
+	}
+}
+
+func TestInvalidPutWhenReading(t *testing.T) {
+	t.Parallel()
+	req := httptest.NewRequest("PUT", testBaseString+"/api/v1/cache/putKey", errReader(0))
+	rr := httptest.NewRecorder()
+
+	putCacheHandler(rr, req)
+	resp := rr.Result()
+
+	if resp.StatusCode != 500 {
+		t.Errorf("want: 500; got: %d", resp.StatusCode)
+	}
+}
+
+func blob(char byte, len int) []byte {
+	b := make([]byte, len)
+	for index := range b {
+		b[index] = char
+	}
+	return b
+}
+
+type errReader int
+
+func (errReader) Read(p []byte) (n int, err error) {
+	return 0, errors.New("test read error")
 }
