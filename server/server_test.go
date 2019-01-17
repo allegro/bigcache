@@ -252,7 +252,7 @@ func TestCacheIndexHandler(t *testing.T) {
 
 func TestInvalidPutWhenExceedShardCap(t *testing.T) {
 	t.Parallel()
-	req := httptest.NewRequest("PUT", testBaseString+"/api/v1/cache/putKey", bytes.NewBuffer(blob('a', 8*1024*1024)))
+	req := httptest.NewRequest("PUT", testBaseString+"/api/v1/cache/putKey", bytes.NewBuffer(bytes.Repeat([]byte("a"), 8*1024*1024)))
 	rr := httptest.NewRecorder()
 
 	putCacheHandler(rr, req)
@@ -276,16 +276,8 @@ func TestInvalidPutWhenReading(t *testing.T) {
 	}
 }
 
-func blob(char byte, len int) []byte {
-	b := make([]byte, len)
-	for index := range b {
-		b[index] = char
-	}
-	return b
-}
-
 type errReader int
 
-func (errReader) Read(p []byte) (n int, err error) {
+func (errReader) Read([]byte) (int, error) {
 	return 0, errors.New("test read error")
 }
