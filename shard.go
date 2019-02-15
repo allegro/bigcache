@@ -49,9 +49,10 @@ func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
 		s.collision()
 		return nil, ErrEntryNotFound
 	}
+	entry := readEntry(wrappedEntry)
 	s.lock.RUnlock()
 	s.hit()
-	return readEntry(wrappedEntry), nil
+	return entry, nil
 }
 
 func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
@@ -136,6 +137,8 @@ func (s *cacheShard) cleanUp(currentTimestamp uint64) {
 }
 
 func (s *cacheShard) getOldestEntry() ([]byte, error) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 	return s.entries.Peek()
 }
 
