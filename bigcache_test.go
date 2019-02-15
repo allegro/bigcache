@@ -377,7 +377,7 @@ func TestCacheDelRandomly(t *testing.T) {
 	//c.Hasher = hashStub(5)
 	cache, _ := NewBigCache(c)
 	var wg sync.WaitGroup
-	var ntest = 200000
+	var ntest = 800000
 	wg.Add(1)
 	go func() {
 		for i := 0; i < ntest; i++ {
