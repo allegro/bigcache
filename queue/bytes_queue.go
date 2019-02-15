@@ -162,6 +162,11 @@ func (q *BytesQueue) Get(index int) ([]byte, error) {
 	return data, err
 }
 
+// CheckGet checks if an entry can be read from index
+func (q *BytesQueue) CheckGet(index int) error {
+	return q.peekCheckErr(index)
+}
+
 // Capacity returns number of allocated bytes for queue
 func (q *BytesQueue) Capacity() int {
 	return q.capacity
@@ -175,6 +180,23 @@ func (q *BytesQueue) Len() int {
 // Error returns error message
 func (e *queueError) Error() string {
 	return e.message
+}
+
+// peekCheckErr is identical to peek, but does not actually return any data
+func (q *BytesQueue) peekCheckErr(index int) error {
+
+	if q.count == 0 {
+		return &queueError{"Empty queue"}
+	}
+
+	if index <= 0 {
+		return &queueError{"Index must be grater than zero. Invalid index."}
+	}
+
+	if index+headerEntrySize >= len(q.array) {
+		return &queueError{"Index out of range"}
+	}
+	return nil
 }
 
 func (q *BytesQueue) peek(index int) ([]byte, int, error) {
