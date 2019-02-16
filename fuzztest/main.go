@@ -84,9 +84,9 @@ func fuzzDeletePutGet(ctx context.Context) {
 					panic(errStr)
 				} else {
 					if err == nil {
-						misses++
-					} else {
 						hits++
+					} else {
+						misses++
 					}
 				}
 				if total := hits + misses; total%1000000 == 0 {
