@@ -16,6 +16,12 @@ const (
 	minimumEmptyBlobSize = 32 + headerEntrySize
 )
 
+var (
+	errEmptyQueue       = &queueError{"Empty queue"}
+	errInvalidIndex     = &queueError{"Index must be greater than zero. Invalid index."}
+	errIndexOutOfBounds = &queueError{"Index out of range"}
+)
+
 // BytesQueue is a non-thread safe queue type of fifo based on bytes array.
 // For every push operation index of entry is returned. It can be used to read the entry later
 type BytesQueue struct {
@@ -186,15 +192,15 @@ func (e *queueError) Error() string {
 func (q *BytesQueue) peekCheckErr(index int) error {
 
 	if q.count == 0 {
-		return &queueError{"Empty queue"}
+		return errEmptyQueue
 	}
 
 	if index <= 0 {
-		return &queueError{"Index must be grater than zero. Invalid index."}
+		return errInvalidIndex
 	}
 
 	if index+headerEntrySize >= len(q.array) {
-		return &queueError{"Index out of range"}
+		return errIndexOutOfBounds
 	}
 	return nil
 }
@@ -202,15 +208,15 @@ func (q *BytesQueue) peekCheckErr(index int) error {
 func (q *BytesQueue) peek(index int) ([]byte, int, error) {
 
 	if q.count == 0 {
-		return nil, 0, &queueError{"Empty queue"}
+		return nil, 0, errEmptyQueue
 	}
 
 	if index <= 0 {
-		return nil, 0, &queueError{"Index must be grater than zero. Invalid index."}
+		return nil, 0, errInvalidIndex
 	}
 
 	if index+headerEntrySize >= len(q.array) {
-		return nil, 0, &queueError{"Index out of range"}
+		return nil, 0, errIndexOutOfBounds
 	}
 
 	blockSize := int(binary.LittleEndian.Uint32(q.array[index : index+headerEntrySize]))

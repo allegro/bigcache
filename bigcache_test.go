@@ -362,7 +362,7 @@ func TestCacheDel(t *testing.T) {
 
 // TestCacheDelRandomly does simultaneous deletes, puts and gets, to check for corruption errors.
 func TestCacheDelRandomly(t *testing.T) {
-
+	t.Parallel()
 	c := Config{
 		Shards:             1,
 		LifeWindow:         time.Second,

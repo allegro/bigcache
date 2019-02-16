@@ -50,16 +50,19 @@ func TestPeek(t *testing.T) {
 
 	// when
 	read, err := queue.Peek()
-
+	err2 := queue.peekCheckErr(queue.head)
 	// then
+	assert.Equal(t, err, err2)
 	assert.EqualError(t, err, "Empty queue")
 	assert.Nil(t, read)
 
 	// when
 	queue.Push(entry)
 	read, err = queue.Peek()
+	err2 = queue.peekCheckErr(queue.head)
 
 	// then
+	assert.Equal(t, err, err2)
 	assert.NoError(t, err)
 	assert.Equal(t, pop(queue), read)
 	assert.Equal(t, entry, read)
@@ -286,10 +289,12 @@ func TestGetEntryFromInvalidIndex(t *testing.T) {
 
 	// when
 	result, err := queue.Get(0)
+	err2 := queue.CheckGet(0)
 
 	// then
+	assert.Equal(t, err, err2)
 	assert.Nil(t, result)
-	assert.EqualError(t, err, "Index must be grater than zero. Invalid index.")
+	assert.EqualError(t, err, "Index must be greater than zero. Invalid index.")
 }
 
 func TestGetEntryFromIndexOutOfRange(t *testing.T) {
@@ -301,8 +306,10 @@ func TestGetEntryFromIndexOutOfRange(t *testing.T) {
 
 	// when
 	result, err := queue.Get(42)
+	err2 := queue.CheckGet(42)
 
 	// then
+	assert.Equal(t, err, err2)
 	assert.Nil(t, result)
 	assert.EqualError(t, err, "Index out of range")
 }
@@ -315,8 +322,10 @@ func TestGetEntryFromEmptyQueue(t *testing.T) {
 
 	// when
 	result, err := queue.Get(1)
+	err2 := queue.CheckGet(1)
 
 	// then
+	assert.Equal(t, err, err2)
 	assert.Nil(t, result)
 	assert.EqualError(t, err, "Empty queue")
 }
