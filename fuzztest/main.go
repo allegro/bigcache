@@ -26,27 +26,28 @@ func fuzzDeletePutGet(ctx context.Context) {
 	// Deleter
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for {
 			select {
 			case <-ctx.Done():
-				break
+				return
 			default:
 				r := uint8(rand.Int())
 				key := fmt.Sprintf("thekey%d", r)
 				cache.Delete(key)
 			}
 		}
-		wg.Done()
 	}()
 
 	// Setter
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		val := make([]byte, 1024)
 		for {
 			select {
 			case <-ctx.Done():
-				break
+				return
 			default:
 				r := byte(rand.Int())
 				key := fmt.Sprintf("thekey%d", r)
@@ -57,12 +58,12 @@ func fuzzDeletePutGet(ctx context.Context) {
 				cache.Set(key, val)
 			}
 		}
-		wg.Done()
 	}()
 
 	// Getter
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		var (
 			val    = make([]byte, 1024)
 			hits   = uint64(0)
@@ -71,7 +72,7 @@ func fuzzDeletePutGet(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				break
+				return
 			default:
 				r := byte(rand.Int())
 				key := fmt.Sprintf("thekey%d", r)
@@ -95,7 +96,6 @@ func fuzzDeletePutGet(ctx context.Context) {
 				}
 			}
 		}
-		wg.Done()
 	}()
 	wg.Wait()
 
