@@ -1,7 +1,9 @@
 package bigcache
 
 import (
+	"bytes"
 	"fmt"
+	"math/rand"
 	"runtime"
 	"sync"
 	"testing"
@@ -356,6 +358,67 @@ func TestCacheDel(t *testing.T) {
 	// then
 	assert.Nil(t, err)
 	assert.Len(t, cachedValue, 0)
+}
+
+// TestCacheDelRandomly does simultaneous deletes, puts and gets, to check for corruption errors.
+func TestCacheDelRandomly(t *testing.T) {
+	t.Parallel()
+	c := Config{
+		Shards:             1,
+		LifeWindow:         time.Second,
+		CleanWindow:        0,
+		MaxEntriesInWindow: 10,
+		MaxEntrySize:       10,
+		Verbose:            true,
+		Hasher:             newDefaultHasher(),
+		HardMaxCacheSize:   1,
+		Logger:             DefaultLogger(),
+	}
+	//c.Hasher = hashStub(5)
+	cache, _ := NewBigCache(c)
+	var wg sync.WaitGroup
+	var ntest = 800000
+	wg.Add(1)
+	go func() {
+		for i := 0; i < ntest; i++ {
+			r := uint8(rand.Int())
+			key := fmt.Sprintf("thekey%d", r)
+
+			cache.Delete(key)
+		}
+		wg.Done()
+	}()
+	wg.Add(1)
+	go func() {
+		val := make([]byte, 1024)
+		for i := 0; i < ntest; i++ {
+			r := byte(rand.Int())
+			key := fmt.Sprintf("thekey%d", r)
+
+			for j := 0; j < len(val); j++ {
+				val[j] = r
+			}
+			cache.Set(key, val)
+		}
+		wg.Done()
+	}()
+	wg.Add(1)
+	go func() {
+		val := make([]byte, 1024)
+		for i := 0; i < ntest; i++ {
+			r := byte(rand.Int())
+			key := fmt.Sprintf("thekey%d", r)
+
+			for j := 0; j < len(val); j++ {
+				val[j] = r
+			}
+			if got, err := cache.Get(key); err == nil && !bytes.Equal(got, val) {
+				t.Errorf("got %s ->\n %x\n expected:\n %x\n ", key, got, val)
+			}
+		}
+		wg.Done()
+	}()
+	wg.Wait()
 }
 
 func TestCacheReset(t *testing.T) {
