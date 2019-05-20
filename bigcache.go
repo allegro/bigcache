@@ -2,6 +2,7 @@ package bigcache
 
 import (
 	"fmt"
+	"github.com/panjf2000/ants"
 	"time"
 )
 
@@ -13,14 +14,15 @@ const (
 // It keeps entries on heap but omits GC for them. To achieve that, operations take place on byte arrays,
 // therefore entries (de)serialization in front of the cache will be needed in most use cases.
 type BigCache struct {
-	shards       []*cacheShard
-	lifeWindow   uint64
-	clock        clock
-	hash         Hasher
-	config       Config
-	shardMask    uint64
-	maxShardSize uint32
-	close        chan struct{}
+	shards         []*cacheShard
+	lifeWindow     uint64
+	clock          clock
+	hash           Hasher
+	config         Config
+	shardMask      uint64
+	maxShardSize   uint32
+	close          chan struct{}
+	removeTaskPool *ants.Pool
 }
 
 // RemoveReason is a value used to signal to the user why a particular key was removed in the OnRemove callback.
@@ -76,9 +78,20 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 	}
 
 	if config.CleanWindow > 0 {
+		// Create the remove task pool
+		pool, err := ants.NewTimingPool(config.AsyncRemoveRoutineCount, config.AsyncRemoveTaskExpirySecond)
+		if err != nil {
+			return nil, err
+		}
+		cache.removeTaskPool = pool
+
+		// Create a cleanup detection timer
 		go func() {
 			ticker := time.NewTicker(config.CleanWindow)
-			defer ticker.Stop()
+			defer func() {
+				ticker.Stop()
+				_ = pool.Release()
+			}()
 			for {
 				select {
 				case t := <-ticker.C:
@@ -188,14 +201,23 @@ func (c *BigCache) getShard(hashedKey uint64) (shard *cacheShard) {
 	return c.shards[hashedKey&c.shardMask]
 }
 
+// Performing the onRemove function asynchronously avoids the problem that causes the shard deadlock
+// when the cache needs to be flushed in the onRemove function
+// So here, the remove task is left to the task pool to execute
 func (c *BigCache) providedOnRemove(wrappedEntry []byte, reason RemoveReason) {
-	c.config.OnRemove(readKeyFromEntry(wrappedEntry), readEntry(wrappedEntry))
+	_ = c.removeTaskPool.Submit(func() {
+		c.config.OnRemove(readKeyFromEntry(wrappedEntry), readEntry(wrappedEntry))
+	})
+
 }
 
+// See providedOnRemove
 func (c *BigCache) providedOnRemoveWithReason(wrappedEntry []byte, reason RemoveReason) {
-	if c.config.onRemoveFilter == 0 || (1<<uint(reason))&c.config.onRemoveFilter > 0 {
-		c.config.OnRemoveWithReason(readKeyFromEntry(wrappedEntry), readEntry(wrappedEntry), reason)
-	}
+	_ = c.removeTaskPool.Submit(func() {
+		if c.config.onRemoveFilter == 0 || (1<<uint(reason))&c.config.onRemoveFilter > 0 {
+			c.config.OnRemoveWithReason(readKeyFromEntry(wrappedEntry), readEntry(wrappedEntry), reason)
+		}
+	})
 }
 
 func (c *BigCache) notProvidedOnRemove(wrappedEntry []byte, reason RemoveReason) {

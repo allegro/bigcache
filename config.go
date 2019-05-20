@@ -34,6 +34,11 @@ type Config struct {
 	// Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
 	// Ignored if OnRemove is specified.
 	OnRemoveWithReason func(key string, entry []byte, reason RemoveReason)
+	// The number of go routines that simultaneously perform expired or deleted tasks,The default value is 1
+	AsyncRemoveRoutineCount int
+	// Task of remove the key  timeout second.If the custom OnRemove function has not been executed after the timeout,
+	// the task will be discarded, The default value is 1
+	AsyncRemoveTaskExpirySecond int
 
 	onRemoveFilter int
 
@@ -46,15 +51,17 @@ type Config struct {
 // When load for BigCache can be predicted in advance then it is better to use custom config.
 func DefaultConfig(eviction time.Duration) Config {
 	return Config{
-		Shards:             1024,
-		LifeWindow:         eviction,
-		CleanWindow:        0,
-		MaxEntriesInWindow: 1000 * 10 * 60,
-		MaxEntrySize:       500,
-		Verbose:            true,
-		Hasher:             newDefaultHasher(),
-		HardMaxCacheSize:   0,
-		Logger:             DefaultLogger(),
+		Shards:                      1024,
+		LifeWindow:                  eviction,
+		CleanWindow:                 0,
+		MaxEntriesInWindow:          1000 * 10 * 60,
+		MaxEntrySize:                500,
+		Verbose:                     true,
+		Hasher:                      newDefaultHasher(),
+		HardMaxCacheSize:            0,
+		Logger:                      DefaultLogger(),
+		AsyncRemoveRoutineCount:     1,
+		AsyncRemoveTaskExpirySecond: 1,
 	}
 }
 
