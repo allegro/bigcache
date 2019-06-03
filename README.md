@@ -1,4 +1,4 @@
-CHANGES MADE TO BigCache INCLUDES :
+# CHANGES MADE TO BigCache INCLUDES :
 1. changing FNV hash to xxhash and will eventually change to xxh3
 2. changing key from string to []byte
 
