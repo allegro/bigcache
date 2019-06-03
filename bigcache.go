@@ -111,7 +111,7 @@ func (c *BigCache) Get(key []byte) ([]byte, error) {
 }
 
 // Set saves entry under the key
-func (c *BigCache) Set(key []byte, entry []byte) error {
+func (c *BigCache) Set(key, entry []byte) error {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	return shard.set(key, hashedKey, entry)
