@@ -1,7 +1,7 @@
 package bigcache
 
 import(
-	"github.com/cespare/xxhash"
+	xxhash "github.com/cespare/xxhash"
 )
 // newDefaultHasher returns a new 64-bit FNV-1a Hasher which makes no memory allocations.
 // Its Sum64 method will lay the value out in big-endian byte order.
