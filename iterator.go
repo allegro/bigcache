@@ -25,7 +25,7 @@ type EntryInfo struct {
 }
 
 // Key returns entry's underlying key
-func (e EntryInfo) Key() string {
+func (e EntryInfo) Key() []byte {
 	return e.key
 }
 
