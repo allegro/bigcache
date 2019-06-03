@@ -104,21 +104,21 @@ func (c *BigCache) Close() error {
 // Get reads entry for the key.
 // It returns an ErrEntryNotFound when
 // no entry exists for the given key.
-func (c *BigCache) Get(key string) ([]byte, error) {
+func (c *BigCache) Get(key []byte) ([]byte, error) {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	return shard.get(key, hashedKey)
 }
 
 // Set saves entry under the key
-func (c *BigCache) Set(key string, entry []byte) error {
+func (c *BigCache) Set(key []byte, entry []byte) error {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	return shard.set(key, hashedKey, entry)
 }
 
 // Delete removes the key
-func (c *BigCache) Delete(key string) error {
+func (c *BigCache) Delete(key []byte) error {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	return shard.del(key, hashedKey)
