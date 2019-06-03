@@ -20,7 +20,7 @@ var emptyEntryInfo = EntryInfo{}
 type EntryInfo struct {
 	timestamp uint64
 	hash      uint64
-	key       string
+	key       []byte
 	value     []byte
 }
 
