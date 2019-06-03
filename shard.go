@@ -3,6 +3,7 @@ package bigcache
 import (
 	"fmt"
 	"sync"
+	"bytes"
 	"sync/atomic"
 
 	"github.com/allegro/bigcache/queue"
@@ -42,7 +43,7 @@ func (s *cacheShard) get(key []byte, hashedKey uint64) ([]byte, error) {
 		return nil, err
 	}
 //	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
-	if entryKey := readKeyFromEntry(wrappedEntry); bytes.Equal(key,entryKey) {
+	if entryKey := readKeyFromEntry(wrappedEntry); !bytes.Equal(key,entryKey) {
 
 	if s.isVerbose {
 			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
