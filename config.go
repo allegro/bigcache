@@ -28,12 +28,12 @@ type Config struct {
 	// OnRemove is a callback fired when the oldest entry is removed because of its expiration time or no space left
 	// for the new entry, or because delete was called.
 	// Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
-	OnRemove func(key string, entry []byte)
+	OnRemove func(key, entry []byte)
 	// OnRemoveWithReason is a callback fired when the oldest entry is removed because of its expiration time or no space left
 	// for the new entry, or because delete was called. A constant representing the reason will be passed through.
 	// Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
 	// Ignored if OnRemove is specified.
-	OnRemoveWithReason func(key string, entry []byte, reason RemoveReason)
+	OnRemoveWithReason func(key, entry []byte, reason RemoveReason)
 
 	onRemoveFilter int
 
