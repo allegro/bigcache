@@ -13,7 +13,8 @@ therefore entries (de)serialization in front of the cache will be needed in most
 
 ### Simple initialization
 
-```package main
+```
+package main
 
 import (
         "github.com/hiqinternational/bigcache"
