@@ -1,3 +1,8 @@
+CHANGES MADE TO BigCache INCLUDES :
+1. changing FNV hash to xxhash and will eventually change to xxh3
+2. changing key from string to []byte
+
+
 # BigCache [![Build Status](https://travis-ci.org/allegro/bigcache.svg?branch=master)](https://travis-ci.org/allegro/bigcache)&nbsp;[![Coverage Status](https://coveralls.io/repos/github/allegro/bigcache/badge.svg?branch=master)](https://coveralls.io/github/allegro/bigcache?branch=master)&nbsp;[![GoDoc](https://godoc.org/github.com/allegro/bigcache?status.svg)](https://godoc.org/github.com/allegro/bigcache)&nbsp;[![Go Report Card](https://goreportcard.com/badge/github.com/allegro/bigcache)](https://goreportcard.com/report/github.com/allegro/bigcache)
 
 Fast, concurrent, evicting in-memory cache written to keep big number of entries without impact on performance.
@@ -13,9 +18,9 @@ import "github.com/allegro/bigcache"
 
 cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
 
-cache.Set("my-unique-key", []byte("value"))
+cache.Set([]byte("my-unique-key"), []byte("value"))
 
-entry, _ := cache.Get("my-unique-key")
+entry, _ := cache.Get([]byte("my-unique-key"))
 fmt.Println(string(entry))
 ```
 
@@ -62,51 +67,11 @@ if initErr != nil {
 	log.Fatal(initErr)
 }
 
-cache.Set("my-unique-key", []byte("value"))
+cache.Set([]byte("my-unique-key"), []byte("value"))
 
-if entry, err := cache.Get("my-unique-key"); err == nil {
+if entry, err := cache.Get([]byte("my-unique-key")); err == nil {
 	fmt.Println(string(entry))
 }
-```
-
-## Benchmarks
-
-Three caches were compared: bigcache, [freecache](https://github.com/coocood/freecache) and map.
-Benchmark tests were made using an i7-6700K with 32GB of RAM on Windows 10.
-
-### Writes and reads
-
-```bash
-cd caches_bench; go test -bench=. -benchtime=10s ./... -timeout 30m
-
-BenchmarkMapSet-8                        3000000               569 ns/op             202 B/op          3 allocs/op
-BenchmarkConcurrentMapSet-8              1000000              1592 ns/op             347 B/op          8 allocs/op
-BenchmarkFreeCacheSet-8                  3000000               775 ns/op             355 B/op          2 allocs/op
-BenchmarkBigCacheSet-8                   3000000               640 ns/op             303 B/op          2 allocs/op
-BenchmarkMapGet-8                        5000000               407 ns/op              24 B/op          1 allocs/op
-BenchmarkConcurrentMapGet-8              3000000               558 ns/op              24 B/op          2 allocs/op
-BenchmarkFreeCacheGet-8                  2000000               682 ns/op             136 B/op          2 allocs/op
-BenchmarkBigCacheGet-8                   3000000               512 ns/op             152 B/op          4 allocs/op
-BenchmarkBigCacheSetParallel-8          10000000               225 ns/op             313 B/op          3 allocs/op
-BenchmarkFreeCacheSetParallel-8         10000000               218 ns/op             341 B/op          3 allocs/op
-BenchmarkConcurrentMapSetParallel-8      5000000               318 ns/op             200 B/op          6 allocs/op
-BenchmarkBigCacheGetParallel-8          20000000               178 ns/op             152 B/op          4 allocs/op
-BenchmarkFreeCacheGetParallel-8         20000000               295 ns/op             136 B/op          3 allocs/op
-BenchmarkConcurrentMapGetParallel-8     10000000               237 ns/op              24 B/op          2 allocs/op
-```
-
-Writes and reads in bigcache are faster than in freecache.
-Writes to map are the slowest.
-
-### GC pause time
-
-```bash
-cd caches_bench; go run caches_gc_overhead_comparison.go
-
-Number of entries:  20000000
-GC pause for bigcache:  5.8658ms
-GC pause for freecache:  32.4341ms
-GC pause for map:  52.9661ms
 ```
 
 Test shows how long are the GC pauses for caches filled with 20mln of entries.
