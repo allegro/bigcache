@@ -23,7 +23,7 @@ const (
 // Sum64 gets the string and returns its uint64 hash value.
 func (f fnv64a) Sum64(key []byte) uint64 {
 //	var hash uint64 = offset64
-	hash := xxhash.Sum64([]byte(key))
+	hash := xxhash.Sum64(key)
 //	for i := 0; i < len(key); i++ {
 //		hash ^= uint64(key[i])
 //		hash *= prime64
