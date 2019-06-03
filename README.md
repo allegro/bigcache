@@ -13,15 +13,25 @@ therefore entries (de)serialization in front of the cache will be needed in most
 
 ### Simple initialization
 
-```go
-import "github.com/hiqinternational/bigcache"
+```package main
 
-cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
+import (
+        "github.com/hiqinternational/bigcache"
+        "time"
+        "fmt"
+)
 
-cache.Set([]byte("my-unique-key"), []byte("value"))
 
-entry, _ := cache.Get([]byte("my-unique-key"))
-fmt.Println(string(entry))
+func main(){
+        cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
+
+
+        fmt.Printf("Initialization of cache is slow... normal.\n")
+        cache.Set([]byte("my-unique-key"), []byte("value"))
+
+        entry, _ := cache.Get([]byte("my-unique-key"))
+        fmt.Println(string(entry))
+}
 ```
 
 ### Custom initialization
