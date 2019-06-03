@@ -1,12 +1,11 @@
 package bigcache
 
 import(
-	xxhash "github.com/cespare/xxhash"
+	"github.com/cespare/xxhash"
 )
 // newDefaultHasher returns a new 64-bit FNV-1a Hasher which makes no memory allocations.
 // Its Sum64 method will lay the value out in big-endian byte order.
 // See https://en.wikipedia.org/wiki/Fowler–Noll–Vo_hash_function
-
 func newDefaultHasher() Hasher {
 	return fnv64a{}
 }
@@ -22,12 +21,6 @@ const (
 */
 // Sum64 gets the string and returns its uint64 hash value.
 func (f fnv64a) Sum64(key []byte) uint64 {
-//	var hash uint64 = offset64
 	hash := xxhash.Sum64(key)
-//	for i := 0; i < len(key); i++ {
-//		hash ^= uint64(key[i])
-//		hash *= prime64
-//	}
-
 	return hash
 }
