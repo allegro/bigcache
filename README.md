@@ -14,7 +14,7 @@ therefore entries (de)serialization in front of the cache will be needed in most
 ### Simple initialization
 
 ```go
-import "github.com/allegro/bigcache"
+import "github.com/hiqinternational/bigcache"
 
 cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
 
