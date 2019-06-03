@@ -43,14 +43,14 @@ func readTimestampFromEntry(data []byte) uint64 {
 	return binary.LittleEndian.Uint64(data)
 }
 
-func readKeyFromEntry(data []byte) string {
+func readKeyFromEntry(data []byte) []byte {
 	length := binary.LittleEndian.Uint16(data[timestampSizeInBytes+hashSizeInBytes:])
 
 	// copy on read
 	dst := make([]byte, length)
 	copy(dst, data[headersSizeInBytes:headersSizeInBytes+length])
-
-	return bytesToString(dst)
+	return dst
+//	return bytesToString(dst)
 }
 
 func readHashFromEntry(data []byte) uint64 {
