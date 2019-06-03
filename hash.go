@@ -4,5 +4,5 @@ package bigcache
 // (generating same hash for different strings) and while performance is also important fast functions are preferable (i.e.
 // you can use FarmHash family).
 type Hasher interface {
-	Sum64(string) uint64
+	Sum64([]byte) uint64
 }
