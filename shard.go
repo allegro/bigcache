@@ -25,7 +25,7 @@ type cacheShard struct {
 	stats Stats
 }
 
-func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
+func (s *cacheShard) get(key []byte, hashedKey uint64) ([]byte, error) {
 	s.lock.RLock()
 	itemIndex := s.hashmap[hashedKey]
 
@@ -55,7 +55,7 @@ func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
 	return entry, nil
 }
 
-func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
+func (s *cacheShard) set(key []byte, hashedKey uint64, entry []byte) error {
 	currentTimestamp := uint64(s.clock.epoch())
 
 	s.lock.Lock()
@@ -85,7 +85,7 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 	}
 }
 
-func (s *cacheShard) del(key string, hashedKey uint64) error {
+func (s *cacheShard) del(key []byte, hashedKey uint64) error {
 	// Optimistic pre-check using only readlock
 	s.lock.RLock()
 	itemIndex := s.hashmap[hashedKey]
