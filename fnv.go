@@ -21,6 +21,6 @@ const (
 */
 // Sum64 gets the string and returns its uint64 hash value.
 func (f fnv64a) Sum64(key string) uint64 {
-	hash := xxhash.Sum64(key)
+	hash := xxhash.Sum64([]byte(key))
 	return hash
 }
