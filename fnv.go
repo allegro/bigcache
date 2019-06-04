@@ -1,8 +1,9 @@
 package bigcache
 
-import(
+import (
 	"github.com/cespare/xxhash"
 )
+
 // newDefaultHasher returns a new 64-bit xxhash (previously fnv64 was used).
 // Keeping old fnv.go and fnv64a struct{} to minimize code refactoring.
 
