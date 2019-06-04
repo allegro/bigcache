@@ -71,7 +71,7 @@ func TestEntriesIteratorWithMostShardsEmpty(t *testing.T) {
 	// then
 	assert.Nil(t, err)
 	assert.Equal(t, "key", current.Key())
-	assert.Equal(t, uint64(0x107876e4e94ea9c1), current.Hash())
+	assert.Equal(t, uint64(0x447762562de14334), current.Hash())
 	assert.Equal(t, []byte("value"), current.Value())
 	assert.Equal(t, uint64(0), current.Timestamp())
 }
