@@ -1,8 +1,9 @@
 package bigcache
 
 import (
-	"github.com/pierrec/xxHash/xxHash64"
 	"testing"
+
+	"github.com/pierrec/xxHash/xxHash64"
 )
 
 type testCase struct {
