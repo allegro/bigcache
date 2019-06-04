@@ -1,7 +1,7 @@
 package bigcache
 
 import (
-	"hash/fnv"
+	"github.com/pierrec/xxHash/xxHash64"
 	"testing"
 )
 
@@ -29,7 +29,7 @@ func TestFnvHashSum64(t *testing.T) {
 }
 
 func stdLibFnvSum64(key string) uint64 {
-	h := fnv.New64a()
+	h := xxHash64.New()
 	h.Write([]byte(key))
 	return h.Sum64()
 }
