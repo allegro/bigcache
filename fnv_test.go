@@ -29,7 +29,7 @@ func TestFnvHashSum64(t *testing.T) {
 }
 
 func stdLibFnvSum64(key string) uint64 {
-	h := xxHash64.New()
+	h := xxHash64.New(0)
 	h.Write([]byte(key))
 	return h.Sum64()
 }
