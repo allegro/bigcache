@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/allegro/bigcache"
+	"github.com/allegro/bigcache/v2"
 	"github.com/coocood/freecache"
 )
 
