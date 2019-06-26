@@ -8,7 +8,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/allegro/bigcache"
+	"github.com/allegro/bigcache/v2"
 )
 
 const (
