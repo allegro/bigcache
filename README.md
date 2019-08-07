@@ -124,6 +124,10 @@ Entries are kept in bytes array, to omit GC again.
 Bytes array size can grow to gigabytes without impact on performance
 because GC will only see single pointer to it.
 
+### Collisions
+
+BigCache does not handle collisions. When new item is inserted and it's hash collides with previously stored item, new item overwrites previously stored value.
+
 ## Bigcache vs Freecache
 
 Both caches provide the same core features but they reduce GC overhead in different ways.
