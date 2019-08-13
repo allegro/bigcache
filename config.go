@@ -48,7 +48,7 @@ func DefaultConfig(eviction time.Duration) Config {
 	return Config{
 		Shards:             1024,
 		LifeWindow:         eviction,
-		CleanWindow:        0,
+		CleanWindow:        1 * time.Second,
 		MaxEntriesInWindow: 1000 * 10 * 60,
 		MaxEntrySize:       500,
 		Verbose:            true,
