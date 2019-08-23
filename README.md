@@ -132,6 +132,10 @@ Bigcache and freecache have very similar GC pause time.
 It is clear that both reduce GC overhead in contrast to map
 which GC pause time took more than 10 seconds.
 
+### Memory usage
+
+You may encounter system memory reporting what appears to be an exponential increase, however this is expected behaviour. Go runtime allocates memory in chunks or 'spans' and will inform the OS when they are no longer required by changing their state to 'idle'. The 'spans' will remain part of the process resource usage until the OS needs to repurpose the address. Further reading available [here](https://utcc.utoronto.ca/~cks/space/blog/programming/GoNoMemoryFreeing).
+
 ## How it works
 
 BigCache relies on optimization presented in 1.5 version of Go ([issue-9477](https://github.com/golang/go/issues/9477)).
