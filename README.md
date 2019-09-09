@@ -4,6 +4,8 @@ Fast, concurrent, evicting in-memory cache written to keep big number of entries
 BigCache keeps entries on heap but omits GC for them. To achieve that operations on bytes arrays take place,
 therefore entries (de)serialization in front of the cache will be needed in most use cases.
 
+Requires Go 1.12 or newer.
+
 ## Usage
 
 ### Simple initialization
