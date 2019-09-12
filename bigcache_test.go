@@ -64,6 +64,23 @@ func TestWriteAndGetOnCache(t *testing.T) {
 	assert.Equal(t, value, cachedValue)
 }
 
+func TestAppendAndGetOnCache(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(DefaultConfig(5 * time.Second))
+	value := []byte("value")
+
+	// when
+	cache.Append("key", value)
+	cache.Append("key", value)
+	cachedValue, err := cache.Get("key")
+
+	// then
+	assert.NoError(t, err)
+	assert.Equal(t, append(value, value...), cachedValue)
+}
+
 func TestConstructCacheWithDefaultHasher(t *testing.T) {
 	t.Parallel()
 

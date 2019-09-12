@@ -107,14 +107,21 @@ func (c *BigCache) Close() error {
 func (c *BigCache) Get(key string) ([]byte, error) {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
-	return shard.get(key, hashedKey)
+	return shard.get(key, hashedKey, false)
 }
 
 // Set saves entry under the key
 func (c *BigCache) Set(key string, entry []byte) error {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
-	return shard.set(key, hashedKey, entry)
+	return shard.set(key, hashedKey, entry, false)
+}
+
+// Append appends entry under existing key
+func (c *BigCache) Append(key string, entry []byte) error {
+	hashedKey := c.hash.Sum64(key)
+	shard := c.getShard(hashedKey)
+	return shard.append(key, hashedKey, entry)
 }
 
 // Delete removes the key

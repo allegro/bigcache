@@ -25,19 +25,25 @@ type cacheShard struct {
 	stats Stats
 }
 
-func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
-	s.lock.RLock()
+func (s *cacheShard) get(key string, hashedKey uint64, skipLock bool) ([]byte, error) {
+	if !skipLock {
+		s.lock.RLock()
+	}
 	itemIndex := s.hashmap[hashedKey]
 
 	if itemIndex == 0 {
-		s.lock.RUnlock()
+		if !skipLock {
+			s.lock.RUnlock()
+		}
 		s.miss()
 		return nil, ErrEntryNotFound
 	}
 
 	wrappedEntry, err := s.entries.Get(int(itemIndex))
 	if err != nil {
-		s.lock.RUnlock()
+		if !skipLock {
+			s.lock.RUnlock()
+		}
 		s.miss()
 		return nil, err
 	}
@@ -45,20 +51,26 @@ func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
 		if s.isVerbose {
 			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
 		}
-		s.lock.RUnlock()
+		if !skipLock {
+			s.lock.RUnlock()
+		}
 		s.collision()
 		return nil, ErrEntryNotFound
 	}
 	entry := readEntry(wrappedEntry)
-	s.lock.RUnlock()
+	if !skipLock {
+		s.lock.RUnlock()
+	}
 	s.hit()
 	return entry, nil
 }
 
-func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
+func (s *cacheShard) set(key string, hashedKey uint64, entry []byte, skipLock bool) error {
 	currentTimestamp := uint64(s.clock.epoch())
 
-	s.lock.Lock()
+	if !skipLock {
+		s.lock.Lock()
+	}
 
 	if previousIndex := s.hashmap[hashedKey]; previousIndex != 0 {
 		if previousEntry, err := s.entries.Get(int(previousIndex)); err == nil {
@@ -75,14 +87,42 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 	for {
 		if index, err := s.entries.Push(w); err == nil {
 			s.hashmap[hashedKey] = uint32(index)
-			s.lock.Unlock()
+			if !skipLock {
+				s.lock.Unlock()
+			}
 			return nil
 		}
 		if s.removeOldestEntry(NoSpace) != nil {
-			s.lock.Unlock()
+			if !skipLock {
+				s.lock.Unlock()
+			}
 			return fmt.Errorf("entry is bigger than max shard size")
 		}
 	}
+}
+
+func (s *cacheShard) append(key string, hashedKey uint64, entry []byte) error {
+	s.lock.Lock()
+	oldEntry, err := s.get(key, hashedKey, true)
+	if err != nil && err != ErrEntryNotFound {
+		s.lock.Unlock()
+		return err
+	}
+
+	var newEntry []byte
+	if err != ErrEntryNotFound {
+		newEntry = oldEntry
+	}
+
+	newEntry = append(newEntry, entry...)
+	err = s.set(key, hashedKey, newEntry, true)
+	if err != nil {
+		s.lock.Unlock()
+		return err
+	}
+
+	s.lock.Unlock()
+	return nil
 }
 
 func (s *cacheShard) del(key string, hashedKey uint64) error {
