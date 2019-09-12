@@ -103,25 +103,23 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte, skipLock bo
 
 func (s *cacheShard) append(key string, hashedKey uint64, entry []byte) error {
 	s.lock.Lock()
+	var newEntry []byte
 	oldEntry, err := s.get(key, hashedKey, true)
-	if err != nil && err != ErrEntryNotFound {
+	if err == nil {
+		newEntry = oldEntry
+	} else if err != ErrEntryNotFound {
 		s.lock.Unlock()
 		return err
-	}
-
-	var newEntry []byte
-	if err != ErrEntryNotFound {
-		newEntry = oldEntry
+	} else {
+		// Entry not found
 	}
 
 	newEntry = append(newEntry, entry...)
 	err = s.set(key, hashedKey, newEntry, true)
+	s.lock.Unlock()
 	if err != nil {
-		s.lock.Unlock()
 		return err
 	}
-
-	s.lock.Unlock()
 	return nil
 }
 
