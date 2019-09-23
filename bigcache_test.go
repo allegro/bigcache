@@ -296,6 +296,28 @@ func TestCacheLen(t *testing.T) {
 	assert.Equal(t, keys, cache.Len())
 }
 
+func TestCacheCapacity(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{
+		Shards:             8,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	})
+	keys := 1337
+
+	// when
+	for i := 0; i < keys; i++ {
+		cache.Set(fmt.Sprintf("key%d", i), []byte("value"))
+	}
+
+	// then
+	assert.Equal(t, keys, cache.Len())
+	assert.Equal(t, 81920, cache.Capacity())
+}
+
 func TestCacheStats(t *testing.T) {
 	t.Parallel()
 
@@ -701,6 +723,57 @@ func TestClosing(t *testing.T) {
 	endGR := runtime.NumGoroutine()
 	assert.True(t, endGR >= startGR)
 	assert.InDelta(t, endGR, startGR, 25)
+}
+
+func TestEntryNotPresent(t *testing.T) {
+	t.Parallel()
+
+	// given
+	clock := mockedClock{value: 0}
+	cache, _ := newBigCache(Config{
+		Shards:             1,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       1,
+		HardMaxCacheSize:   1,
+	}, &clock)
+
+	// when
+	value, resp, err := cache.GetWithInfo("blah")
+	assert.Error(t, err)
+	assert.Equal(t, resp.EntryStatus, RemoveReason(0))
+	assert.Equal(t, cache.Stats().Misses, int64(1))
+	assert.Nil(t, value)
+}
+
+func TestBigCache_GetWithInfo(t *testing.T) {
+	t.Parallel()
+
+	// given
+	clock := mockedClock{value: 0}
+	cache, _ := newBigCache(Config{
+		Shards:             1,
+		LifeWindow:         5 * time.Second,
+		CleanWindow:        5 * time.Minute,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       1,
+		HardMaxCacheSize:   1,
+		Verbose:            true,
+	}, &clock)
+	key := "deadEntryKey"
+	value := "100"
+	cache.Set(key, []byte(value))
+
+	// when
+	data, resp, err := cache.GetWithInfo(key)
+	assert.Equal(t, []byte(value), data)
+	assert.NoError(t, err)
+	assert.Equal(t, Response{}, resp)
+	clock.set(5)
+	data, resp, err = cache.GetWithInfo(key)
+	assert.Equal(t, err, ErrEntryIsDead)
+	assert.Equal(t, Response{EntryStatus: Expired}, resp)
+	assert.Nil(t, data)
 }
 
 type mockedLogger struct {
