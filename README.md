@@ -36,34 +36,34 @@ import (
 config := bigcache.Config {
 		// number of shards (must be a power of 2)
 		Shards: 1024,
-		
+
 		// time after which entry can be evicted
 		LifeWindow: 10 * time.Minute,
-		
+
 		// Interval between removing expired entries (clean up).
 		// If set to <= 0 then no action is performed.
 		// Setting to < 1 second is counterproductive — bigcache has a one second resolution.
 		CleanWindow: 5 * time.Minute,
-		
+
 		// rps * lifeWindow, used only in initial memory allocation
 		MaxEntriesInWindow: 1000 * 10 * 60,
-		
+
 		// max entry size in bytes, used only in initial memory allocation
 		MaxEntrySize: 500,
-		
+
 		// prints information about additional memory allocation
 		Verbose: true,
-		
+
 		// cache will not allocate more memory than this limit, value in MB
 		// if value is reached then the oldest entries can be overridden for the new ones
 		// 0 value means no size limit
 		HardMaxCacheSize: 8192,
-		
+
 		// callback fired when the oldest entry is removed because of its expiration time or no space left
 		// for the new entry, or because delete was called. A bitmask representing the reason will be returned.
 		// Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
 		OnRemove: nil,
-		
+
 		// OnRemoveWithReason is a callback fired when the oldest entry is removed because of its expiration time or no space left
 		// for the new entry, or because delete was called. A constant representing the reason will be passed through.
 		// Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
@@ -92,27 +92,35 @@ if entry, err := cache.Get("my-unique-key"); err == nil {
 ## Benchmarks
 
 Three caches were compared: bigcache, [freecache](https://github.com/coocood/freecache) and map.
-Benchmark tests were made using an i7-6700K with 32GB of RAM on Windows 10.
+Benchmark tests were made using an
+i7-6700K CPU @ 4.00GHz with 32GB of RAM on Ubuntu 18.04 LTS (5.2.12-050212-generic).
 
 ### Writes and reads
 
 ```bash
-cd caches_bench; go test -bench=. -benchtime=10s ./... -timeout 30m
+go version
+go version go1.13 linux/amd64
 
-BenchmarkMapSet-8                        3000000               569 ns/op             202 B/op          3 allocs/op
-BenchmarkConcurrentMapSet-8              1000000              1592 ns/op             347 B/op          8 allocs/op
-BenchmarkFreeCacheSet-8                  3000000               775 ns/op             355 B/op          2 allocs/op
-BenchmarkBigCacheSet-8                   3000000               640 ns/op             303 B/op          2 allocs/op
-BenchmarkMapGet-8                        5000000               407 ns/op              24 B/op          1 allocs/op
-BenchmarkConcurrentMapGet-8              3000000               558 ns/op              24 B/op          2 allocs/op
-BenchmarkFreeCacheGet-8                  2000000               682 ns/op             136 B/op          2 allocs/op
-BenchmarkBigCacheGet-8                   3000000               512 ns/op             152 B/op          4 allocs/op
-BenchmarkBigCacheSetParallel-8          10000000               225 ns/op             313 B/op          3 allocs/op
-BenchmarkFreeCacheSetParallel-8         10000000               218 ns/op             341 B/op          3 allocs/op
-BenchmarkConcurrentMapSetParallel-8      5000000               318 ns/op             200 B/op          6 allocs/op
-BenchmarkBigCacheGetParallel-8          20000000               178 ns/op             152 B/op          4 allocs/op
-BenchmarkFreeCacheGetParallel-8         20000000               295 ns/op             136 B/op          3 allocs/op
-BenchmarkConcurrentMapGetParallel-8     10000000               237 ns/op              24 B/op          2 allocs/op
+cd caches_bench; go test -bench=. -benchmem -benchtime=4s ./... -timeout 30m
+goos: linux
+goarch: amd64
+pkg: github.com/allegro/bigcache/v2/caches_bench
+BenchmarkMapSet-8                     	12999889	       376 ns/op	     199 B/op	       3 allocs/op
+BenchmarkConcurrentMapSet-8           	 4355726	      1275 ns/op	     337 B/op	       8 allocs/op
+BenchmarkFreeCacheSet-8               	11068976	       703 ns/op	     328 B/op	       2 allocs/op
+BenchmarkBigCacheSet-8                	10183717	       478 ns/op	     304 B/op	       2 allocs/op
+BenchmarkMapGet-8                     	16536015	       324 ns/op	      23 B/op	       1 allocs/op
+BenchmarkConcurrentMapGet-8           	13165708	       401 ns/op	      24 B/op	       2 allocs/op
+BenchmarkFreeCacheGet-8               	10137682	       690 ns/op	     136 B/op	       2 allocs/op
+BenchmarkBigCacheGet-8                	11423854	       450 ns/op	     152 B/op	       4 allocs/op
+BenchmarkBigCacheSetParallel-8        	34233472	       148 ns/op	     317 B/op	       3 allocs/op
+BenchmarkFreeCacheSetParallel-8       	34222654	       268 ns/op	     350 B/op	       3 allocs/op
+BenchmarkConcurrentMapSetParallel-8   	19635688	       240 ns/op	     200 B/op	       6 allocs/op
+BenchmarkBigCacheGetParallel-8        	60547064	        86.1 ns/op	     152 B/op	       4 allocs/op
+BenchmarkFreeCacheGetParallel-8       	50701280	       147 ns/op	     136 B/op	       3 allocs/op
+BenchmarkConcurrentMapGetParallel-8   	27353288	       175 ns/op	      24 B/op	       2 allocs/op
+PASS
+ok  	github.com/allegro/bigcache/v2/caches_bench	256.257s
 ```
 
 Writes and reads in bigcache are faster than in freecache.
@@ -121,12 +129,26 @@ Writes to map are the slowest.
 ### GC pause time
 
 ```bash
+go version
+go version go1.13 linux/amd64
+
 cd caches_bench; go run caches_gc_overhead_comparison.go
 
 Number of entries:  20000000
-GC pause for bigcache:  5.8658ms
-GC pause for freecache:  32.4341ms
-GC pause for map:  52.9661ms
+GC pause for bigcache:  1.506077ms
+GC pause for freecache:  5.594416ms
+GC pause for map:  9.347015ms
+```
+
+```
+go version
+go version go1.13 linux/arm64
+
+cd caches_bench; go run caches_gc_overhead_comparison.go
+Number of entries:  20000000
+GC pause for bigcache:  22.382827ms
+GC pause for freecache:  41.264651ms
+GC pause for map:  72.236853ms
 ```
 
 Test shows how long are the GC pauses for caches filled with 20mln of entries.
