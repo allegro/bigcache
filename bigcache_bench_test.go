@@ -56,11 +56,18 @@ func BenchmarkWriteToCache(b *testing.B) {
 func BenchmarkReadFromCache(b *testing.B) {
 	for _, shards := range []int{1, 512, 1024, 8192} {
 		b.Run(fmt.Sprintf("%d-shards", shards), func(b *testing.B) {
-			readFromCache(b, 1024)
+			readFromCache(b, 1024, false)
 		})
 	}
 }
 
+func BenchmarkReadFromCacheWithInfo(b *testing.B) {
+	for _, shards := range []int{1, 512, 1024, 8192} {
+		b.Run(fmt.Sprintf("%d-shards", shards), func(b *testing.B) {
+			readFromCache(b, 1024, true)
+		})
+	}
+}
 func BenchmarkIterateOverCache(b *testing.B) {
 
 	m := blob('a', 1)
@@ -127,7 +134,7 @@ func writeToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsIn
 	})
 }
 
-func readFromCache(b *testing.B, shards int) {
+func readFromCache(b *testing.B, shards int, info bool) {
 	cache, _ := NewBigCache(Config{
 		Shards:             shards,
 		LifeWindow:         1000 * time.Second,
@@ -143,7 +150,11 @@ func readFromCache(b *testing.B, shards int) {
 		b.ReportAllocs()
 
 		for pb.Next() {
-			cache.Get(strconv.Itoa(rand.Intn(b.N)))
+			if info {
+				cache.GetWithInfo(strconv.Itoa(rand.Intn(b.N)))
+			} else {
+				cache.Get(strconv.Itoa(rand.Intn(b.N)))
+			}
 		}
 	})
 }

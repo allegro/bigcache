@@ -23,10 +23,16 @@ type BigCache struct {
 	close        chan struct{}
 }
 
+// Response will contain metadata about the entry for which GetWithInfo(key) was called
+type Response struct {
+	EntryStatus RemoveReason
+}
+
 // RemoveReason is a value used to signal to the user why a particular key was removed in the OnRemove callback.
 type RemoveReason uint32
 
 const (
+	// @TODO: Go defaults to 0 so in case we want to return EntryStatus back to the caller Expired cannot be differentiated
 	// Expired means the key is past its LifeWindow.
 	Expired RemoveReason = iota
 	// NoSpace means the key is the oldest and the cache size was at its maximum when Set was called, or the
@@ -110,6 +116,12 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 	return shard.get(key, hashedKey)
 }
 
+func (c *BigCache) GetWithInfo(key string) ([]byte, Response, error) {
+	hashedKey := c.hash.Sum64(key)
+	shard := c.getShard(hashedKey)
+	return shard.getWithInfo(key, hashedKey)
+}
+
 // Set saves entry under the key
 func (c *BigCache) Set(key string, entry []byte) error {
 	hashedKey := c.hash.Sum64(key)
@@ -121,7 +133,7 @@ func (c *BigCache) Set(key string, entry []byte) error {
 func (c *BigCache) Delete(key string) error {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
-	return shard.del(key, hashedKey)
+	return shard.del(hashedKey)
 }
 
 // Reset empties all cache shards
