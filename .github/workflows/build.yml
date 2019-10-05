@@ -2,6 +2,7 @@ name: Go Build
 on: [push]
 env:
   GO111MODULE: on
+  CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 jobs:
   build:
     name: Build
