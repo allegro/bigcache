@@ -43,5 +43,14 @@ jobs:
           go test -race -count=1 -coverprofile=server.coverprofile  ./server
           go test -race -count=1 -coverprofile=main.coverprofile
 
+      - name: Upload coverage to codecov
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin # temporary fix. See https://github.com/actions/setup-go/
+          go get github.com/modocache/gover;
+          echo "" > coverage.txt
+          gover
+          cat gover.coverprofile >> coverage.txt
+          bash <(curl -s https://codecov.io/bash)
+
       - name: Build
         run: go build -v .
