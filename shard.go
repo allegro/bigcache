@@ -52,9 +52,8 @@ func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, re
 	oldestTimeStamp := readTimestampFromEntry(wrappedEntry)
 	if currentTime-oldestTimeStamp >= s.lifeWindow {
 		s.lock.RUnlock()
-		// @TODO: when Expired is non-default value return err as nil as the resp will have proper entry status
 		resp.EntryStatus = Expired
-		return nil, resp, ErrEntryIsDead
+		return nil, resp, nil
 	}
 	entry = readEntry(wrappedEntry)
 	s.lock.RUnlock()

@@ -32,9 +32,9 @@ type Response struct {
 type RemoveReason uint32
 
 const (
+	_ RemoveReason = iota
 	// Expired means the key is past its LifeWindow.
-	// @TODO: Go defaults to 0 so in case we want to return EntryStatus back to the caller Expired cannot be differentiated
-	Expired RemoveReason = iota
+	Expired
 	// NoSpace means the key is the oldest and the cache size was at its maximum when Set was called, or the
 	// entry exceeded the maximum shard size.
 	NoSpace

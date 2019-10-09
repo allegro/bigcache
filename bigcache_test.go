@@ -1000,7 +1000,7 @@ func TestBigCache_GetWithInfo(t *testing.T) {
 	assertEqual(t, Response{}, resp)
 	clock.set(5)
 	data, resp, err = cache.GetWithInfo(key)
-	assertEqual(t, err, ErrEntryIsDead)
+	assertEqual(t, err, nil)
 	assertEqual(t, Response{EntryStatus: Expired}, resp)
 	assertEqual(t, []byte(nil), data)
 }
