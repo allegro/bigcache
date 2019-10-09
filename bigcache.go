@@ -32,9 +32,9 @@ type Response struct {
 type RemoveReason uint32
 
 const (
-	// @TODO: Go defaults to 0 so in case we want to return EntryStatus back to the caller Expired cannot be differentiated
+	_ RemoveReason = iota
 	// Expired means the key is past its LifeWindow.
-	Expired RemoveReason = iota
+	Expired
 	// NoSpace means the key is the oldest and the cache size was at its maximum when Set was called, or the
 	// entry exceeded the maximum shard size.
 	NoSpace
@@ -116,6 +116,10 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 	return shard.get(key, hashedKey)
 }
 
+// GetWithInfo reads entry for the key.
+// It returns an ErrEntryNotFound when
+// no entry exists for the given key.
+// It also returns Response with entry status information
 func (c *BigCache) GetWithInfo(key string) ([]byte, Response, error) {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
