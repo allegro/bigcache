@@ -16,6 +16,8 @@ type Config struct {
 	MaxEntriesInWindow int
 	// Max size of entry in bytes. Used only to calculate initial size for cache shards.
 	MaxEntrySize int
+	// StatsEnabled if true calculate the number of times a cached resource was requested.
+	StatsEnabled bool
 	// Verbose mode prints information about new memory allocation
 	Verbose bool
 	// Hasher used to map between string keys and unsigned 64bit integers, by default fnv64 hashing is used.
@@ -51,6 +53,7 @@ func DefaultConfig(eviction time.Duration) Config {
 		CleanWindow:        1 * time.Second,
 		MaxEntriesInWindow: 1000 * 10 * 60,
 		MaxEntrySize:       500,
+		StatsEnabled:       false,
 		Verbose:            true,
 		Hasher:             newDefaultHasher(),
 		HardMaxCacheSize:   0,

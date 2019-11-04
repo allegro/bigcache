@@ -17,12 +17,14 @@ type cacheShard struct {
 	entryBuffer []byte
 	onRemove    onRemoveCallback
 
-	isVerbose  bool
-	logger     Logger
-	clock      clock
-	lifeWindow uint64
+	isVerbose    bool
+	statsEnabled bool
+	logger       Logger
+	clock        clock
+	lifeWindow   uint64
 
-	stats Stats
+	hashmapStats map[uint64]*uint32
+	stats        Stats
 }
 
 func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, resp Response, err error) {
@@ -48,7 +50,7 @@ func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, re
 		}
 		entry := readEntry(wrappedEntry)
 		s.lock.RUnlock()
-		s.hit()
+		s.hit(hashedKey)
 		return entry, resp, nil
 	}
 	// it is nil & error
@@ -69,7 +71,8 @@ func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
 		}
 		entry := readEntry(wrappedEntry)
 		s.lock.RUnlock()
-		s.hit()
+		s.hit(hashedKey)
+
 		return entry, nil
 	}
 	// it is nil & error
@@ -116,6 +119,8 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 	for {
 		if index, err := s.entries.Push(w); err == nil {
 			s.hashmap[hashedKey] = uint32(index)
+			x := uint32(0)
+			s.hashmapStats[hashedKey] = &x
 			s.lock.Unlock()
 			return nil
 		}
@@ -226,6 +231,9 @@ func (s *cacheShard) removeOldestEntry(reason RemoveReason) error {
 	if err == nil {
 		hash := readHashFromEntry(oldest)
 		delete(s.hashmap, hash)
+		if s.statsEnabled {
+			delete(s.hashmapStats, hash)
+		}
 		s.onRemove(oldest, reason)
 		return nil
 	}
@@ -265,8 +273,17 @@ func (s *cacheShard) getStats() Stats {
 	return stats
 }
 
-func (s *cacheShard) hit() {
+func (s *cacheShard) hit(key uint64) {
 	atomic.AddInt64(&s.stats.Hits, 1)
+	if s.statsEnabled {
+		s.lock.RLock()
+		if s.hashmapStats[key] == nil {
+			s.lock.RUnlock()
+			return
+		}
+		atomic.AddUint32(s.hashmapStats[key], 1)
+		s.lock.RUnlock()
+	}
 }
 
 func (s *cacheShard) miss() {
@@ -287,14 +304,16 @@ func (s *cacheShard) collision() {
 
 func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheShard {
 	return &cacheShard{
-		hashmap:     make(map[uint64]uint32, config.initialShardSize()),
-		entries:     *queue.NewBytesQueue(config.initialShardSize()*config.MaxEntrySize, config.maximumShardSize(), config.Verbose),
-		entryBuffer: make([]byte, config.MaxEntrySize+headersSizeInBytes),
-		onRemove:    callback,
+		hashmap:      make(map[uint64]uint32, config.initialShardSize()),
+		hashmapStats: make(map[uint64]*uint32, config.initialShardSize()),
+		entries:      *queue.NewBytesQueue(config.initialShardSize()*config.MaxEntrySize, config.maximumShardSize(), config.Verbose),
+		entryBuffer:  make([]byte, config.MaxEntrySize+headersSizeInBytes),
+		onRemove:     callback,
 
-		isVerbose:  config.Verbose,
-		logger:     newLogger(config.Logger),
-		clock:      clock,
-		lifeWindow: uint64(config.LifeWindow.Seconds()),
+		isVerbose:    config.Verbose,
+		logger:       newLogger(config.Logger),
+		clock:        clock,
+		lifeWindow:   uint64(config.LifeWindow.Seconds()),
+		statsEnabled: config.StatsEnabled,
 	}
 }
