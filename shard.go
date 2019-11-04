@@ -10,6 +10,10 @@ import (
 
 type onRemoveCallback func(wrappedEntry []byte, reason RemoveReason)
 
+type metaData struct {
+	requestCount uint32
+}
+
 type cacheShard struct {
 	hashmap     map[uint64]uint32
 	entries     queue.BytesQueue
@@ -119,8 +123,7 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 	for {
 		if index, err := s.entries.Push(w); err == nil {
 			s.hashmap[hashedKey] = uint32(index)
-			x := uint32(0)
-			s.hashmapStats[hashedKey] = &x
+			s.hashmapStats[hashedKey] = new(uint32)
 			s.lock.Unlock()
 			return nil
 		}
@@ -170,6 +173,9 @@ func (s *cacheShard) del(hashedKey uint64) error {
 
 		delete(s.hashmap, hashedKey)
 		s.onRemove(wrappedEntry, Deleted)
+		if s.statsEnabled {
+			delete(s.hashmapStats, hashedKey)
+		}
 		resetKeyFromEntry(wrappedEntry)
 	}
 	s.lock.Unlock()
@@ -231,10 +237,13 @@ func (s *cacheShard) removeOldestEntry(reason RemoveReason) error {
 	if err == nil {
 		hash := readHashFromEntry(oldest)
 		delete(s.hashmap, hash)
+		s.onRemove(oldest, reason)
 		if s.statsEnabled {
 			delete(s.hashmapStats, hash)
 		}
-		s.onRemove(oldest, reason)
+		if s.statsEnabled {
+			delete(s.hashmapStats, hash)
+		}
 		return nil
 	}
 	return err
@@ -271,6 +280,15 @@ func (s *cacheShard) getStats() Stats {
 		Collisions: atomic.LoadInt64(&s.stats.Collisions),
 	}
 	return stats
+}
+
+func (s *cacheShard) getKeyMetaData(key uint64) metaData {
+	if s.hashmapStats[key] == nil {
+		return metaData{}
+	}
+	return metaData{
+		requestCount: atomic.LoadUint32(s.hashmapStats[key]),
+	}
 }
 
 func (s *cacheShard) hit(key uint64) {
