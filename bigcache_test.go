@@ -281,15 +281,16 @@ func TestOnRemoveGetEntryStats(t *testing.T) {
 	// given
 	clock := mockedClock{value: 0}
 	count := uint32(0)
-	onRemove := func(key string, entry []byte, keyMetaData metaData) {
-		count = keyMetaData.requestCount
+	onRemove := func(key string, entry []byte, keyMetadata metadata) {
+		count = keyMetadata.requestCount
 	}
 	c := Config{
 		Shards:               1,
 		LifeWindow:           time.Second,
 		MaxEntriesInWindow:   1,
 		MaxEntrySize:         256,
-		OnRemoveWithMetaData: onRemove,
+		OnRemoveWithMetadata: onRemove,
+		StatsEnabled:         true,
 	}.OnRemoveFilterSet(Deleted, NoSpace)
 
 	cache, _ := newBigCache(c, &clock)
@@ -304,7 +305,7 @@ func TestOnRemoveGetEntryStats(t *testing.T) {
 	cache.Delete("key")
 
 	// then
-	assert.Equal(t, count, uint32(100))
+	assert.Equal(t, uint32(100), count)
 }
 
 func TestCacheLen(t *testing.T) {
@@ -411,8 +412,8 @@ func TestCacheEntryStats(t *testing.T) {
 	}
 
 	// then
-	keyMetaData := cache.KeyMetaData("key0")
-	assert.Equal(t, keyMetaData.requestCount, uint32(10))
+	keyMetadata := cache.KeyMetadata("key0")
+	assert.Equal(t, uint32(10), keyMetadata.requestCount)
 }
 
 func TestCacheDel(t *testing.T) {

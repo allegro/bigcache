@@ -10,7 +10,7 @@ import (
 
 type onRemoveCallback func(wrappedEntry []byte, reason RemoveReason)
 
-type metaData struct {
+type metadata struct {
 	requestCount uint32
 }
 
@@ -241,9 +241,6 @@ func (s *cacheShard) removeOldestEntry(reason RemoveReason) error {
 		if s.statsEnabled {
 			delete(s.hashmapStats, hash)
 		}
-		if s.statsEnabled {
-			delete(s.hashmapStats, hash)
-		}
 		return nil
 	}
 	return err
@@ -282,11 +279,11 @@ func (s *cacheShard) getStats() Stats {
 	return stats
 }
 
-func (s *cacheShard) getKeyMetaData(key uint64) metaData {
+func (s *cacheShard) getKeyMetadata(key uint64) metadata {
 	if s.hashmapStats[key] == nil {
-		return metaData{}
+		return metadata{}
 	}
-	return metaData{
+	return metadata{
 		requestCount: atomic.LoadUint32(s.hashmapStats[key]),
 	}
 }
