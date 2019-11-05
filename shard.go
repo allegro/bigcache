@@ -12,7 +12,7 @@ type onRemoveCallback func(wrappedEntry []byte, reason RemoveReason)
 
 // Metadata contains information of a spesific entry
 type Metadata struct {
-	requestCount uint32
+	RequestCount uint32
 }
 
 type cacheShard struct {
