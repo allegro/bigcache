@@ -69,7 +69,9 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 	}
 
 	var onRemove func(wrappedEntry []byte, reason RemoveReason)
-	if config.OnRemove != nil {
+	if config.OnRemoveWithMetadata != nil {
+		onRemove = cache.providedOnRemoveWithMetadata
+	} else if config.OnRemove != nil {
 		onRemove = cache.providedOnRemove
 	} else if config.OnRemoveWithReason != nil {
 		onRemove = cache.providedOnRemoveWithReason
@@ -179,6 +181,13 @@ func (c *BigCache) Stats() Stats {
 	return s
 }
 
+// KeyMetadata returns number of times a cached resource was requested.
+func (c *BigCache) KeyMetadata(key string) Metadata {
+	hashedKey := c.hash.Sum64(key)
+	shard := c.getShard(hashedKey)
+	return shard.getKeyMetadata(hashedKey)
+}
+
 // Iterator returns iterator function to iterate over EntryInfo's from whole cache.
 func (c *BigCache) Iterator() *EntryInfoIterator {
 	return newIterator(c)
@@ -214,4 +223,10 @@ func (c *BigCache) providedOnRemoveWithReason(wrappedEntry []byte, reason Remove
 }
 
 func (c *BigCache) notProvidedOnRemove(wrappedEntry []byte, reason RemoveReason) {
+}
+
+func (c *BigCache) providedOnRemoveWithMetadata(wrappedEntry []byte, reason RemoveReason) {
+	hashedKey := c.hash.Sum64(readKeyFromEntry(wrappedEntry))
+	shard := c.getShard(hashedKey)
+	c.config.OnRemoveWithMetadata(readKeyFromEntry(wrappedEntry), readEntry(wrappedEntry), shard.getKeyMetadata(hashedKey))
 }
