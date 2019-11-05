@@ -182,7 +182,7 @@ func (c *BigCache) Stats() Stats {
 }
 
 // KeyMetadata returns number of times a cached resource was requested.
-func (c *BigCache) KeyMetadata(key string) metadata {
+func (c *BigCache) KeyMetadata(key string) Metadata {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	return shard.getKeyMetadata(hashedKey)

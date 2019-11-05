@@ -35,7 +35,7 @@ type Config struct {
 	// OnRemoveWithMetadata is a callback fired when the oldest entry is removed because of its expiration time or no space left
 	// for the new entry, or because delete was called. A structure representing details about that specific entry.
 	// Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
-	OnRemoveWithMetadata func(key string, entry []byte, keyMetadata metadata)
+	OnRemoveWithMetadata func(key string, entry []byte, keyMetadata Metadata)
 	// OnRemoveWithReason is a callback fired when the oldest entry is removed because of its expiration time or no space left
 	// for the new entry, or because delete was called. A constant representing the reason will be passed through.
 	// Default value is nil which means no callback and it prevents from unwrapping the oldest entry.

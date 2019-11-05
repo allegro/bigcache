@@ -281,7 +281,7 @@ func TestOnRemoveGetEntryStats(t *testing.T) {
 	// given
 	clock := mockedClock{value: 0}
 	count := uint32(0)
-	onRemove := func(key string, entry []byte, keyMetadata metadata) {
+	onRemove := func(key string, entry []byte, keyMetadata Metadata) {
 		count = keyMetadata.requestCount
 	}
 	c := Config{

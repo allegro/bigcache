@@ -10,7 +10,8 @@ import (
 
 type onRemoveCallback func(wrappedEntry []byte, reason RemoveReason)
 
-type metadata struct {
+// Metadata contains information of a spesific entry
+type Metadata struct {
 	requestCount uint32
 }
 
@@ -27,7 +28,7 @@ type cacheShard struct {
 	clock        clock
 	lifeWindow   uint64
 
-	hashmapStats map[uint64]*uint32
+	hashmapStats map[uint64]uint32
 	stats        Stats
 }
 
@@ -123,7 +124,6 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 	for {
 		if index, err := s.entries.Push(w); err == nil {
 			s.hashmap[hashedKey] = uint32(index)
-			s.hashmapStats[hashedKey] = new(uint32)
 			s.lock.Unlock()
 			return nil
 		}
@@ -279,12 +279,9 @@ func (s *cacheShard) getStats() Stats {
 	return stats
 }
 
-func (s *cacheShard) getKeyMetadata(key uint64) metadata {
-	if s.hashmapStats[key] == nil {
-		return metadata{}
-	}
-	return metadata{
-		requestCount: atomic.LoadUint32(s.hashmapStats[key]),
+func (s *cacheShard) getKeyMetadata(key uint64) Metadata {
+	return Metadata{
+		requestCount: s.hashmapStats[key],
 	}
 }
 
@@ -292,11 +289,7 @@ func (s *cacheShard) hit(key uint64) {
 	atomic.AddInt64(&s.stats.Hits, 1)
 	if s.statsEnabled {
 		s.lock.RLock()
-		if s.hashmapStats[key] == nil {
-			s.lock.RUnlock()
-			return
-		}
-		atomic.AddUint32(s.hashmapStats[key], 1)
+		s.hashmapStats[key]++
 		s.lock.RUnlock()
 	}
 }
@@ -320,7 +313,7 @@ func (s *cacheShard) collision() {
 func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheShard {
 	return &cacheShard{
 		hashmap:      make(map[uint64]uint32, config.initialShardSize()),
-		hashmapStats: make(map[uint64]*uint32, config.initialShardSize()),
+		hashmapStats: make(map[uint64]uint32, config.initialShardSize()),
 		entries:      *queue.NewBytesQueue(config.initialShardSize()*config.MaxEntrySize, config.maximumShardSize(), config.Verbose),
 		entryBuffer:  make([]byte, config.MaxEntrySize+headersSizeInBytes),
 		onRemove:     callback,
