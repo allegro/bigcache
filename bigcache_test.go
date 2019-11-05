@@ -282,7 +282,7 @@ func TestOnRemoveGetEntryStats(t *testing.T) {
 	clock := mockedClock{value: 0}
 	count := uint32(0)
 	onRemove := func(key string, entry []byte, keyMetadata Metadata) {
-		count = keyMetadata.requestCount
+		count = keyMetadata.RequestCount
 	}
 	c := Config{
 		Shards:               1,
@@ -413,7 +413,7 @@ func TestCacheEntryStats(t *testing.T) {
 
 	// then
 	keyMetadata := cache.KeyMetadata("key0")
-	assert.Equal(t, uint32(10), keyMetadata.requestCount)
+	assert.Equal(t, uint32(10), keyMetadata.RequestCount)
 }
 
 func TestCacheDel(t *testing.T) {

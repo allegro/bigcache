@@ -281,7 +281,7 @@ func (s *cacheShard) getStats() Stats {
 
 func (s *cacheShard) getKeyMetadata(key uint64) Metadata {
 	return Metadata{
-		requestCount: s.hashmapStats[key],
+		RequestCount: s.hashmapStats[key],
 	}
 }
 
