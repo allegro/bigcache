@@ -1,5 +1,5 @@
 name: Go Build
-on: [push]
+on: [push, pull_request]
 env:
   GO111MODULE: on
   CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
