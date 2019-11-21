@@ -10,6 +10,11 @@ import (
 
 type onRemoveCallback func(wrappedEntry []byte, reason RemoveReason)
 
+// Metadata contains information of a spesific entry
+type Metadata struct {
+	RequestCount uint32
+}
+
 type cacheShard struct {
 	hashmap     map[uint64]uint32
 	entries     queue.BytesQueue
@@ -17,12 +22,14 @@ type cacheShard struct {
 	entryBuffer []byte
 	onRemove    onRemoveCallback
 
-	isVerbose  bool
-	logger     Logger
-	clock      clock
-	lifeWindow uint64
+	isVerbose    bool
+	statsEnabled bool
+	logger       Logger
+	clock        clock
+	lifeWindow   uint64
 
-	stats Stats
+	hashmapStats map[uint64]uint32
+	stats        Stats
 }
 
 func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, resp Response, err error) {
@@ -48,7 +55,7 @@ func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, re
 		}
 		entry := readEntry(wrappedEntry)
 		s.lock.RUnlock()
-		s.hit()
+		s.hit(hashedKey)
 		return entry, resp, nil
 	}
 	// it is nil & error
@@ -69,7 +76,8 @@ func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
 		}
 		entry := readEntry(wrappedEntry)
 		s.lock.RUnlock()
-		s.hit()
+		s.hit(hashedKey)
+
 		return entry, nil
 	}
 	// it is nil & error
@@ -165,6 +173,9 @@ func (s *cacheShard) del(hashedKey uint64) error {
 
 		delete(s.hashmap, hashedKey)
 		s.onRemove(wrappedEntry, Deleted)
+		if s.statsEnabled {
+			delete(s.hashmapStats, hashedKey)
+		}
 		resetKeyFromEntry(wrappedEntry)
 	}
 	s.lock.Unlock()
@@ -227,6 +238,9 @@ func (s *cacheShard) removeOldestEntry(reason RemoveReason) error {
 		hash := readHashFromEntry(oldest)
 		delete(s.hashmap, hash)
 		s.onRemove(oldest, reason)
+		if s.statsEnabled {
+			delete(s.hashmapStats, hash)
+		}
 		return nil
 	}
 	return err
@@ -265,8 +279,19 @@ func (s *cacheShard) getStats() Stats {
 	return stats
 }
 
-func (s *cacheShard) hit() {
+func (s *cacheShard) getKeyMetadata(key uint64) Metadata {
+	return Metadata{
+		RequestCount: s.hashmapStats[key],
+	}
+}
+
+func (s *cacheShard) hit(key uint64) {
 	atomic.AddInt64(&s.stats.Hits, 1)
+	if s.statsEnabled {
+		s.lock.RLock()
+		s.hashmapStats[key]++
+		s.lock.RUnlock()
+	}
 }
 
 func (s *cacheShard) miss() {
@@ -287,14 +312,16 @@ func (s *cacheShard) collision() {
 
 func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheShard {
 	return &cacheShard{
-		hashmap:     make(map[uint64]uint32, config.initialShardSize()),
-		entries:     *queue.NewBytesQueue(config.initialShardSize()*config.MaxEntrySize, config.maximumShardSize(), config.Verbose),
-		entryBuffer: make([]byte, config.MaxEntrySize+headersSizeInBytes),
-		onRemove:    callback,
+		hashmap:      make(map[uint64]uint32, config.initialShardSize()),
+		hashmapStats: make(map[uint64]uint32, config.initialShardSize()),
+		entries:      *queue.NewBytesQueue(config.initialShardSize()*config.MaxEntrySize, config.maximumShardSize(), config.Verbose),
+		entryBuffer:  make([]byte, config.MaxEntrySize+headersSizeInBytes),
+		onRemove:     callback,
 
-		isVerbose:  config.Verbose,
-		logger:     newLogger(config.Logger),
-		clock:      clock,
-		lifeWindow: uint64(config.LifeWindow.Seconds()),
+		isVerbose:    config.Verbose,
+		logger:       newLogger(config.Logger),
+		clock:        clock,
+		lifeWindow:   uint64(config.LifeWindow.Seconds()),
+		statsEnabled: config.StatsEnabled,
 	}
 }
