@@ -11,39 +11,6 @@ import (
 	"time"
 )
 
-func TestParallel(t *testing.T) {
-	t.Parallel()
-	// given
-	cache, _ := NewBigCache(DefaultConfig(5 * time.Second))
-	value := []byte("value")
-	var wg sync.WaitGroup
-	wg.Add(3)
-	keys := 1337
-
-	// when
-	go func() {
-		defer wg.Done()
-		for i := 0; i < keys; i++ {
-			cache.Set(fmt.Sprintf("key%d", i), value)
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		for i := 0; i < keys; i++ {
-			_, _ = cache.Get(fmt.Sprintf("key%d", i))
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		for i := 0; i < keys; i++ {
-			cache.Delete(fmt.Sprintf("key%d", i))
-		}
-	}()
-
-	// then
-	wg.Wait()
-}
-
 func TestWriteAndGetOnCache(t *testing.T) {
 	t.Parallel()
 
@@ -454,7 +421,7 @@ func TestCacheDelRandomly(t *testing.T) {
 	cache, _ := NewBigCache(c)
 	var wg sync.WaitGroup
 	var ntest = 800000
-	wg.Add(1)
+	wg.Add(3)
 	go func() {
 		for i := 0; i < ntest; i++ {
 			r := uint8(rand.Int())
@@ -464,9 +431,9 @@ func TestCacheDelRandomly(t *testing.T) {
 		}
 		wg.Done()
 	}()
-	wg.Add(1)
+	valueLen := 1024
 	go func() {
-		val := make([]byte, 1024)
+		val := make([]byte, valueLen)
 		for i := 0; i < ntest; i++ {
 			r := byte(rand.Int())
 			key := fmt.Sprintf("thekey%d", r)
@@ -478,9 +445,8 @@ func TestCacheDelRandomly(t *testing.T) {
 		}
 		wg.Done()
 	}()
-	wg.Add(1)
 	go func() {
-		val := make([]byte, 1024)
+		val := make([]byte, valueLen)
 		for i := 0; i < ntest; i++ {
 			r := byte(rand.Int())
 			key := fmt.Sprintf("thekey%d", r)
