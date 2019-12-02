@@ -3,8 +3,6 @@ package bigcache
 import (
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestEncodeDecode(t *testing.T) {
@@ -19,11 +17,11 @@ func TestEncodeDecode(t *testing.T) {
 	wrapped := wrapEntry(now, hash, key, data, &buffer)
 
 	// then
-	assert.Equal(t, key, readKeyFromEntry(wrapped))
-	assert.Equal(t, hash, readHashFromEntry(wrapped))
-	assert.Equal(t, now, readTimestampFromEntry(wrapped))
-	assert.Equal(t, data, readEntry(wrapped))
-	assert.Equal(t, 100, len(buffer))
+	assertEqual(t, key, readKeyFromEntry(wrapped))
+	assertEqual(t, hash, readHashFromEntry(wrapped))
+	assertEqual(t, now, readTimestampFromEntry(wrapped))
+	assertEqual(t, data, readEntry(wrapped))
+	assertEqual(t, 100, len(buffer))
 }
 
 func TestAllocateBiggerBuffer(t *testing.T) {
@@ -38,9 +36,9 @@ func TestAllocateBiggerBuffer(t *testing.T) {
 	wrapped := wrapEntry(now, hash, key, data, &buffer)
 
 	// then
-	assert.Equal(t, key, readKeyFromEntry(wrapped))
-	assert.Equal(t, hash, readHashFromEntry(wrapped))
-	assert.Equal(t, now, readTimestampFromEntry(wrapped))
-	assert.Equal(t, data, readEntry(wrapped))
-	assert.Equal(t, 2+headersSizeInBytes, len(buffer))
+	assertEqual(t, key, readKeyFromEntry(wrapped))
+	assertEqual(t, hash, readHashFromEntry(wrapped))
+	assertEqual(t, now, readTimestampFromEntry(wrapped))
+	assertEqual(t, data, readEntry(wrapped))
+	assertEqual(t, 2+headersSizeInBytes, len(buffer))
 }
