@@ -441,6 +441,11 @@ func TestCacheDel(t *testing.T) {
 // TestCacheDelRandomly does simultaneous deletes, puts and gets, to check for corruption errors.
 func TestCacheDelRandomly(t *testing.T) {
 	t.Parallel()
+
+	seed := time.Now().UTC().UnixNano()
+	rand.Seed(seed)
+	print("Seed: ", seed, "\n")
+
 	c := Config{
 		Shards:             1,
 		LifeWindow:         time.Second,
@@ -452,7 +457,7 @@ func TestCacheDelRandomly(t *testing.T) {
 		HardMaxCacheSize:   1,
 		Logger:             DefaultLogger(),
 	}
-	//c.Hasher = hashStub(5)
+
 	cache, _ := NewBigCache(c)
 	var wg sync.WaitGroup
 	var ntest = 800000
