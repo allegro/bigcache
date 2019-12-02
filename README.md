@@ -89,11 +89,13 @@ if entry, err := cache.Get("my-unique-key"); err == nil {
 
 2. `CleanWindow` is a time. After that time, all the dead entries will be deleted, but not the entries that still have life.
 
-## Benchmarks
+## [Benchmarks](https://github.com/allegro/bigcache-bench)
 
 Three caches were compared: bigcache, [freecache](https://github.com/coocood/freecache) and map.
 Benchmark tests were made using an
 i7-6700K CPU @ 4.00GHz with 32GB of RAM on Ubuntu 18.04 LTS (5.2.12-050212-generic).
+
+Benchmarks source code can be found [here](https://github.com/allegro/bigcache-bench)
 
 ### Writes and reads
 
@@ -101,7 +103,7 @@ i7-6700K CPU @ 4.00GHz with 32GB of RAM on Ubuntu 18.04 LTS (5.2.12-050212-gener
 go version
 go version go1.13 linux/amd64
 
-cd caches_bench; go test -bench=. -benchmem -benchtime=4s ./... -timeout 30m
+go test -bench=. -benchmem -benchtime=4s ./... -timeout 30m
 goos: linux
 goarch: amd64
 pkg: github.com/allegro/bigcache/v2/caches_bench
@@ -132,7 +134,7 @@ Writes to map are the slowest.
 go version
 go version go1.13 linux/amd64
 
-cd caches_bench; go run caches_gc_overhead_comparison.go
+go run caches_gc_overhead_comparison.go
 
 Number of entries:  20000000
 GC pause for bigcache:  1.506077ms
@@ -144,7 +146,7 @@ GC pause for map:  9.347015ms
 go version
 go version go1.13 linux/arm64
 
-cd caches_bench; go run caches_gc_overhead_comparison.go
+go run caches_gc_overhead_comparison.go
 Number of entries:  20000000
 GC pause for bigcache:  22.382827ms
 GC pause for freecache:  41.264651ms
