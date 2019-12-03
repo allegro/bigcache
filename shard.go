@@ -34,68 +34,65 @@ type cacheShard struct {
 
 func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, resp Response, err error) {
 	currentTime := uint64(s.clock.epoch())
-	wrappedEntry, err := s.getWrappedEntry(key, hashedKey)
-	if err == nil {
-		s.lock.RLock()
-		if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
-			if s.isVerbose {
-				s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
-			}
-			s.lock.RUnlock()
-			s.collision()
-			return entry, resp, ErrEntryNotFound
-		}
-
-		oldestTimeStamp := readTimestampFromEntry(wrappedEntry)
-		if currentTime-oldestTimeStamp >= s.lifeWindow {
-			s.lock.RUnlock()
-			// @TODO: when Expired is non-default value return err as nil as the resp will have proper entry status
-			resp.EntryStatus = Expired
-			return entry, resp, ErrEntryIsDead
-		}
-		entry := readEntry(wrappedEntry)
+	s.lock.RLock()
+	wrappedEntry, err := s.getWrappedEntry(hashedKey)
+	if err != nil {
 		s.lock.RUnlock()
-		s.hit(hashedKey)
-		return entry, resp, nil
+		return nil, resp, err
 	}
-	// it is nil & error
-	return wrappedEntry, resp, err
+	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
+		s.lock.RUnlock()
+		s.collision()
+		if s.isVerbose {
+			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
+		}
+		return nil, resp, ErrEntryNotFound
+	}
+
+	oldestTimeStamp := readTimestampFromEntry(wrappedEntry)
+	if currentTime-oldestTimeStamp >= s.lifeWindow {
+		s.lock.RUnlock()
+		// @TODO: when Expired is non-default value return err as nil as the resp will have proper entry status
+		resp.EntryStatus = Expired
+		return nil, resp, ErrEntryIsDead
+	}
+	entry = readEntry(wrappedEntry)
+	s.lock.RUnlock()
+	s.hit(hashedKey)
+	return entry, resp, nil
 }
 
 func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
-	wrappedEntry, err := s.getWrappedEntry(key, hashedKey)
-	if err == nil {
-		s.lock.RLock()
-		if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
-			if s.isVerbose {
-				s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
-			}
-			s.lock.RUnlock()
-			s.collision()
-			return nil, ErrEntryNotFound
-		}
-		entry := readEntry(wrappedEntry)
+	s.lock.RLock()
+	wrappedEntry, err := s.getWrappedEntry(hashedKey)
+	if err != nil {
 		s.lock.RUnlock()
-		s.hit(hashedKey)
-
-		return entry, nil
+		return nil, err
 	}
-	// it is nil & error
-	return wrappedEntry, err
+	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
+		s.lock.RUnlock()
+		s.collision()
+		if s.isVerbose {
+			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
+		}
+		return nil, ErrEntryNotFound
+	}
+	entry := readEntry(wrappedEntry)
+	s.lock.RUnlock()
+	s.hit(hashedKey)
+
+	return entry, nil
 }
 
-func (s *cacheShard) getWrappedEntry(key string, hashedKey uint64) ([]byte, error) {
-	s.lock.RLock()
+func (s *cacheShard) getWrappedEntry(hashedKey uint64) ([]byte, error) {
 	itemIndex := s.hashmap[hashedKey]
 
 	if itemIndex == 0 {
-		s.lock.RUnlock()
 		s.miss()
 		return nil, ErrEntryNotFound
 	}
 
 	wrappedEntry, err := s.entries.Get(int(itemIndex))
-	s.lock.RUnlock()
 	if err != nil {
 		s.miss()
 		return nil, err
@@ -137,18 +134,20 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 func (s *cacheShard) del(hashedKey uint64) error {
 	// Optimistic pre-check using only readlock
 	s.lock.RLock()
-	itemIndex := s.hashmap[hashedKey]
+	{
+		itemIndex := s.hashmap[hashedKey]
 
-	if itemIndex == 0 {
-		s.lock.RUnlock()
-		s.delmiss()
-		return ErrEntryNotFound
-	}
+		if itemIndex == 0 {
+			s.lock.RUnlock()
+			s.delmiss()
+			return ErrEntryNotFound
+		}
 
-	if err := s.entries.CheckGet(int(itemIndex)); err != nil {
-		s.lock.RUnlock()
-		s.delmiss()
-		return err
+		if err := s.entries.CheckGet(int(itemIndex)); err != nil {
+			s.lock.RUnlock()
+			s.delmiss()
+			return err
+		}
 	}
 	s.lock.RUnlock()
 
@@ -156,7 +155,7 @@ func (s *cacheShard) del(hashedKey uint64) error {
 	{
 		// After obtaining the writelock, we need to read the same again,
 		// since the data delivered earlier may be stale now
-		itemIndex = s.hashmap[hashedKey]
+		itemIndex := s.hashmap[hashedKey]
 
 		if itemIndex == 0 {
 			s.lock.Unlock()
