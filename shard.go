@@ -38,15 +38,15 @@ func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, re
 	wrappedEntry, err := s.getWrappedEntry(hashedKey)
 	if err != nil {
 		s.lock.RUnlock()
-		return wrappedEntry, resp, err
+		return nil, resp, err
 	}
 	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
+		s.lock.RUnlock()
+		s.collision()
 		if s.isVerbose {
 			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
 		}
-		s.lock.RUnlock()
-		s.collision()
-		return entry, resp, ErrEntryNotFound
+		return nil, resp, ErrEntryNotFound
 	}
 
 	oldestTimeStamp := readTimestampFromEntry(wrappedEntry)
@@ -54,7 +54,7 @@ func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, re
 		s.lock.RUnlock()
 		// @TODO: when Expired is non-default value return err as nil as the resp will have proper entry status
 		resp.EntryStatus = Expired
-		return entry, resp, ErrEntryIsDead
+		return nil, resp, ErrEntryIsDead
 	}
 	entry = readEntry(wrappedEntry)
 	s.lock.RUnlock()
@@ -67,14 +67,14 @@ func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
 	wrappedEntry, err := s.getWrappedEntry(hashedKey)
 	if err != nil {
 		s.lock.RUnlock()
-		return wrappedEntry, err
+		return nil, err
 	}
 	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
+		s.lock.RUnlock()
+		s.collision()
 		if s.isVerbose {
 			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
 		}
-		s.lock.RUnlock()
-		s.collision()
 		return nil, ErrEntryNotFound
 	}
 	entry := readEntry(wrappedEntry)
