@@ -1,7 +1,7 @@
 # BigCache [![Build Status](https://github.com/allegro/bigcache/workflows/build.yml/badge.svg)](https:/github.com.org/allegro/bigcache/workflows/build.yml)&nbsp;[![Coverage Status](https://coveralls.io/repos/github/allegro/bigcache/badge.svg?branch=master)](https://coveralls.io/github/allegro/bigcache?branch=master)&nbsp;[![GoDoc](https://godoc.org/github.com/allegro/bigcache?status.svg)](https://godoc.org/github.com/allegro/bigcache)&nbsp;[![Go Report Card](https://goreportcard.com/badge/github.com/allegro/bigcache)](https://goreportcard.com/report/github.com/allegro/bigcache)
 
 Fast, concurrent, evicting in-memory cache written to keep big number of entries without impact on performance.
-BigCache keeps entries on heap but omits GC for them. To achieve that operations on bytes arrays take place,
+BigCache keeps entries on heap but omits GC for them. To achieve that operations on byte slices take place,
 therefore entries (de)serialization in front of the cache will be needed in most use cases.
 
 Requires Go 1.12 or newer.
@@ -166,8 +166,8 @@ BigCache relies on optimization presented in 1.5 version of Go ([issue-9477](htt
 This optimization states that if map without pointers in keys and values is used then GC will omit its content.
 Therefore BigCache uses `map[uint64]uint32` where keys are hashed and values are offsets of entries.
 
-Entries are kept in bytes array, to omit GC again.
-Bytes array size can grow to gigabytes without impact on performance
+Entries are kept in byte slices, to omit GC again.
+Byte slices size can grow to gigabytes without impact on performance
 because GC will only see single pointer to it.
 
 ### Collisions
