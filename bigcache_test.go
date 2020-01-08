@@ -415,6 +415,7 @@ func TestCacheDelRandomly(t *testing.T) {
 		Verbose:            false,
 		Hasher:             newDefaultHasher(),
 		HardMaxCacheSize:   1,
+		StatsEnabled:       true,
 		Logger:             DefaultLogger(),
 	}
 
@@ -461,6 +462,39 @@ func TestCacheDelRandomly(t *testing.T) {
 		wg.Done()
 	}()
 	wg.Wait()
+}
+
+func TestWriteAndReadParallelSameKeyWithStats(t *testing.T) {
+	t.Parallel()
+
+	c := DefaultConfig(0)
+	c.StatsEnabled = true
+
+	cache, _ := NewBigCache(c)
+	var wg sync.WaitGroup
+	ntest := 1000
+	n := 10
+	wg.Add(n)
+	key := "key"
+	value := blob('a', 1024)
+	for i := 0; i < ntest; i++ {
+		assertEqual(t, nil, cache.Set(key, value))
+	}
+	for j := 0; j < n; j++ {
+		go func() {
+			for i := 0; i < ntest; i++ {
+				v, err := cache.Get(key)
+				assertEqual(t, nil, err)
+				assertEqual(t, value, v)
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+
+	assertEqual(t, Stats{Hits: int64(n * ntest)}, cache.Stats())
+	assertEqual(t, ntest*n, int(cache.KeyMetadata(key).RequestCount))
 }
 
 func TestCacheReset(t *testing.T) {
