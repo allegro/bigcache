@@ -287,9 +287,9 @@ func (s *cacheShard) getKeyMetadata(key uint64) Metadata {
 func (s *cacheShard) hit(key uint64) {
 	atomic.AddInt64(&s.stats.Hits, 1)
 	if s.statsEnabled {
-		s.lock.RLock()
+		s.lock.Lock()
 		s.hashmapStats[key]++
-		s.lock.RUnlock()
+		s.lock.Unlock()
 	}
 }
 
