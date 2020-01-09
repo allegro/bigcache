@@ -204,12 +204,6 @@ func (s *cacheShard) cleanUp(currentTimestamp uint64) {
 	s.lock.Unlock()
 }
 
-func (s *cacheShard) getOldestEntry() ([]byte, error) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-	return s.entries.Peek()
-}
-
 func (s *cacheShard) getEntry(index int) ([]byte, error) {
 	s.lock.RLock()
 	entry, err := s.entries.Get(index)
