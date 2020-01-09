@@ -95,9 +95,15 @@ func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {
 		t.Errorf("Iterator should contain at least single element")
 	}
 
+	getOldestEntry := func(s *cacheShard) ([]byte, error) {
+		s.lock.RLock()
+		defer s.lock.RUnlock()
+		return s.entries.Peek()
+	}
+
 	// Quite ugly but works
 	for i := 0; i < cache.config.Shards; i++ {
-		if oldestEntry, err := cache.shards[i].getOldestEntry(); err == nil {
+		if oldestEntry, err := getOldestEntry(cache.shards[i]); err == nil {
 			cache.onEvict(oldestEntry, 10, cache.shards[i].removeOldestEntry)
 		}
 	}
