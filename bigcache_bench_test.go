@@ -56,7 +56,7 @@ func BenchmarkWriteToCache(b *testing.B) {
 func BenchmarkReadFromCache(b *testing.B) {
 	for _, shards := range []int{1, 512, 1024, 8192} {
 		b.Run(fmt.Sprintf("%d-shards", shards), func(b *testing.B) {
-			readFromCache(b, 1024, false)
+			readFromCache(b, shards, false)
 		})
 	}
 }
@@ -64,7 +64,7 @@ func BenchmarkReadFromCache(b *testing.B) {
 func BenchmarkReadFromCacheWithInfo(b *testing.B) {
 	for _, shards := range []int{1, 512, 1024, 8192} {
 		b.Run(fmt.Sprintf("%d-shards", shards), func(b *testing.B) {
-			readFromCache(b, 1024, true)
+			readFromCache(b, shards, true)
 		})
 	}
 }
