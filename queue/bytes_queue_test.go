@@ -369,11 +369,7 @@ func get(queue *BytesQueue, index int) []byte {
 }
 
 func blob(char byte, len int) []byte {
-	b := make([]byte, len)
-	for index := range b {
-		b[index] = char
-	}
-	return b
+	return bytes.Repeat([]byte{char}, len)
 }
 
 func assertEqual(t *testing.T, expected, actual interface{}, msgAndArgs ...interface{}) {

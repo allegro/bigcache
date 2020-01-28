@@ -853,9 +853,5 @@ func (mc *mockedClock) set(value int64) {
 }
 
 func blob(char byte, len int) []byte {
-	b := make([]byte, len)
-	for index := range b {
-		b[index] = char
-	}
-	return b
+	return bytes.Repeat([]byte{char}, len)
 }
