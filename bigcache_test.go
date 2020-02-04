@@ -83,21 +83,21 @@ func TestAppendRandomly(t *testing.T) {
 
 	c := Config{
 		Shards:             1,
-		LifeWindow:         time.Second,
-		CleanWindow:        0,
-		MaxEntriesInWindow: 10,
-		MaxEntrySize:       10,
-		Verbose:            false,
+		LifeWindow:         5 * time.Second,
+		CleanWindow:        1 * time.Second,
+		MaxEntriesInWindow: 1000 * 10 * 60,
+		MaxEntrySize:       500,
+		StatsEnabled:       true,
+		Verbose:            true,
 		Hasher:             newDefaultHasher(),
 		HardMaxCacheSize:   1,
-		StatsEnabled:       true,
 		Logger:             DefaultLogger(),
 	}
-	c = DefaultConfig(5 * time.Second)
-	cache, _ := NewBigCache(c)
+	cache, err := NewBigCache(c)
+	noError(t, err)
 
 	nKeys := 5
-	nAppendsPerKey := 500
+	nAppendsPerKey := 2000
 	nWorker := 10
 	var keys []string
 	for i := 0; i < nKeys; i++ {
@@ -124,7 +124,8 @@ func TestAppendRandomly(t *testing.T) {
 				if !ok {
 					break
 				}
-				cache.Append(key, []byte(key))
+				err = cache.Append(key, []byte(key))
+				noError(t, err)
 			}
 			wg.Done()
 		}()

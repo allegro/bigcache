@@ -97,7 +97,7 @@ func (s *cacheShard) getWithoutLock(key string, hashedKey uint64) ([]byte, error
 		return nil, ErrEntryNotFound
 	}
 	entry := readEntry(wrappedEntry)
-	s.hit(hashedKey)
+	s.hitWithoutLock(hashedKey)
 
 	return entry, nil
 }
@@ -347,6 +347,13 @@ func (s *cacheShard) hit(key uint64) {
 		s.lock.Lock()
 		s.hashmapStats[key]++
 		s.lock.Unlock()
+	}
+}
+
+func (s *cacheShard) hitWithoutLock(key uint64) {
+	atomic.AddInt64(&s.stats.Hits, 1)
+	if s.statsEnabled {
+		s.hashmapStats[key]++
 	}
 }
 
