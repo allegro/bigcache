@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -74,6 +75,70 @@ func TestAppendAndGetOnCache(t *testing.T) {
 	expectedValue = append(expectedValue, value2...)
 	expectedValue = append(expectedValue, value3...)
 	assertEqual(t, expectedValue, cachedValue)
+}
+
+// TestAppendRandomly does simultaneous appends to check for corruption errors.
+func TestAppendRandomly(t *testing.T) {
+	t.Parallel()
+
+	c := Config{
+		Shards:             1,
+		LifeWindow:         time.Second,
+		CleanWindow:        0,
+		MaxEntriesInWindow: 10,
+		MaxEntrySize:       10,
+		Verbose:            false,
+		Hasher:             newDefaultHasher(),
+		HardMaxCacheSize:   1,
+		StatsEnabled:       true,
+		Logger:             DefaultLogger(),
+	}
+	c = DefaultConfig(5 * time.Second)
+	cache, _ := NewBigCache(c)
+
+	nKeys := 5
+	nAppendsPerKey := 500
+	nWorker := 10
+	var keys []string
+	for i := 0; i < nKeys; i++ {
+		for j := 0; j < nAppendsPerKey; j++ {
+			keys = append(keys, fmt.Sprintf("key%d", i))
+		}
+	}
+	rand.Shuffle(len(keys), func(i, j int) {
+		keys[i], keys[j] = keys[j], keys[i]
+	})
+
+	jobs := make(chan string, len(keys))
+	for _, key := range keys {
+		jobs <- key
+	}
+	close(jobs)
+
+	var wg sync.WaitGroup
+	for i := 0; i < nWorker; i++ {
+		wg.Add(1)
+		go func() {
+			for {
+				key, ok := <-jobs
+				if !ok {
+					break
+				}
+				cache.Append(key, []byte(key))
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	assertEqual(t, nKeys, cache.Len())
+	for i := 0; i < nKeys; i++ {
+		key := fmt.Sprintf("key%d", i)
+		expectedValue := []byte(strings.Repeat(key, nAppendsPerKey))
+		cachedValue, err := cache.Get(key)
+		noError(t, err)
+		assertEqual(t, expectedValue, cachedValue)
+	}
 }
 
 func TestConstructCacheWithDefaultHasher(t *testing.T) {
