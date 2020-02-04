@@ -105,22 +105,19 @@ func (s *cacheShard) append(key string, hashedKey uint64, entry []byte) error {
 	s.lock.Lock()
 	var newEntry []byte
 	oldEntry, err := s.get(key, hashedKey, true)
-	if err == nil {
-		newEntry = oldEntry
-	} else if err != ErrEntryNotFound {
-		s.lock.Unlock()
-		return err
+	if err != nil {
+		if err != ErrEntryNotFound {
+			s.lock.Unlock()
+			return err
+		}
 	} else {
-		// Entry not found
+		newEntry = oldEntry
 	}
 
 	newEntry = append(newEntry, entry...)
 	err = s.set(key, hashedKey, newEntry, true)
 	s.lock.Unlock()
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func (s *cacheShard) del(key string, hashedKey uint64) error {
