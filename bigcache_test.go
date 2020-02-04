@@ -124,8 +124,7 @@ func TestAppendRandomly(t *testing.T) {
 				if !ok {
 					break
 				}
-				err = cache.Append(key, []byte(key))
-				noError(t, err)
+				cache.Append(key, []byte(key))
 			}
 			wg.Done()
 		}()
