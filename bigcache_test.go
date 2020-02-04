@@ -33,11 +33,11 @@ func TestAppendAndGetOnCache(t *testing.T) {
 	// given
 	cache, _ := NewBigCache(DefaultConfig(5 * time.Second))
 	key := "key"
-	value1 :=  make([]byte, 50)
+	value1 := make([]byte, 50)
 	rand.Read(value1)
-	value2 :=  make([]byte, 50)
+	value2 := make([]byte, 50)
 	rand.Read(value2)
-	value3 :=  make([]byte, 50)
+	value3 := make([]byte, 50)
 	rand.Read(value3)
 
 	// when
