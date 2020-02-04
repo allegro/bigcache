@@ -1,0 +1,57 @@
+name: build
+on: [push, pull_request]
+env:
+  GO111MODULE: on
+  CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      max-parallel: 2
+      matrix:
+        go: ["1.12.x", "1.13.x"]
+
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: ${{matrix.go}}
+        id: go
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v1
+
+      - name: Lint code
+        run: |
+          gofiles=$(find ./ -name '*.go') && [ -z "$gofiles" ] || unformatted=$(goimports -l $gofiles) && [ -z "$unformatted" ] || (echo >&2 "Go files must be formatted with gofmt. Following files has problem: $unformatted" &&  true);
+          diff <(echo -n) <(gofmt -s -d .)
+          export PATH=$PATH:$(go env GOPATH)/bin # temporary fix. See https://github.com/actions/setup-go/issues/14
+          go get -u golang.org/x/lint/golint 
+          golint ./...
+
+      - name: Static code check
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          go get -u github.com/gordonklaus/ineffassign
+          ineffassign .
+          go vet ./...
+
+      - name: Test
+        run: |
+          go test -race -count=1 -coverprofile=queue.coverprofile ./queue
+          go test -race -count=1 -coverprofile=server.coverprofile  ./server
+          go test -race -count=1 -coverprofile=main.coverprofile
+
+      - name: Upload coverage to codecov
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin # temporary fix. See https://github.com/actions/setup-go/
+          go get github.com/modocache/gover;
+          echo "" > coverage.txt
+          gover
+          cat gover.coverprofile >> coverage.txt
+          bash <(curl -s https://codecov.io/bash)
+
+      - name: Build
+        run: go build -v .

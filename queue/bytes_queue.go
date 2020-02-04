@@ -206,17 +206,9 @@ func (q *BytesQueue) peekCheckErr(index int) error {
 }
 
 func (q *BytesQueue) peek(index int) ([]byte, int, error) {
-
-	if q.count == 0 {
-		return nil, 0, errEmptyQueue
-	}
-
-	if index <= 0 {
-		return nil, 0, errInvalidIndex
-	}
-
-	if index+headerEntrySize >= len(q.array) {
-		return nil, 0, errIndexOutOfBounds
+	err := q.peekCheckErr(index)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	blockSize := int(binary.LittleEndian.Uint32(q.array[index : index+headerEntrySize]))
