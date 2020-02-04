@@ -32,16 +32,48 @@ func TestAppendAndGetOnCache(t *testing.T) {
 
 	// given
 	cache, _ := NewBigCache(DefaultConfig(5 * time.Second))
-	value := []byte("value")
+	key := "key"
+	value1 :=  make([]byte, 50)
+	rand.Read(value1)
+	value2 :=  make([]byte, 50)
+	rand.Read(value2)
+	value3 :=  make([]byte, 50)
+	rand.Read(value3)
 
 	// when
-	cache.Append("key", value)
-	cache.Append("key", value)
-	cachedValue, err := cache.Get("key")
+	cachedValue, err := cache.Get(key)
+
+	// then
+	assertEqual(t, ErrEntryNotFound, err)
+
+	// when
+	cache.Append(key, value1)
+	cachedValue, err = cache.Get(key)
 
 	// then
 	noError(t, err)
-	assertEqual(t, append(value, value...), cachedValue)
+	assertEqual(t, value1, cachedValue)
+
+	// when
+	cache.Append(key, value2)
+	cachedValue, err = cache.Get(key)
+
+	// then
+	noError(t, err)
+	expectedValue := value1
+	expectedValue = append(expectedValue, value2...)
+	assertEqual(t, expectedValue, cachedValue)
+
+	// when
+	cache.Append(key, value3)
+	cachedValue, err = cache.Get(key)
+
+	// then
+	noError(t, err)
+	expectedValue = value1
+	expectedValue = append(expectedValue, value2...)
+	expectedValue = append(expectedValue, value3...)
+	assertEqual(t, expectedValue, cachedValue)
 }
 
 func TestConstructCacheWithDefaultHasher(t *testing.T) {

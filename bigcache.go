@@ -134,7 +134,9 @@ func (c *BigCache) Set(key string, entry []byte) error {
 	return shard.set(key, hashedKey, entry)
 }
 
-// Append appends entry under existing key
+// Append appends entry under the key if key exists, otherwise
+// it will set the key (same behaviour as Set()). With Append() you can
+// concatenate multiple entries under the same key in an lock optimized way.
 func (c *BigCache) Append(key string, entry []byte) error {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
