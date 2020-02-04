@@ -41,14 +41,14 @@ func TestAppendAndGetOnCache(t *testing.T) {
 	rand.Read(value3)
 
 	// when
-	cachedValue, err := cache.Get(key)
+	_, err := cache.Get(key)
 
 	// then
 	assertEqual(t, ErrEntryNotFound, err)
 
 	// when
 	cache.Append(key, value1)
-	cachedValue, err = cache.Get(key)
+	cachedValue, err := cache.Get(key)
 
 	// then
 	noError(t, err)
