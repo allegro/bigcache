@@ -11,9 +11,6 @@ const (
 	headerEntrySize = 4
 	// Bytes before left margin are not used. Zero index means element does not exist in queue, useful while reading slice from index
 	leftMarginIndex = 1
-	// Minimum empty blob size in bytes. Empty blob fills space between tail and head in additional memory allocation.
-	// It keeps entries indexes unchanged
-	minimumEmptyBlobSize = 32 + headerEntrySize
 )
 
 var (
@@ -25,6 +22,7 @@ var (
 // BytesQueue is a non-thread safe queue type of fifo based on bytes array.
 // For every push operation index of entry is returned. It can be used to read the entry later
 type BytesQueue struct {
+	full            bool
 	array           []byte
 	capacity        int
 	maxCapacity     int
@@ -72,8 +70,8 @@ func (q *BytesQueue) Reset() {
 func (q *BytesQueue) Push(data []byte) (int, error) {
 	dataLen := len(data)
 
-	if q.availableSpaceAfterTail() < dataLen+headerEntrySize {
-		if q.availableSpaceBeforeHead() >= dataLen+headerEntrySize {
+	if !q.canInsertAfterTail(dataLen + headerEntrySize) {
+		if q.canInsertBeforeHead(dataLen + headerEntrySize) {
 			q.tail = leftMarginIndex
 		} else if q.capacity+headerEntrySize+dataLen >= q.maxCapacity && q.maxCapacity > 0 {
 			return -1, &queueError{"Full queue. Maximum size limit reached."}
@@ -126,6 +124,9 @@ func (q *BytesQueue) push(data []byte, len int) {
 
 	if q.tail > q.head {
 		q.rightMargin = q.tail
+	}
+	if q.tail == q.head {
+		q.full = true
 	}
 
 	q.count++
@@ -215,16 +216,26 @@ func (q *BytesQueue) peek(index int) ([]byte, int, error) {
 	return q.array[index+headerEntrySize : index+headerEntrySize+blockSize], blockSize, nil
 }
 
-func (q *BytesQueue) availableSpaceAfterTail() int {
-	if q.tail >= q.head {
-		return q.capacity - q.tail
+func (q *BytesQueue) canInsertAfterTail(need int) bool {
+	if q.full {
+		return false
 	}
-	return q.head - q.tail - minimumEmptyBlobSize
+	if q.tail >= q.head {
+		return q.capacity-q.tail >= need
+	}
+	// 1. there is exactly need bytes between head and tail, so we do not need
+	// to reserve extra space for a potential emtpy entry when re-allco this queeu
+	// 2. still have unused space between tail and head, then we must reserve
+	// at least headerEntrySize bytes so we can put an empty entry
+	return q.head-q.tail == need || q.head-q.tail >= need+headerEntrySize
 }
 
-func (q *BytesQueue) availableSpaceBeforeHead() int {
-	if q.tail >= q.head {
-		return q.head - leftMarginIndex - minimumEmptyBlobSize
+func (q *BytesQueue) canInsertBeforeHead(need int) bool {
+	if q.full {
+		return false
 	}
-	return q.head - q.tail - minimumEmptyBlobSize
+	if q.tail >= q.head {
+		return q.head-leftMarginIndex == need || q.head-leftMarginIndex >= need+headerEntrySize
+	}
+	return q.head-q.tail == need || q.head-q.tail >= need+headerEntrySize
 }
