@@ -8,7 +8,9 @@ import (
 
 const (
 	// Number of bytes used to keep information about entry size
-	headerEntrySize = 4
+	//headerEntrySize = 4
+	// Number of bytes to encode 0 in varint format
+	minimumHeaderSize = 1
 	// Bytes before left margin are not used. Zero index means element does not exist in queue, useful while reading slice from index
 	leftMarginIndex = 1
 )
@@ -47,7 +49,7 @@ func NewBytesQueue(initialCapacity int, maxCapacity int, verbose bool) *BytesQue
 		array:           make([]byte, initialCapacity),
 		capacity:        initialCapacity,
 		maxCapacity:     maxCapacity,
-		headerBuffer:    make([]byte, headerEntrySize),
+		headerBuffer:    make([]byte, binary.MaxVarintLen32),
 		tail:            leftMarginIndex,
 		head:            leftMarginIndex,
 		rightMargin:     leftMarginIndex,
@@ -69,6 +71,7 @@ func (q *BytesQueue) Reset() {
 // Returns index for pushed data or error if maximum size queue limit is reached.
 func (q *BytesQueue) Push(data []byte) (int, error) {
 	dataLen := len(data)
+	headerEntrySize := binary.PutUvarint(q.headerBuffer, uint64(dataLen))
 
 	if !q.canInsertAfterTail(dataLen + headerEntrySize) {
 		if q.canInsertBeforeHead(dataLen + headerEntrySize) {
@@ -104,6 +107,7 @@ func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 		copy(q.array, oldArray[:q.rightMargin])
 
 		if q.tail < q.head {
+			headerEntrySize := binary.PutUvarint(q.headerBuffer, uint64(q.head-q.tail))
 			emptyBlobLen := q.head - q.tail - headerEntrySize
 			q.push(make([]byte, emptyBlobLen), emptyBlobLen)
 			q.head = leftMarginIndex
@@ -117,7 +121,7 @@ func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 }
 
 func (q *BytesQueue) push(data []byte, len int) {
-	binary.LittleEndian.PutUint32(q.headerBuffer, uint32(len))
+	headerEntrySize := binary.PutUvarint(q.headerBuffer, uint64(len))
 	q.copy(q.headerBuffer, headerEntrySize)
 
 	q.copy(data, len)
@@ -138,7 +142,7 @@ func (q *BytesQueue) copy(data []byte, len int) {
 
 // Pop reads the oldest entry from queue and moves head pointer to the next one
 func (q *BytesQueue) Pop() ([]byte, error) {
-	data, size, err := q.peek(q.head)
+	data, size, headerEntrySize, err := q.peek(q.head)
 	if err != nil {
 		return nil, err
 	}
@@ -159,13 +163,13 @@ func (q *BytesQueue) Pop() ([]byte, error) {
 
 // Peek reads the oldest entry from list without moving head pointer
 func (q *BytesQueue) Peek() ([]byte, error) {
-	data, _, err := q.peek(q.head)
+	data, _, _, err := q.peek(q.head)
 	return data, err
 }
 
 // Get reads entry from index
 func (q *BytesQueue) Get(index int) ([]byte, error) {
-	data, _, err := q.peek(index)
+	data, _, _, err := q.peek(index)
 	return data, err
 }
 
@@ -200,20 +204,23 @@ func (q *BytesQueue) peekCheckErr(index int) error {
 		return errInvalidIndex
 	}
 
-	if index+headerEntrySize >= len(q.array) {
+	if index >= len(q.array) {
 		return errIndexOutOfBounds
 	}
 	return nil
 }
 
-func (q *BytesQueue) peek(index int) ([]byte, int, error) {
+func (q *BytesQueue) peek(index int) ([]byte, int, int, error) {
 	err := q.peekCheckErr(index)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, 0, err
 	}
 
-	blockSize := int(binary.LittleEndian.Uint32(q.array[index : index+headerEntrySize]))
-	return q.array[index+headerEntrySize : index+headerEntrySize+blockSize], blockSize, nil
+	blockSize, n := binary.Uvarint(q.array[index:])
+	if n <= 0 {
+		panic("wrong encoding")
+	}
+	return q.array[index+n : index+n+int(blockSize)], int(blockSize), n, nil
 }
 
 func (q *BytesQueue) canInsertAfterTail(need int) bool {
@@ -227,7 +234,7 @@ func (q *BytesQueue) canInsertAfterTail(need int) bool {
 	// to reserve extra space for a potential emtpy entry when re-allco this queeu
 	// 2. still have unused space between tail and head, then we must reserve
 	// at least headerEntrySize bytes so we can put an empty entry
-	return q.head-q.tail == need || q.head-q.tail >= need+headerEntrySize
+	return q.head-q.tail == need || q.head-q.tail >= need+minimumHeaderSize
 }
 
 func (q *BytesQueue) canInsertBeforeHead(need int) bool {
@@ -235,7 +242,7 @@ func (q *BytesQueue) canInsertBeforeHead(need int) bool {
 		return false
 	}
 	if q.tail >= q.head {
-		return q.head-leftMarginIndex == need || q.head-leftMarginIndex >= need+headerEntrySize
+		return q.head-leftMarginIndex == need || q.head-leftMarginIndex >= need+minimumHeaderSize
 	}
-	return q.head-q.tail == need || q.head-q.tail >= need+headerEntrySize
+	return q.head-q.tail == need || q.head-q.tail >= need+minimumHeaderSize
 }
