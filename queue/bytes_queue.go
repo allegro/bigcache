@@ -41,6 +41,15 @@ type queueError struct {
 	message string
 }
 
+func getUVarintSize(x uint64) int {
+	i := 0
+	for x >= 0x80 {
+		x >>= 7
+		i++
+	}
+	return i + 1
+}
+
 // NewBytesQueue initialize new bytes queue.
 // Initial capacity is used in bytes array allocation
 // When verbose flag is set then information about memory allocation are printed
@@ -71,7 +80,7 @@ func (q *BytesQueue) Reset() {
 // Returns index for pushed data or error if maximum size queue limit is reached.
 func (q *BytesQueue) Push(data []byte) (int, error) {
 	dataLen := len(data)
-	headerEntrySize := binary.PutUvarint(q.headerBuffer, uint64(dataLen))
+	headerEntrySize := getUVarintSize(uint64(dataLen))
 
 	if !q.canInsertAfterTail(dataLen + headerEntrySize) {
 		if q.canInsertBeforeHead(dataLen + headerEntrySize) {
@@ -107,7 +116,7 @@ func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 		copy(q.array, oldArray[:q.rightMargin])
 
 		if q.tail < q.head {
-			headerEntrySize := binary.PutUvarint(q.headerBuffer, uint64(q.head-q.tail))
+			headerEntrySize := getUVarintSize(uint64(q.head - q.tail))
 			emptyBlobLen := q.head - q.tail - headerEntrySize
 			q.push(make([]byte, emptyBlobLen), emptyBlobLen)
 			q.head = leftMarginIndex
