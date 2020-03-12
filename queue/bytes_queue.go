@@ -42,12 +42,17 @@ type queueError struct {
 }
 
 func getUVarintSize(x uint64) int {
-	i := 0
-	for x >= 0x80 {
-		x >>= 7
-		i++
+	if x < 128 {
+		return 1
+	} else if x < 16384 {
+		return 2
+	} else if x < 2097152 {
+		return 3
+	} else if x < 268435456 {
+		return 4
+	} else {
+		return 5
 	}
-	return i + 1
 }
 
 // NewBytesQueue initialize new bytes queue.
