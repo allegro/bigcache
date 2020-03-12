@@ -226,9 +226,6 @@ func (q *BytesQueue) peek(index int) ([]byte, int, int, error) {
 	}
 
 	blockSize, n := binary.Uvarint(q.array[index:])
-	if n <= 0 {
-		panic("wrong encoding")
-	}
 	return q.array[index+n : index+n+int(blockSize)], int(blockSize), n, nil
 }
 
