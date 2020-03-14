@@ -7,9 +7,7 @@ import (
 )
 
 const (
-	// Number of bytes used to keep information about entry size
-	//headerEntrySize = 4
-	// Number of bytes to encode 0 in varint format
+	// Number of bytes to encode 0 in uvarint format
 	minimumHeaderSize = 1
 	// Bytes before left margin are not used. Zero index means element does not exist in queue, useful while reading slice from index
 	leftMarginIndex = 1
@@ -41,7 +39,8 @@ type queueError struct {
 	message string
 }
 
-func getUVarintSize(x uint64) int {
+// getUvarintSize returns the number of bytes to encode x in uvarint format
+func getUvarintSize(x uint32) int {
 	if x < 128 {
 		return 1
 	} else if x < 16384 {
@@ -85,7 +84,7 @@ func (q *BytesQueue) Reset() {
 // Returns index for pushed data or error if maximum size queue limit is reached.
 func (q *BytesQueue) Push(data []byte) (int, error) {
 	dataLen := len(data)
-	headerEntrySize := getUVarintSize(uint64(dataLen))
+	headerEntrySize := getUvarintSize(uint32(dataLen))
 
 	if !q.canInsertAfterTail(dataLen + headerEntrySize) {
 		if q.canInsertBeforeHead(dataLen + headerEntrySize) {
@@ -121,7 +120,7 @@ func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 		copy(q.array, oldArray[:q.rightMargin])
 
 		if q.tail < q.head {
-			headerEntrySize := getUVarintSize(uint64(q.head - q.tail))
+			headerEntrySize := getUvarintSize(uint32(q.head - q.tail))
 			emptyBlobLen := q.head - q.tail - headerEntrySize
 			q.push(make([]byte, emptyBlobLen), emptyBlobLen)
 			q.head = leftMarginIndex
