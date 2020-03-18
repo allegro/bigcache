@@ -155,10 +155,11 @@ func (q *BytesQueue) copy(data []byte, len int) {
 
 // Pop reads the oldest entry from queue and moves head pointer to the next one
 func (q *BytesQueue) Pop() ([]byte, error) {
-	data, size, headerEntrySize, err := q.peek(q.head)
+	data, headerEntrySize, err := q.peek(q.head)
 	if err != nil {
 		return nil, err
 	}
+	size := len(data)
 
 	q.head += headerEntrySize + size
 	q.count--
@@ -176,13 +177,13 @@ func (q *BytesQueue) Pop() ([]byte, error) {
 
 // Peek reads the oldest entry from list without moving head pointer
 func (q *BytesQueue) Peek() ([]byte, error) {
-	data, _, _, err := q.peek(q.head)
+	data, _, err := q.peek(q.head)
 	return data, err
 }
 
 // Get reads entry from index
 func (q *BytesQueue) Get(index int) ([]byte, error) {
-	data, _, _, err := q.peek(index)
+	data, _, err := q.peek(index)
 	return data, err
 }
 
@@ -223,16 +224,18 @@ func (q *BytesQueue) peekCheckErr(index int) error {
 	return nil
 }
 
-func (q *BytesQueue) peek(index int) ([]byte, int, int, error) {
+// peek returns the data from index and the number of bytes to encode the length of the data in uvarint format
+func (q *BytesQueue) peek(index int) ([]byte, int, error) {
 	err := q.peekCheckErr(index)
 	if err != nil {
-		return nil, 0, 0, err
+		return nil, 0, err
 	}
 
 	blockSize, n := binary.Uvarint(q.array[index:])
-	return q.array[index+n : index+n+int(blockSize)], int(blockSize), n, nil
+	return q.array[index+n : index+n+int(blockSize)], n, nil
 }
 
+// canInsertAfterTail returns true if it's possible to insert an entry of size of need after the tail of the queue
 func (q *BytesQueue) canInsertAfterTail(need int) bool {
 	if q.full {
 		return false
@@ -247,6 +250,7 @@ func (q *BytesQueue) canInsertAfterTail(need int) bool {
 	return q.head-q.tail == need || q.head-q.tail >= need+minimumHeaderSize
 }
 
+// canInsertBeforeHead returns true if it's possible to insert an entry of size of need before the head of the queue
 func (q *BytesQueue) canInsertBeforeHead(need int) bool {
 	if q.full {
 		return false
