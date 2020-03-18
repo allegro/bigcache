@@ -344,11 +344,11 @@ func TestMaxSizeLimit(t *testing.T) {
 	queue.Push(blob('a', 25))
 	queue.Push(blob('b', 5))
 	capacity := queue.Capacity()
-	_, err := queue.Push(blob('c', 15))
-	assertEqual(t, err, nil)
+	_, err := queue.Push(blob('c', 20))
 
 	// then
 	assertEqual(t, 50, capacity)
+	assertEqual(t, "Full queue. Maximum size limit reached.", err.Error())
 	assertEqual(t, blob('a', 25), pop(queue))
 	assertEqual(t, blob('b', 5), pop(queue))
 }
