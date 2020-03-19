@@ -426,7 +426,7 @@ func TestCacheCapacity(t *testing.T) {
 
 	// then
 	assertEqual(t, keys, cache.Len())
-	assertEqual(t, 81920, cache.Capacity())
+	assertEqual(t, 40960, cache.Capacity())
 }
 
 func TestCacheStats(t *testing.T) {
