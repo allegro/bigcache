@@ -11,7 +11,7 @@ jobs:
       fail-fast: true
       max-parallel: 2
       matrix:
-        go: ["1.12.x", "1.13.x"]
+        go: ["1.13.x", "1.14.x"]
 
     steps:
       - name: Set up Go
