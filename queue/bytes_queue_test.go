@@ -71,6 +71,32 @@ func TestPeek(t *testing.T) {
 	assertEqual(t, entry, read)
 }
 
+func TestResetFullQueue(t *testing.T) {
+	t.Parallel()
+
+	// given
+	queue := NewBytesQueue(10, 20, false)
+
+	// when
+	queue.Push(blob('a', 3))
+	queue.Push(blob('b', 4))
+
+	// when
+	assertEqual(t, blob('a', 3), pop(queue)) // space freed at the beginning
+	_, err := queue.Push(blob('a', 3))       // will set q.full to true
+
+	// then
+	assertEqual(t, err, nil)
+
+	// when
+	queue.Reset()
+	queue.Push(blob('c', 8)) // should not trigger a re-allocation
+
+	// then
+	assertEqual(t, blob('c', 8), pop(queue))
+	assertEqual(t, queue.Capacity(), 10)
+}
+
 func TestReset(t *testing.T) {
 	t.Parallel()
 
