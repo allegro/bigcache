@@ -995,14 +995,20 @@ func TestBigCache_GetWithInfo(t *testing.T) {
 
 	// when
 	data, resp, err := cache.GetWithInfo(key)
+
+	// then
 	assertEqual(t, []byte(value), data)
 	noError(t, err)
 	assertEqual(t, Response{}, resp)
+
+	// when
 	clock.set(5)
 	data, resp, err = cache.GetWithInfo(key)
+
+	// then
 	assertEqual(t, err, nil)
 	assertEqual(t, Response{EntryStatus: Expired}, resp)
-	assertEqual(t, []byte(nil), data)
+	assertEqual(t, []byte(value), data)
 }
 
 type mockedLogger struct {

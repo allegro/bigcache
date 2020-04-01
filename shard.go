@@ -49,15 +49,13 @@ func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, re
 		return nil, resp, ErrEntryNotFound
 	}
 
-	oldestTimeStamp := readTimestampFromEntry(wrappedEntry)
-	if currentTime-oldestTimeStamp >= s.lifeWindow {
-		s.lock.RUnlock()
-		resp.EntryStatus = Expired
-		return nil, resp, nil
-	}
 	entry = readEntry(wrappedEntry)
+	oldestTimeStamp := readTimestampFromEntry(wrappedEntry)
 	s.lock.RUnlock()
 	s.hit(hashedKey)
+	if currentTime-oldestTimeStamp >= s.lifeWindow {
+		resp.EntryStatus = Expired
+	}
 	return entry, resp, nil
 }
 
