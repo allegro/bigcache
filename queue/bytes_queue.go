@@ -22,7 +22,6 @@ var (
 // BytesQueue is a non-thread safe queue type of fifo based on bytes array.
 // For every push operation index of entry is returned. It can be used to read the entry later
 type BytesQueue struct {
-	full            bool
 	array           []byte
 	capacity        int
 	maxCapacity     int
@@ -78,7 +77,6 @@ func (q *BytesQueue) Reset() {
 	q.head = leftMarginIndex
 	q.rightMargin = leftMarginIndex
 	q.count = 0
-	q.full = false
 }
 
 // Push copies entry at the end of queue and moves tail pointer. Allocates more space if needed.
@@ -142,9 +140,6 @@ func (q *BytesQueue) push(data []byte, len int) {
 
 	if q.tail > q.head {
 		q.rightMargin = q.tail
-	}
-	if q.tail == q.head {
-		q.full = true
 	}
 
 	q.count++
@@ -238,9 +233,6 @@ func (q *BytesQueue) peek(index int) ([]byte, int, error) {
 
 // canInsertAfterTail returns true if it's possible to insert an entry of size of need after the tail of the queue
 func (q *BytesQueue) canInsertAfterTail(need int) bool {
-	if q.full {
-		return false
-	}
 	if q.tail >= q.head {
 		return q.capacity-q.tail >= need
 	}
@@ -253,9 +245,6 @@ func (q *BytesQueue) canInsertAfterTail(need int) bool {
 
 // canInsertBeforeHead returns true if it's possible to insert an entry of size of need before the head of the queue
 func (q *BytesQueue) canInsertBeforeHead(need int) bool {
-	if q.full {
-		return false
-	}
 	if q.tail >= q.head {
 		return q.head-leftMarginIndex == need || q.head-leftMarginIndex >= need+minimumHeaderSize
 	}
