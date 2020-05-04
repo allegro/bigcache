@@ -292,6 +292,10 @@ func (s *cacheShard) removeOldestEntry(reason RemoveReason) error {
 	oldest, err := s.entries.Pop()
 	if err == nil {
 		hash := readHashFromEntry(oldest)
+		if hash == 0 {
+			// entry has been explicitly deleted with resetKeyFromEntry, ignore
+			return nil
+		}
 		delete(s.hashmap, hash)
 		s.onRemove(oldest, reason)
 		if s.statsEnabled {
