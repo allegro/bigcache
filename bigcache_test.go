@@ -353,6 +353,67 @@ func TestOnRemoveFilter(t *testing.T) {
 	assertEqual(t, true, onRemoveInvoked)
 }
 
+func TestOnRemoveFilterExpired(t *testing.T) {
+	// t.Parallel()
+
+	// given
+	clock := mockedClock{value: 0}
+	onRemoveDeleted, onRemoveExpired := false, false
+	var err error
+	onRemove := func(key string, entry []byte, reason RemoveReason) {
+		switch reason {
+
+		case Deleted:
+			onRemoveDeleted = true
+		case Expired:
+			onRemoveExpired = true
+
+		}
+	}
+	c := Config{
+		Shards:             1,
+		LifeWindow:         3 * time.Second,
+		CleanWindow:        0,
+		MaxEntriesInWindow: 10,
+		MaxEntrySize:       256,
+		OnRemoveWithReason: onRemove,
+	}
+
+	cache, err := newBigCache(c, &clock)
+	assertEqual(t, err, nil)
+
+	// case 1: key is deleted AFTER expire
+	// when
+	onRemoveDeleted, onRemoveExpired = false, false
+	clock.set(0)
+
+	cache.Set("key", []byte("value"))
+	clock.set(5)
+	cache.cleanUp(uint64(clock.epoch()))
+
+	err = cache.Delete("key")
+
+	// then
+	assertEqual(t, err, ErrEntryNotFound)
+	assertEqual(t, false, onRemoveDeleted)
+	assertEqual(t, true, onRemoveExpired)
+
+	// case 1: key is deleted BEFORE expire
+	// when
+	onRemoveDeleted, onRemoveExpired = false, false
+	clock.set(0)
+
+	cache.Set("key2", []byte("value2"))
+	err = cache.Delete("key2")
+	clock.set(5)
+	cache.cleanUp(uint64(clock.epoch()))
+	// then
+
+	assertEqual(t, err, nil)
+	assertEqual(t, true, onRemoveDeleted)
+	assertEqual(t, false, onRemoveExpired)
+}
+
 func TestOnRemoveGetEntryStats(t *testing.T) {
 	t.Parallel()
 
