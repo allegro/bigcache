@@ -33,13 +33,12 @@ type RemoveReason uint32
 
 const (
 	// Expired means the key is past its LifeWindow.
-	// @TODO: Go defaults to 0 so in case we want to return EntryStatus back to the caller Expired cannot be differentiated
-	Expired RemoveReason = iota
+	Expired = RemoveReason(1)
 	// NoSpace means the key is the oldest and the cache size was at its maximum when Set was called, or the
 	// entry exceeded the maximum shard size.
-	NoSpace
+	NoSpace = RemoveReason(2)
 	// Deleted means Delete was called and this key was removed as a result.
-	Deleted
+	Deleted = RemoveReason(3)
 )
 
 // NewBigCache initialize new instance of BigCache
