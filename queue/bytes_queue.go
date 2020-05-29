@@ -173,6 +173,8 @@ func (q *BytesQueue) Pop() ([]byte, error) {
 		q.rightMargin = q.tail
 	}
 
+	q.full = false
+
 	return data, nil
 }
 
