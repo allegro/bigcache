@@ -247,7 +247,7 @@ func (q *BytesQueue) canInsertAfterTail(need int) bool {
 		return q.capacity-q.tail >= need
 	}
 	// 1. there is exactly need bytes between head and tail, so we do not need
-	// to reserve extra space for a potential emtpy entry when re-allco this queeu
+	// to reserve extra space for a potential empty entry when realloc this queue
 	// 2. still have unused space between tail and head, then we must reserve
 	// at least headerEntrySize bytes so we can put an empty entry
 	return q.head-q.tail == need || q.head-q.tail >= need+minimumHeaderSize
