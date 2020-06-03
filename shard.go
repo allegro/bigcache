@@ -10,7 +10,7 @@ import (
 
 type onRemoveCallback func(wrappedEntry []byte, reason RemoveReason)
 
-// Metadata contains information of a spesific entry
+// Metadata contains information of a specific entry
 type Metadata struct {
 	RequestCount uint32
 }
