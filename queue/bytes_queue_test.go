@@ -379,6 +379,29 @@ func TestMaxSizeLimit(t *testing.T) {
 	assertEqual(t, blob('b', 5), pop(queue))
 }
 
+func TestPushEntryAfterAllocateAdditionMemory(t *testing.T) {
+	t.Parallel()
+
+	// given
+	queue := NewBytesQueue(9, 20, true)
+
+	// when
+	queue.Push([]byte("aaa"))
+	queue.Push([]byte("bb"))
+	queue.Pop()
+	queue.Push([]byte("c"))
+	queue.Push([]byte("d"))
+
+	// allocate more memory
+	assertEqual(t, 9, queue.Capacity())
+	queue.Push([]byte("c"))
+	assertEqual(t, 18, queue.Capacity())
+
+	// push after allocate
+	_, err := queue.Push([]byte("d"))
+	noError(t, err)
+}
+
 func pop(queue *BytesQueue) []byte {
 	entry, err := queue.Pop()
 	if err != nil {

@@ -129,6 +129,8 @@ func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 		}
 	}
 
+	q.full = false
+
 	if q.verbose {
 		log.Printf("Allocated new queue in %s; Capacity: %d \n", time.Since(start), q.capacity)
 	}
