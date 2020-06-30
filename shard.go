@@ -2,7 +2,6 @@ package bigcache
 
 import (
 	"fmt"
-	"runtime/debug"
 	"sync"
 	"sync/atomic"
 
@@ -254,15 +253,6 @@ func (s *cacheShard) onEvict(oldestEntry []byte, currentTimestamp uint64, evict 
 }
 
 func (s *cacheShard) cleanUp(currentTimestamp uint64) {
-	defer func() {
-		// panic recover
-		if e := recover(); e != nil {
-			s.logger.Printf("panic recover, err: %v, stack: \n%s", e, debug.Stack())
-		}
-	}()
-
-	defer s.lock.Unlock()
-
 	s.lock.Lock()
 	for {
 		if oldestEntry, err := s.entries.Peek(); err != nil {
@@ -271,6 +261,7 @@ func (s *cacheShard) cleanUp(currentTimestamp uint64) {
 			break
 		}
 	}
+	s.lock.Unlock()
 }
 
 func (s *cacheShard) getEntry(hashedKey uint64) ([]byte, error) {
