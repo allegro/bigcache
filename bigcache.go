@@ -193,7 +193,7 @@ func (c *BigCache) Stats() Stats {
 func (c *BigCache) KeyMetadata(key string) Metadata {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
-	return shard.getKeyMetadata(hashedKey)
+	return shard.getKeyMetadataWithLock(hashedKey)
 }
 
 // Iterator returns iterator function to iterate over EntryInfo's from whole cache.

@@ -341,6 +341,15 @@ func (s *cacheShard) getStats() Stats {
 	return stats
 }
 
+func (s *cacheShard) getKeyMetadataWithLock(key uint64) Metadata {
+	s.lock.RLock()
+	c := s.hashmapStats[key]
+	s.lock.RUnlock()
+	return Metadata{
+		RequestCount: c,
+	}
+}
+
 func (s *cacheShard) getKeyMetadata(key uint64) Metadata {
 	return Metadata{
 		RequestCount: s.hashmapStats[key],
