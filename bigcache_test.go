@@ -835,6 +835,44 @@ func TestOldestEntryDeletionWhenMaxCacheSizeIsReached(t *testing.T) {
 	assertEqual(t, blob('c', 1024*800), entry3)
 }
 
+func TestNewEntryWriteWhenMaxCacheSizeIsReached(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{
+		Shards:             1,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 2,
+		MaxEntrySize:       400,
+		HardMaxCacheSize:   1,
+	})
+
+	// when
+	key1Err := cache.Set("key1", blob('a', 1024*400))
+	key2Err := cache.Set("key2", blob('b', 1024*400))
+	key3Err := cache.Set("key3", blob('c', 1024*400))
+	key4Err := cache.Set("key4", blob('d', 1024*400))
+
+	//then
+	noError(t, key1Err)
+	noError(t, key2Err)
+	noError(t, key3Err)
+	noError(t, key4Err)
+
+	// when
+	_, key1Err = cache.Get("key1")
+	_, key2Err = cache.Get("key2")
+	entry3, _ := cache.Get("key3")
+	entry4, _ := cache.Get("key4")
+
+	// then
+	assertEqual(t, key1Err, ErrEntryNotFound)
+	assertEqual(t, key2Err, ErrEntryNotFound)
+	assertEqual(t, blob('c', 1024*400), entry3)
+	assertEqual(t, blob('d', 1024*400), entry4)
+
+}
+
 func TestRetrievingEntryShouldCopy(t *testing.T) {
 	t.Parallel()
 
