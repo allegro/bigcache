@@ -10,6 +10,11 @@ import (
 
 type onRemoveCallback func(wrappedEntry []byte, reason RemoveReason)
 
+// Metadata contains information of a specific entry
+type Metadata struct {
+	RequestCount uint32
+}
+
 type cacheShard struct {
 	hashmap     map[uint64]uint32
 	entries     queue.BytesQueue
@@ -17,76 +22,92 @@ type cacheShard struct {
 	entryBuffer []byte
 	onRemove    onRemoveCallback
 
-	isVerbose  bool
-	logger     Logger
-	clock      clock
-	lifeWindow uint64
+	isVerbose    bool
+	statsEnabled bool
+	logger       Logger
+	clock        clock
+	lifeWindow   uint64
 
-	stats Stats
+	hashmapStats map[uint64]uint32
+	stats        Stats
 }
 
 func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, resp Response, err error) {
 	currentTime := uint64(s.clock.epoch())
-	wrappedEntry, err := s.getWrappedEntry(key, hashedKey)
-	if err == nil {
-		s.lock.RLock()
-		if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
-			if s.isVerbose {
-				s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
-			}
-			s.lock.RUnlock()
-			s.collision()
-			return entry, resp, ErrEntryNotFound
-		}
-
-		oldestTimeStamp := readTimestampFromEntry(wrappedEntry)
-		if currentTime-oldestTimeStamp >= s.lifeWindow {
-			s.lock.RUnlock()
-			resp.EntryStatus = Expired
-			return entry, resp, nil
-		}
-		entry := readEntry(wrappedEntry)
+	s.lock.RLock()
+	wrappedEntry, err := s.getWrappedEntry(hashedKey)
+	if err != nil {
 		s.lock.RUnlock()
-		s.hit()
-		return entry, resp, nil
+		return nil, resp, err
 	}
-	// it is nil & error
-	return wrappedEntry, resp, err
+	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
+		s.lock.RUnlock()
+		s.collision()
+		if s.isVerbose {
+			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
+		}
+		return nil, resp, ErrEntryNotFound
+	}
+
+	entry = readEntry(wrappedEntry)
+	oldestTimeStamp := readTimestampFromEntry(wrappedEntry)
+	s.lock.RUnlock()
+	s.hit(hashedKey)
+	if currentTime-oldestTimeStamp >= s.lifeWindow {
+		resp.EntryStatus = Expired
+	}
+	return entry, resp, nil
 }
 
 func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
-	wrappedEntry, err := s.getWrappedEntry(key, hashedKey)
-	if err == nil {
-		s.lock.RLock()
-		if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
-			if s.isVerbose {
-				s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
-			}
-			s.lock.RUnlock()
-			s.collision()
-			return nil, ErrEntryNotFound
-		}
-		entry := readEntry(wrappedEntry)
+	s.lock.RLock()
+	wrappedEntry, err := s.getWrappedEntry(hashedKey)
+	if err != nil {
 		s.lock.RUnlock()
-		s.hit()
-		return entry, nil
+		return nil, err
 	}
-	// it is nil & error
-	return wrappedEntry, err
+	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
+		s.lock.RUnlock()
+		s.collision()
+		if s.isVerbose {
+			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
+		}
+		return nil, ErrEntryNotFound
+	}
+	entry := readEntry(wrappedEntry)
+	s.lock.RUnlock()
+	s.hit(hashedKey)
+
+	return entry, nil
 }
 
-func (s *cacheShard) getWrappedEntry(key string, hashedKey uint64) ([]byte, error) {
-	s.lock.RLock()
+func (s *cacheShard) getWithoutLock(key string, hashedKey uint64) ([]byte, error) {
+	wrappedEntry, err := s.getWrappedEntry(hashedKey)
+	if err != nil {
+		return nil, err
+	}
+	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
+		s.collision()
+		if s.isVerbose {
+			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
+		}
+		return nil, ErrEntryNotFound
+	}
+	entry := readEntry(wrappedEntry)
+	s.hitWithoutLock(hashedKey)
+
+	return entry, nil
+}
+
+func (s *cacheShard) getWrappedEntry(hashedKey uint64) ([]byte, error) {
 	itemIndex := s.hashmap[hashedKey]
 
 	if itemIndex == 0 {
-		s.lock.RUnlock()
 		s.miss()
 		return nil, ErrEntryNotFound
 	}
 
 	wrappedEntry, err := s.entries.Get(int(itemIndex))
-	s.lock.RUnlock()
 	if err != nil {
 		s.miss()
 		return nil, err
@@ -125,21 +146,68 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 	}
 }
 
+func (s *cacheShard) setWithoutLock(key string, hashedKey uint64, entry []byte) error {
+	currentTimestamp := uint64(s.clock.epoch())
+
+	if previousIndex := s.hashmap[hashedKey]; previousIndex != 0 {
+		if previousEntry, err := s.entries.Get(int(previousIndex)); err == nil {
+			resetKeyFromEntry(previousEntry)
+		}
+	}
+
+	if oldestEntry, err := s.entries.Peek(); err == nil {
+		s.onEvict(oldestEntry, currentTimestamp, s.removeOldestEntry)
+	}
+
+	w := wrapEntry(currentTimestamp, hashedKey, key, entry, &s.entryBuffer)
+
+	for {
+		if index, err := s.entries.Push(w); err == nil {
+			s.hashmap[hashedKey] = uint32(index)
+			return nil
+		}
+		if s.removeOldestEntry(NoSpace) != nil {
+			return fmt.Errorf("entry is bigger than max shard size")
+		}
+	}
+}
+
+func (s *cacheShard) append(key string, hashedKey uint64, entry []byte) error {
+	s.lock.Lock()
+	var newEntry []byte
+	oldEntry, err := s.getWithoutLock(key, hashedKey)
+	if err != nil {
+		if err != ErrEntryNotFound {
+			s.lock.Unlock()
+			return err
+		}
+	} else {
+		newEntry = oldEntry
+	}
+
+	newEntry = append(newEntry, entry...)
+	err = s.setWithoutLock(key, hashedKey, newEntry)
+	s.lock.Unlock()
+	return err
+}
+
 func (s *cacheShard) del(hashedKey uint64) error {
 	// Optimistic pre-check using only readlock
 	s.lock.RLock()
-	itemIndex := s.hashmap[hashedKey]
+	{
+		itemIndex := s.hashmap[hashedKey]
 
-	if itemIndex == 0 {
-		s.lock.RUnlock()
-		s.delmiss()
-		return ErrEntryNotFound
-	}
+		if itemIndex == 0 {
+			s.lock.RUnlock()
+			s.delmiss()
+			return ErrEntryNotFound
+		}
 
-	if err := s.entries.CheckGet(int(itemIndex)); err != nil {
-		s.lock.RUnlock()
-		s.delmiss()
-		return err
+		if err := s.entries.CheckGet(int(itemIndex)); err != nil {
+			s.lock.RUnlock()
+			s.delmiss()
+			return err
+		}
 	}
 	s.lock.RUnlock()
 
@@ -147,7 +215,7 @@ func (s *cacheShard) del(hashedKey uint64) error {
 	{
 		// After obtaining the writelock, we need to read the same again,
 		// since the data delivered earlier may be stale now
-		itemIndex = s.hashmap[hashedKey]
+		itemIndex := s.hashmap[hashedKey]
 
 		if itemIndex == 0 {
 			s.lock.Unlock()
@@ -164,6 +232,9 @@ func (s *cacheShard) del(hashedKey uint64) error {
 
 		delete(s.hashmap, hashedKey)
 		s.onRemove(wrappedEntry, Deleted)
+		if s.statsEnabled {
+			delete(s.hashmapStats, hashedKey)
+		}
 		resetKeyFromEntry(wrappedEntry)
 	}
 	s.lock.Unlock()
@@ -193,26 +264,25 @@ func (s *cacheShard) cleanUp(currentTimestamp uint64) {
 	s.lock.Unlock()
 }
 
-func (s *cacheShard) getOldestEntry() ([]byte, error) {
+func (s *cacheShard) getEntry(hashedKey uint64) ([]byte, error) {
 	s.lock.RLock()
-	defer s.lock.RUnlock()
-	return s.entries.Peek()
-}
 
-func (s *cacheShard) getEntry(index int) ([]byte, error) {
-	s.lock.RLock()
-	entry, err := s.entries.Get(index)
+	entry, err := s.getWrappedEntry(hashedKey)
+	// copy entry
+	newEntry := make([]byte, len(entry))
+	copy(newEntry, entry)
+
 	s.lock.RUnlock()
 
-	return entry, err
+	return newEntry, err
 }
 
-func (s *cacheShard) copyKeys() (keys []uint32, next int) {
+func (s *cacheShard) copyHashedKeys() (keys []uint64, next int) {
 	s.lock.RLock()
-	keys = make([]uint32, len(s.hashmap))
+	keys = make([]uint64, len(s.hashmap))
 
-	for _, index := range s.hashmap {
-		keys[next] = index
+	for key := range s.hashmap {
+		keys[next] = key
 		next++
 	}
 
@@ -224,8 +294,15 @@ func (s *cacheShard) removeOldestEntry(reason RemoveReason) error {
 	oldest, err := s.entries.Pop()
 	if err == nil {
 		hash := readHashFromEntry(oldest)
+		if hash == 0 {
+			// entry has been explicitly deleted with resetKeyFromEntry, ignore
+			return nil
+		}
 		delete(s.hashmap, hash)
 		s.onRemove(oldest, reason)
+		if s.statsEnabled {
+			delete(s.hashmapStats, hash)
+		}
 		return nil
 	}
 	return err
@@ -264,8 +341,35 @@ func (s *cacheShard) getStats() Stats {
 	return stats
 }
 
-func (s *cacheShard) hit() {
+func (s *cacheShard) getKeyMetadataWithLock(key uint64) Metadata {
+	s.lock.RLock()
+	c := s.hashmapStats[key]
+	s.lock.RUnlock()
+	return Metadata{
+		RequestCount: c,
+	}
+}
+
+func (s *cacheShard) getKeyMetadata(key uint64) Metadata {
+	return Metadata{
+		RequestCount: s.hashmapStats[key],
+	}
+}
+
+func (s *cacheShard) hit(key uint64) {
 	atomic.AddInt64(&s.stats.Hits, 1)
+	if s.statsEnabled {
+		s.lock.Lock()
+		s.hashmapStats[key]++
+		s.lock.Unlock()
+	}
+}
+
+func (s *cacheShard) hitWithoutLock(key uint64) {
+	atomic.AddInt64(&s.stats.Hits, 1)
+	if s.statsEnabled {
+		s.hashmapStats[key]++
+	}
 }
 
 func (s *cacheShard) miss() {
@@ -286,14 +390,16 @@ func (s *cacheShard) collision() {
 
 func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheShard {
 	return &cacheShard{
-		hashmap:     make(map[uint64]uint32, config.initialShardSize()),
-		entries:     *queue.NewBytesQueue(config.initialShardSize()*config.MaxEntrySize, config.maximumShardSize(), config.Verbose),
-		entryBuffer: make([]byte, config.MaxEntrySize+headersSizeInBytes),
-		onRemove:    callback,
+		hashmap:      make(map[uint64]uint32, config.initialShardSize()),
+		hashmapStats: make(map[uint64]uint32, config.initialShardSize()),
+		entries:      *queue.NewBytesQueue(config.initialShardSize()*config.MaxEntrySize, config.maximumShardSize(), config.Verbose),
+		entryBuffer:  make([]byte, config.MaxEntrySize+headersSizeInBytes),
+		onRemove:     callback,
 
-		isVerbose:  config.Verbose,
-		logger:     newLogger(config.Logger),
-		clock:      clock,
-		lifeWindow: uint64(config.LifeWindow.Seconds()),
+		isVerbose:    config.Verbose,
+		logger:       newLogger(config.Logger),
+		clock:        clock,
+		lifeWindow:   uint64(config.LifeWindow.Seconds()),
+		statsEnabled: config.StatsEnabled,
 	}
 }

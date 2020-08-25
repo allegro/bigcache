@@ -3,50 +3,14 @@ package bigcache
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"math/rand"
 	"runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
 )
-
-var sink []byte
-
-func TestParallel(t *testing.T) {
-	t.Parallel()
-
-	// given
-	cache, _ := NewBigCache(DefaultConfig(5 * time.Second))
-	value := []byte("value")
-	var wg sync.WaitGroup
-	wg.Add(3)
-	keys := 1337
-
-	// when
-	go func() {
-		defer wg.Done()
-		for i := 0; i < keys; i++ {
-			cache.Set(fmt.Sprintf("key%d", i), value)
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		for i := 0; i < keys; i++ {
-			sink, _ = cache.Get(fmt.Sprintf("key%d", i))
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		for i := 0; i < keys; i++ {
-			cache.Delete(fmt.Sprintf("key%d", i))
-		}
-	}()
-
-	// then
-	wg.Wait()
-}
 
 func TestWriteAndGetOnCache(t *testing.T) {
 	t.Parallel()
@@ -60,8 +24,121 @@ func TestWriteAndGetOnCache(t *testing.T) {
 	cachedValue, err := cache.Get("key")
 
 	// then
-	assert.NoError(t, err)
-	assert.Equal(t, value, cachedValue)
+	noError(t, err)
+	assertEqual(t, value, cachedValue)
+}
+
+func TestAppendAndGetOnCache(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(DefaultConfig(5 * time.Second))
+	key := "key"
+	value1 := make([]byte, 50)
+	rand.Read(value1)
+	value2 := make([]byte, 50)
+	rand.Read(value2)
+	value3 := make([]byte, 50)
+	rand.Read(value3)
+
+	// when
+	_, err := cache.Get(key)
+
+	// then
+	assertEqual(t, ErrEntryNotFound, err)
+
+	// when
+	cache.Append(key, value1)
+	cachedValue, err := cache.Get(key)
+
+	// then
+	noError(t, err)
+	assertEqual(t, value1, cachedValue)
+
+	// when
+	cache.Append(key, value2)
+	cachedValue, err = cache.Get(key)
+
+	// then
+	noError(t, err)
+	expectedValue := value1
+	expectedValue = append(expectedValue, value2...)
+	assertEqual(t, expectedValue, cachedValue)
+
+	// when
+	cache.Append(key, value3)
+	cachedValue, err = cache.Get(key)
+
+	// then
+	noError(t, err)
+	expectedValue = value1
+	expectedValue = append(expectedValue, value2...)
+	expectedValue = append(expectedValue, value3...)
+	assertEqual(t, expectedValue, cachedValue)
+}
+
+// TestAppendRandomly does simultaneous appends to check for corruption errors.
+func TestAppendRandomly(t *testing.T) {
+	t.Parallel()
+
+	c := Config{
+		Shards:             1,
+		LifeWindow:         5 * time.Second,
+		CleanWindow:        1 * time.Second,
+		MaxEntriesInWindow: 1000 * 10 * 60,
+		MaxEntrySize:       500,
+		StatsEnabled:       true,
+		Verbose:            true,
+		Hasher:             newDefaultHasher(),
+		HardMaxCacheSize:   1,
+		Logger:             DefaultLogger(),
+	}
+	cache, err := NewBigCache(c)
+	noError(t, err)
+
+	nKeys := 5
+	nAppendsPerKey := 2000
+	nWorker := 10
+	var keys []string
+	for i := 0; i < nKeys; i++ {
+		for j := 0; j < nAppendsPerKey; j++ {
+			keys = append(keys, fmt.Sprintf("key%d", i))
+		}
+	}
+	rand.Shuffle(len(keys), func(i, j int) {
+		keys[i], keys[j] = keys[j], keys[i]
+	})
+
+	jobs := make(chan string, len(keys))
+	for _, key := range keys {
+		jobs <- key
+	}
+	close(jobs)
+
+	var wg sync.WaitGroup
+	for i := 0; i < nWorker; i++ {
+		wg.Add(1)
+		go func() {
+			for {
+				key, ok := <-jobs
+				if !ok {
+					break
+				}
+				cache.Append(key, []byte(key))
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	assertEqual(t, nKeys, cache.Len())
+	for i := 0; i < nKeys; i++ {
+		key := fmt.Sprintf("key%d", i)
+		expectedValue := []byte(strings.Repeat(key, nAppendsPerKey))
+		cachedValue, err := cache.Get(key)
+		noError(t, err)
+		assertEqual(t, expectedValue, cachedValue)
+	}
 }
 
 func TestConstructCacheWithDefaultHasher(t *testing.T) {
@@ -75,7 +152,8 @@ func TestConstructCacheWithDefaultHasher(t *testing.T) {
 		MaxEntrySize:       256,
 	})
 
-	assert.IsType(t, fnv64a{}, cache.hash)
+	_, ok := cache.hash.(fnv64a)
+	assertEqual(t, true, ok)
 }
 
 func TestWillReturnErrorOnInvalidNumberOfPartitions(t *testing.T) {
@@ -89,8 +167,8 @@ func TestWillReturnErrorOnInvalidNumberOfPartitions(t *testing.T) {
 		MaxEntrySize:       256,
 	})
 
-	assert.Nil(t, cache)
-	assert.Error(t, error, "Shards number must be power of two")
+	assertEqual(t, (*BigCache)(nil), cache)
+	assertEqual(t, "Shards number must be power of two", error.Error())
 }
 
 func TestEntryNotFound(t *testing.T) {
@@ -108,7 +186,7 @@ func TestEntryNotFound(t *testing.T) {
 	_, err := cache.Get("nonExistingKey")
 
 	// then
-	assert.EqualError(t, err, ErrEntryNotFound.Error())
+	assertEqual(t, ErrEntryNotFound, err)
 }
 
 func TestTimingEviction(t *testing.T) {
@@ -130,7 +208,7 @@ func TestTimingEviction(t *testing.T) {
 	_, err := cache.Get("key")
 
 	// then
-	assert.EqualError(t, err, ErrEntryNotFound.Error())
+	assertEqual(t, ErrEntryNotFound, err)
 }
 
 func TestTimingEvictionShouldEvictOnlyFromUpdatedShard(t *testing.T) {
@@ -152,8 +230,8 @@ func TestTimingEvictionShouldEvictOnlyFromUpdatedShard(t *testing.T) {
 	value, err := cache.Get("key")
 
 	// then
-	assert.NoError(t, err, ErrEntryNotFound.Error())
-	assert.Equal(t, []byte("value"), value)
+	noError(t, err)
+	assertEqual(t, []byte("value"), value)
 }
 
 func TestCleanShouldEvictAll(t *testing.T) {
@@ -174,8 +252,8 @@ func TestCleanShouldEvictAll(t *testing.T) {
 	value, err := cache.Get("key")
 
 	// then
-	assert.EqualError(t, err, ErrEntryNotFound.Error())
-	assert.Equal(t, value, []byte(nil))
+	assertEqual(t, ErrEntryNotFound, err)
+	assertEqual(t, value, []byte(nil))
 }
 
 func TestOnRemoveCallback(t *testing.T) {
@@ -187,8 +265,8 @@ func TestOnRemoveCallback(t *testing.T) {
 	onRemoveExtInvoked := false
 	onRemove := func(key string, entry []byte) {
 		onRemoveInvoked = true
-		assert.Equal(t, "key", key)
-		assert.Equal(t, []byte("value"), entry)
+		assertEqual(t, "key", key)
+		assertEqual(t, []byte("value"), entry)
 	}
 	onRemoveExt := func(key string, entry []byte, reason RemoveReason) {
 		onRemoveExtInvoked = true
@@ -208,8 +286,8 @@ func TestOnRemoveCallback(t *testing.T) {
 	cache.Set("key2", []byte("value2"))
 
 	// then
-	assert.True(t, onRemoveInvoked)
-	assert.False(t, onRemoveExtInvoked)
+	assertEqual(t, true, onRemoveInvoked)
+	assertEqual(t, false, onRemoveExtInvoked)
 }
 
 func TestOnRemoveWithReasonCallback(t *testing.T) {
@@ -220,9 +298,9 @@ func TestOnRemoveWithReasonCallback(t *testing.T) {
 	onRemoveInvoked := false
 	onRemove := func(key string, entry []byte, reason RemoveReason) {
 		onRemoveInvoked = true
-		assert.Equal(t, "key", key)
-		assert.Equal(t, []byte("value"), entry)
-		assert.Equal(t, reason, RemoveReason(Expired))
+		assertEqual(t, "key", key)
+		assertEqual(t, []byte("value"), entry)
+		assertEqual(t, reason, RemoveReason(Expired))
 	}
 	cache, _ := newBigCache(Config{
 		Shards:             1,
@@ -238,7 +316,7 @@ func TestOnRemoveWithReasonCallback(t *testing.T) {
 	cache.Set("key2", []byte("value2"))
 
 	// then
-	assert.True(t, onRemoveInvoked)
+	assertEqual(t, true, onRemoveInvoked)
 }
 
 func TestOnRemoveFilter(t *testing.T) {
@@ -266,13 +344,107 @@ func TestOnRemoveFilter(t *testing.T) {
 	cache.Set("key2", []byte("value2"))
 
 	// then
-	assert.False(t, onRemoveInvoked)
+	assertEqual(t, false, onRemoveInvoked)
 
 	// and when
 	cache.Delete("key2")
 
 	// then
-	assert.True(t, onRemoveInvoked)
+	assertEqual(t, true, onRemoveInvoked)
+}
+
+func TestOnRemoveFilterExpired(t *testing.T) {
+	// t.Parallel()
+
+	// given
+	clock := mockedClock{value: 0}
+	onRemoveDeleted, onRemoveExpired := false, false
+	var err error
+	onRemove := func(key string, entry []byte, reason RemoveReason) {
+		switch reason {
+
+		case Deleted:
+			onRemoveDeleted = true
+		case Expired:
+			onRemoveExpired = true
+
+		}
+	}
+	c := Config{
+		Shards:             1,
+		LifeWindow:         3 * time.Second,
+		CleanWindow:        0,
+		MaxEntriesInWindow: 10,
+		MaxEntrySize:       256,
+		OnRemoveWithReason: onRemove,
+	}
+
+	cache, err := newBigCache(c, &clock)
+	assertEqual(t, err, nil)
+
+	// case 1: key is deleted AFTER expire
+	// when
+	onRemoveDeleted, onRemoveExpired = false, false
+	clock.set(0)
+
+	cache.Set("key", []byte("value"))
+	clock.set(5)
+	cache.cleanUp(uint64(clock.epoch()))
+
+	err = cache.Delete("key")
+
+	// then
+	assertEqual(t, err, ErrEntryNotFound)
+	assertEqual(t, false, onRemoveDeleted)
+	assertEqual(t, true, onRemoveExpired)
+
+	// case 1: key is deleted BEFORE expire
+	// when
+	onRemoveDeleted, onRemoveExpired = false, false
+	clock.set(0)
+
+	cache.Set("key2", []byte("value2"))
+	err = cache.Delete("key2")
+	clock.set(5)
+	cache.cleanUp(uint64(clock.epoch()))
+	// then
+
+	assertEqual(t, err, nil)
+	assertEqual(t, true, onRemoveDeleted)
+	assertEqual(t, false, onRemoveExpired)
+}
+
+func TestOnRemoveGetEntryStats(t *testing.T) {
+	t.Parallel()
+
+	// given
+	clock := mockedClock{value: 0}
+	count := uint32(0)
+	onRemove := func(key string, entry []byte, keyMetadata Metadata) {
+		count = keyMetadata.RequestCount
+	}
+	c := Config{
+		Shards:               1,
+		LifeWindow:           time.Second,
+		MaxEntriesInWindow:   1,
+		MaxEntrySize:         256,
+		OnRemoveWithMetadata: onRemove,
+		StatsEnabled:         true,
+	}.OnRemoveFilterSet(Deleted, NoSpace)
+
+	cache, _ := newBigCache(c, &clock)
+
+	// when
+	cache.Set("key", []byte("value"))
+
+	for i := 0; i < 100; i++ {
+		cache.Get("key")
+	}
+
+	cache.Delete("key")
+
+	// then
+	assertEqual(t, uint32(100), count)
 }
 
 func TestCacheLen(t *testing.T) {
@@ -293,7 +465,7 @@ func TestCacheLen(t *testing.T) {
 	}
 
 	// then
-	assert.Equal(t, keys, cache.Len())
+	assertEqual(t, keys, cache.Len())
 }
 
 func TestCacheCapacity(t *testing.T) {
@@ -314,8 +486,35 @@ func TestCacheCapacity(t *testing.T) {
 	}
 
 	// then
-	assert.Equal(t, keys, cache.Len())
-	assert.Equal(t, 81920, cache.Capacity())
+	assertEqual(t, keys, cache.Len())
+	assertEqual(t, 40960, cache.Capacity())
+}
+
+func TestRemoveEntriesWhenShardIsFull(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{
+		Shards:             1,
+		LifeWindow:         100 * time.Second,
+		MaxEntriesInWindow: 100,
+		MaxEntrySize:       256,
+		HardMaxCacheSize:   1,
+	})
+
+	value := blob('a', 1024*300)
+
+	// when
+	cache.Set("key", value)
+	cache.Set("key", value)
+	cache.Set("key", value)
+	cache.Set("key", value)
+	cache.Set("key", value)
+	cachedValue, err := cache.Get("key")
+
+	// then
+	noError(t, err)
+	assertEqual(t, value, cachedValue)
 }
 
 func TestCacheStats(t *testing.T) {
@@ -336,28 +535,51 @@ func TestCacheStats(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		value, err := cache.Get(fmt.Sprintf("key%d", i))
-		assert.Nil(t, err)
-		assert.Equal(t, string(value), "value")
+		noError(t, err)
+		assertEqual(t, string(value), "value")
 	}
 	for i := 100; i < 110; i++ {
 		_, err := cache.Get(fmt.Sprintf("key%d", i))
-		assert.Error(t, err)
+		assertEqual(t, ErrEntryNotFound, err)
 	}
 	for i := 10; i < 20; i++ {
 		err := cache.Delete(fmt.Sprintf("key%d", i))
-		assert.Nil(t, err)
+		noError(t, err)
 	}
 	for i := 110; i < 120; i++ {
 		err := cache.Delete(fmt.Sprintf("key%d", i))
-		assert.Error(t, err)
+		assertEqual(t, ErrEntryNotFound, err)
 	}
 
 	// then
 	stats := cache.Stats()
-	assert.Equal(t, stats.Hits, int64(10))
-	assert.Equal(t, stats.Misses, int64(10))
-	assert.Equal(t, stats.DelHits, int64(10))
-	assert.Equal(t, stats.DelMisses, int64(10))
+	assertEqual(t, stats.Hits, int64(10))
+	assertEqual(t, stats.Misses, int64(10))
+	assertEqual(t, stats.DelHits, int64(10))
+	assertEqual(t, stats.DelMisses, int64(10))
+}
+func TestCacheEntryStats(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{
+		Shards:             8,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+		StatsEnabled:       true,
+	})
+
+	cache.Set("key0", []byte("value"))
+
+	for i := 0; i < 10; i++ {
+		_, err := cache.Get("key0")
+		noError(t, err)
+	}
+
+	// then
+	keyMetadata := cache.KeyMetadata("key0")
+	assertEqual(t, uint32(10), keyMetadata.RequestCount)
 }
 
 func TestCacheDel(t *testing.T) {
@@ -370,7 +592,7 @@ func TestCacheDel(t *testing.T) {
 	err := cache.Delete("nonExistingKey")
 
 	// then
-	assert.Equal(t, err.Error(), ErrEntryNotFound.Error())
+	assertEqual(t, err, ErrEntryNotFound)
 
 	// and when
 	cache.Set("existingKey", nil)
@@ -378,29 +600,31 @@ func TestCacheDel(t *testing.T) {
 	cachedValue, _ := cache.Get("existingKey")
 
 	// then
-	assert.Nil(t, err)
-	assert.Len(t, cachedValue, 0)
+	noError(t, err)
+	assertEqual(t, 0, len(cachedValue))
 }
 
 // TestCacheDelRandomly does simultaneous deletes, puts and gets, to check for corruption errors.
 func TestCacheDelRandomly(t *testing.T) {
 	t.Parallel()
+
 	c := Config{
 		Shards:             1,
 		LifeWindow:         time.Second,
 		CleanWindow:        0,
 		MaxEntriesInWindow: 10,
 		MaxEntrySize:       10,
-		Verbose:            true,
+		Verbose:            false,
 		Hasher:             newDefaultHasher(),
 		HardMaxCacheSize:   1,
+		StatsEnabled:       true,
 		Logger:             DefaultLogger(),
 	}
-	//c.Hasher = hashStub(5)
+
 	cache, _ := NewBigCache(c)
 	var wg sync.WaitGroup
 	var ntest = 800000
-	wg.Add(1)
+	wg.Add(3)
 	go func() {
 		for i := 0; i < ntest; i++ {
 			r := uint8(rand.Int())
@@ -410,9 +634,9 @@ func TestCacheDelRandomly(t *testing.T) {
 		}
 		wg.Done()
 	}()
-	wg.Add(1)
+	valueLen := 1024
 	go func() {
-		val := make([]byte, 1024)
+		val := make([]byte, valueLen)
 		for i := 0; i < ntest; i++ {
 			r := byte(rand.Int())
 			key := fmt.Sprintf("thekey%d", r)
@@ -424,9 +648,8 @@ func TestCacheDelRandomly(t *testing.T) {
 		}
 		wg.Done()
 	}()
-	wg.Add(1)
 	go func() {
-		val := make([]byte, 1024)
+		val := make([]byte, valueLen)
 		for i := 0; i < ntest; i++ {
 			r := byte(rand.Int())
 			key := fmt.Sprintf("thekey%d", r)
@@ -441,6 +664,39 @@ func TestCacheDelRandomly(t *testing.T) {
 		wg.Done()
 	}()
 	wg.Wait()
+}
+
+func TestWriteAndReadParallelSameKeyWithStats(t *testing.T) {
+	t.Parallel()
+
+	c := DefaultConfig(0)
+	c.StatsEnabled = true
+
+	cache, _ := NewBigCache(c)
+	var wg sync.WaitGroup
+	ntest := 1000
+	n := 10
+	wg.Add(n)
+	key := "key"
+	value := blob('a', 1024)
+	for i := 0; i < ntest; i++ {
+		assertEqual(t, nil, cache.Set(key, value))
+	}
+	for j := 0; j < n; j++ {
+		go func() {
+			for i := 0; i < ntest; i++ {
+				v, err := cache.Get(key)
+				assertEqual(t, nil, err)
+				assertEqual(t, value, v)
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+
+	assertEqual(t, Stats{Hits: int64(n * ntest)}, cache.Stats())
+	assertEqual(t, ntest*n, int(cache.KeyMetadata(key).RequestCount))
 }
 
 func TestCacheReset(t *testing.T) {
@@ -461,13 +717,13 @@ func TestCacheReset(t *testing.T) {
 	}
 
 	// then
-	assert.Equal(t, keys, cache.Len())
+	assertEqual(t, keys, cache.Len())
 
 	// and when
 	cache.Reset()
 
 	// then
-	assert.Equal(t, 0, cache.Len())
+	assertEqual(t, 0, cache.Len())
 
 	// and when
 	for i := 0; i < keys; i++ {
@@ -475,7 +731,7 @@ func TestCacheReset(t *testing.T) {
 	}
 
 	// then
-	assert.Equal(t, keys, cache.Len())
+	assertEqual(t, keys, cache.Len())
 }
 
 func TestIterateOnResetCache(t *testing.T) {
@@ -499,7 +755,7 @@ func TestIterateOnResetCache(t *testing.T) {
 	// then
 	iterator := cache.Iterator()
 
-	assert.Equal(t, false, iterator.SetNext())
+	assertEqual(t, false, iterator.SetNext())
 }
 
 func TestGetOnResetCache(t *testing.T) {
@@ -524,8 +780,8 @@ func TestGetOnResetCache(t *testing.T) {
 	// then
 	value, err := cache.Get("key1")
 
-	assert.Equal(t, err.Error(), ErrEntryNotFound.Error())
-	assert.Equal(t, value, []byte(nil))
+	assertEqual(t, err, ErrEntryNotFound)
+	assertEqual(t, value, []byte(nil))
 }
 
 func TestEntryUpdate(t *testing.T) {
@@ -549,7 +805,7 @@ func TestEntryUpdate(t *testing.T) {
 	cachedValue, _ := cache.Get("key")
 
 	// then
-	assert.Equal(t, []byte("value2"), cachedValue)
+	assertEqual(t, []byte("value2"), cachedValue)
 }
 
 func TestOldestEntryDeletionWhenMaxCacheSizeIsReached(t *testing.T) {
@@ -574,9 +830,9 @@ func TestOldestEntryDeletionWhenMaxCacheSizeIsReached(t *testing.T) {
 	entry3, _ := cache.Get("key3")
 
 	// then
-	assert.EqualError(t, key1Err, ErrEntryNotFound.Error())
-	assert.EqualError(t, key2Err, ErrEntryNotFound.Error())
-	assert.Equal(t, blob('c', 1024*800), entry3)
+	assertEqual(t, key1Err, ErrEntryNotFound)
+	assertEqual(t, key2Err, ErrEntryNotFound)
+	assertEqual(t, blob('c', 1024*800), entry3)
 }
 
 func TestRetrievingEntryShouldCopy(t *testing.T) {
@@ -601,8 +857,8 @@ func TestRetrievingEntryShouldCopy(t *testing.T) {
 	cache.Set("key5", blob('d', 1024*400))
 
 	// then
-	assert.Nil(t, key1Err)
-	assert.Equal(t, blob('a', 1024*400), value)
+	noError(t, key1Err)
+	assertEqual(t, blob('a', 1024*400), value)
 }
 
 func TestEntryBiggerThanMaxShardSizeError(t *testing.T) {
@@ -621,7 +877,7 @@ func TestEntryBiggerThanMaxShardSizeError(t *testing.T) {
 	err := cache.Set("key1", blob('a', 1024*1025))
 
 	// then
-	assert.EqualError(t, err, "entry is bigger than max shard size")
+	assertEqual(t, "entry is bigger than max shard size", err.Error())
 }
 
 func TestHashCollision(t *testing.T) {
@@ -644,26 +900,26 @@ func TestHashCollision(t *testing.T) {
 	cachedValue, err := cache.Get("liquid")
 
 	// then
-	assert.NoError(t, err)
-	assert.Equal(t, []byte("value"), cachedValue)
+	noError(t, err)
+	assertEqual(t, []byte("value"), cachedValue)
 
 	// when
 	cache.Set("costarring", []byte("value 2"))
 	cachedValue, err = cache.Get("costarring")
 
 	// then
-	assert.NoError(t, err)
-	assert.Equal(t, []byte("value 2"), cachedValue)
+	noError(t, err)
+	assertEqual(t, []byte("value 2"), cachedValue)
 
 	// when
 	cachedValue, err = cache.Get("liquid")
 
 	// then
-	assert.Error(t, err)
-	assert.Nil(t, cachedValue)
+	assertEqual(t, ErrEntryNotFound, err)
+	assertEqual(t, []byte(nil), cachedValue)
 
-	assert.NotEqual(t, "", ml.lastFormat)
-	assert.Equal(t, cache.Stats().Collisions, int64(1))
+	assertEqual(t, "Collision detected. Both %q and %q have the same hash %x", ml.lastFormat)
+	assertEqual(t, cache.Stats().Collisions, int64(1))
 }
 
 func TestNilValueCaching(t *testing.T) {
@@ -683,24 +939,24 @@ func TestNilValueCaching(t *testing.T) {
 	cachedValue, err := cache.Get("Kierkegaard")
 
 	// then
-	assert.NoError(t, err)
-	assert.Equal(t, []byte{}, cachedValue)
+	noError(t, err)
+	assertEqual(t, []byte{}, cachedValue)
 
 	// when
 	cache.Set("Sartre", nil)
 	cachedValue, err = cache.Get("Sartre")
 
 	// then
-	assert.NoError(t, err)
-	assert.Equal(t, []byte{}, cachedValue)
+	noError(t, err)
+	assertEqual(t, []byte{}, cachedValue)
 
 	// when
 	cache.Set("Nietzsche", []byte(nil))
 	cachedValue, err = cache.Get("Nietzsche")
 
 	// then
-	assert.NoError(t, err)
-	assert.Equal(t, []byte{}, cachedValue)
+	noError(t, err)
+	assertEqual(t, []byte{}, cachedValue)
 }
 
 func TestClosing(t *testing.T) {
@@ -721,8 +977,8 @@ func TestClosing(t *testing.T) {
 
 	// then
 	endGR := runtime.NumGoroutine()
-	assert.True(t, endGR >= startGR)
-	assert.InDelta(t, endGR, startGR, 25)
+	assertEqual(t, true, endGR >= startGR)
+	assertEqual(t, true, math.Abs(float64(endGR-startGR)) < 25)
 }
 
 func TestEntryNotPresent(t *testing.T) {
@@ -740,10 +996,10 @@ func TestEntryNotPresent(t *testing.T) {
 
 	// when
 	value, resp, err := cache.GetWithInfo("blah")
-	assert.Error(t, err)
-	assert.Equal(t, resp.EntryStatus, RemoveReason(0))
-	assert.Equal(t, cache.Stats().Misses, int64(1))
-	assert.Nil(t, value)
+	assertEqual(t, ErrEntryNotFound, err)
+	assertEqual(t, resp.EntryStatus, RemoveReason(0))
+	assertEqual(t, cache.Stats().Misses, int64(1))
+	assertEqual(t, []byte(nil), value)
 }
 
 func TestBigCache_GetWithInfo(t *testing.T) {
@@ -766,14 +1022,20 @@ func TestBigCache_GetWithInfo(t *testing.T) {
 
 	// when
 	data, resp, err := cache.GetWithInfo(key)
-	assert.Equal(t, []byte(value), data)
-	assert.NoError(t, err)
-	assert.Equal(t, Response{}, resp)
+
+	// then
+	assertEqual(t, []byte(value), data)
+	noError(t, err)
+	assertEqual(t, Response{}, resp)
+
+	// when
 	clock.set(5)
 	data, resp, err = cache.GetWithInfo(key)
-	assert.Equal(t, err, nil)
-	assert.Equal(t, Response{EntryStatus: Expired}, resp)
-	assert.Nil(t, data)
+
+	// then
+	assertEqual(t, err, nil)
+	assertEqual(t, Response{EntryStatus: Expired}, resp)
+	assertEqual(t, []byte(value), data)
 }
 
 type mockedLogger struct {
@@ -799,9 +1061,5 @@ func (mc *mockedClock) set(value int64) {
 }
 
 func blob(char byte, len int) []byte {
-	b := make([]byte, len)
-	for index := range b {
-		b[index] = char
-	}
-	return b
+	return bytes.Repeat([]byte{char}, len)
 }

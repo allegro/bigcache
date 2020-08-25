@@ -1,14 +1,14 @@
 package bigcache
 
 import (
+	"context"
 	"fmt"
+	"math/rand"
 	"runtime"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestEntriesIterator(t *testing.T) {
@@ -41,7 +41,7 @@ func TestEntriesIterator(t *testing.T) {
 	}
 
 	// then
-	assert.Equal(t, keysCount, len(keys))
+	assertEqual(t, keysCount, len(keys))
 }
 
 func TestEntriesIteratorWithMostShardsEmpty(t *testing.T) {
@@ -69,11 +69,11 @@ func TestEntriesIteratorWithMostShardsEmpty(t *testing.T) {
 	current, err := iterator.Value()
 
 	// then
-	assert.Nil(t, err)
-	assert.Equal(t, "key", current.Key())
-	assert.Equal(t, uint64(0x3dc94a19365b10ec), current.Hash())
-	assert.Equal(t, []byte("value"), current.Value())
-	assert.Equal(t, uint64(0), current.Timestamp())
+	noError(t, err)
+	assertEqual(t, "key", current.Key())
+	assertEqual(t, uint64(0x3dc94a19365b10ec), current.Hash())
+	assertEqual(t, []byte("value"), current.Value())
+	assertEqual(t, uint64(0), current.Timestamp())
 }
 
 func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {
@@ -97,19 +97,25 @@ func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {
 		t.Errorf("Iterator should contain at least single element")
 	}
 
+	getOldestEntry := func(s *cacheShard) ([]byte, error) {
+		s.lock.RLock()
+		defer s.lock.RUnlock()
+		return s.entries.Peek()
+	}
+
 	// Quite ugly but works
 	for i := 0; i < cache.config.Shards; i++ {
-		if oldestEntry, err := cache.shards[i].getOldestEntry(); err == nil {
+		if oldestEntry, err := getOldestEntry(cache.shards[i]); err == nil {
 			cache.onEvict(oldestEntry, 10, cache.shards[i].removeOldestEntry)
 		}
 	}
 
 	current, err := iterator.Value()
+	assertEqual(t, nil, err)
+	assertEqual(t, []byte("value"), current.Value())
 
-	// then
-	assert.Equal(t, ErrCannotRetrieveEntry, err)
-	assert.Equal(t, "Could not retrieve entry from cache", err.Error())
-	assert.Equal(t, EntryInfo{}, current)
+	next := iterator.SetNext()
+	assertEqual(t, false, next)
 }
 
 func TestEntriesIteratorWithAllShardsEmpty(t *testing.T) {
@@ -148,8 +154,8 @@ func TestEntriesIteratorInInvalidState(t *testing.T) {
 
 	// then
 	_, err := iterator.Value()
-	assert.Equal(t, ErrInvalidIteratorState, err)
-	assert.Equal(t, "Iterator is in invalid state. Use SetNext() to move to next position", err.Error())
+	assertEqual(t, ErrInvalidIteratorState, err)
+	assertEqual(t, "Iterator is in invalid state. Use SetNext() to move to next position", err.Error())
 }
 
 func TestEntriesIteratorParallelAdd(t *testing.T) {
@@ -178,5 +184,85 @@ func TestEntriesIteratorParallelAdd(t *testing.T) {
 			_, _ = iter.Value()
 		}
 	}
+	wg.Wait()
+}
+
+func TestParallelSetAndIteration(t *testing.T) {
+	t.Parallel()
+
+	rand.Seed(0)
+
+	cache, _ := NewBigCache(Config{
+		Shards:             1,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 100,
+		MaxEntrySize:       256,
+		HardMaxCacheSize:   1,
+		Verbose:            true,
+	})
+
+	entrySize := 1024 * 100
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+
+	go func() {
+		defer func() {
+			err := recover()
+			// no panic
+			assertEqual(t, err, nil)
+		}()
+
+		defer wg.Done()
+
+		isTimeout := false
+
+		for {
+			if isTimeout {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				isTimeout = true
+			default:
+				err := cache.Set(strconv.Itoa(rand.Intn(100)), blob('a', entrySize))
+				noError(t, err)
+			}
+		}
+	}()
+
+	go func() {
+		defer func() {
+			err := recover()
+			// no panic
+			assertEqual(t, nil, err)
+		}()
+
+		defer wg.Done()
+
+		isTimeout := false
+
+		for {
+			if isTimeout {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				isTimeout = true
+			default:
+				iter := cache.Iterator()
+				for iter.SetNext() {
+					entry, err := iter.Value()
+
+					// then
+					noError(t, err)
+					assertEqual(t, entrySize, len(entry.Value()))
+				}
+			}
+		}
+	}()
+
 	wg.Wait()
 }

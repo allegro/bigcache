@@ -1,6 +1,8 @@
 package bigcache
 
-import "sync"
+import (
+	"sync"
+)
 
 type iteratorError string
 
@@ -22,6 +24,7 @@ type EntryInfo struct {
 	hash      uint64
 	key       string
 	value     []byte
+	err       error
 }
 
 // Key returns entry's underlying key
@@ -46,13 +49,14 @@ func (e EntryInfo) Value() []byte {
 
 // EntryInfoIterator allows to iterate over entries in the cache
 type EntryInfoIterator struct {
-	mutex         sync.Mutex
-	cache         *BigCache
-	currentShard  int
-	currentIndex  int
-	elements      []uint32
-	elementsCount int
-	valid         bool
+	mutex            sync.Mutex
+	cache            *BigCache
+	currentShard     int
+	currentIndex     int
+	currentEntryInfo EntryInfo
+	elements         []uint64
+	elementsCount    int
+	valid            bool
 }
 
 // SetNext moves to next element and returns true if it exists.
@@ -64,28 +68,66 @@ func (it *EntryInfoIterator) SetNext() bool {
 
 	if it.elementsCount > it.currentIndex {
 		it.valid = true
+
+		empty := it.setCurrentEntry()
 		it.mutex.Unlock()
-		return true
+
+		if empty {
+			return it.SetNext()
+		} else {
+			return true
+		}
 	}
 
 	for i := it.currentShard + 1; i < it.cache.config.Shards; i++ {
-		it.elements, it.elementsCount = it.cache.shards[i].copyKeys()
+		it.elements, it.elementsCount = it.cache.shards[i].copyHashedKeys()
 
 		// Non empty shard - stick with it
 		if it.elementsCount > 0 {
 			it.currentIndex = 0
 			it.currentShard = i
 			it.valid = true
+
+			empty := it.setCurrentEntry()
 			it.mutex.Unlock()
-			return true
+
+			if empty {
+				return it.SetNext()
+			} else {
+				return true
+			}
 		}
 	}
 	it.mutex.Unlock()
 	return false
 }
 
+func (it *EntryInfoIterator) setCurrentEntry() bool {
+	var entryNotFound = false
+	entry, err := it.cache.shards[it.currentShard].getEntry(it.elements[it.currentIndex])
+
+	if err == ErrEntryNotFound {
+		it.currentEntryInfo = emptyEntryInfo
+		entryNotFound = true
+	} else if err != nil {
+		it.currentEntryInfo = EntryInfo{
+			err: err,
+		}
+	} else {
+		it.currentEntryInfo = EntryInfo{
+			timestamp: readTimestampFromEntry(entry),
+			hash:      readHashFromEntry(entry),
+			key:       readKeyFromEntry(entry),
+			value:     readEntry(entry),
+			err:       err,
+		}
+	}
+
+	return entryNotFound
+}
+
 func newIterator(cache *BigCache) *EntryInfoIterator {
-	elements, count := cache.shards[0].copyKeys()
+	elements, count := cache.shards[0].copyHashedKeys()
 
 	return &EntryInfoIterator{
 		cache:         cache,
@@ -98,25 +140,9 @@ func newIterator(cache *BigCache) *EntryInfoIterator {
 
 // Value returns current value from the iterator
 func (it *EntryInfoIterator) Value() (EntryInfo, error) {
-	it.mutex.Lock()
-
 	if !it.valid {
-		it.mutex.Unlock()
 		return emptyEntryInfo, ErrInvalidIteratorState
 	}
 
-	entry, err := it.cache.shards[it.currentShard].getEntry(int(it.elements[it.currentIndex]))
-
-	if err != nil {
-		it.mutex.Unlock()
-		return emptyEntryInfo, ErrCannotRetrieveEntry
-	}
-	it.mutex.Unlock()
-
-	return EntryInfo{
-		timestamp: readTimestampFromEntry(entry),
-		hash:      readHashFromEntry(entry),
-		key:       readKeyFromEntry(entry),
-		value:     readEntry(entry),
-	}, nil
+	return it.currentEntryInfo, it.currentEntryInfo.err
 }

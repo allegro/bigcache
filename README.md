@@ -1,7 +1,7 @@
-# BigCache [![Build Status](https://github.com/allegro/bigcache/workflows/build.yml/badge.svg)](https:/github.com.org/allegro/bigcache/workflows/build.yml)&nbsp;[![Coverage Status](https://coveralls.io/repos/github/allegro/bigcache/badge.svg?branch=master)](https://coveralls.io/github/allegro/bigcache?branch=master)&nbsp;[![GoDoc](https://godoc.org/github.com/allegro/bigcache?status.svg)](https://godoc.org/github.com/allegro/bigcache)&nbsp;[![Go Report Card](https://goreportcard.com/badge/github.com/allegro/bigcache)](https://goreportcard.com/report/github.com/allegro/bigcache)
+# BigCache [![Build Status](https://github.com/allegro/bigcache/workflows/build/badge.svg)](https://github.com/allegro/bigcache/actions?query=workflow%3Abuild)&nbsp;[![Coverage Status](https://coveralls.io/repos/github/allegro/bigcache/badge.svg?branch=master)](https://coveralls.io/github/allegro/bigcache?branch=master)&nbsp;[![GoDoc](https://godoc.org/github.com/allegro/bigcache?status.svg)](https://godoc.org/github.com/allegro/bigcache)&nbsp;[![Go Report Card](https://goreportcard.com/badge/github.com/allegro/bigcache)](https://goreportcard.com/report/github.com/allegro/bigcache)
 
 Fast, concurrent, evicting in-memory cache written to keep big number of entries without impact on performance.
-BigCache keeps entries on heap but omits GC for them. To achieve that operations on bytes arrays take place,
+BigCache keeps entries on heap but omits GC for them. To achieve that, operations on byte slices take place,
 therefore entries (de)serialization in front of the cache will be needed in most use cases.
 
 Requires Go 1.12 or newer.
@@ -89,11 +89,13 @@ if entry, err := cache.Get("my-unique-key"); err == nil {
 
 2. `CleanWindow` is a time. After that time, all the dead entries will be deleted, but not the entries that still have life.
 
-## Benchmarks
+## [Benchmarks](https://github.com/allegro/bigcache-bench)
 
 Three caches were compared: bigcache, [freecache](https://github.com/coocood/freecache) and map.
 Benchmark tests were made using an
 i7-6700K CPU @ 4.00GHz with 32GB of RAM on Ubuntu 18.04 LTS (5.2.12-050212-generic).
+
+Benchmarks source code can be found [here](https://github.com/allegro/bigcache-bench)
 
 ### Writes and reads
 
@@ -101,7 +103,7 @@ i7-6700K CPU @ 4.00GHz with 32GB of RAM on Ubuntu 18.04 LTS (5.2.12-050212-gener
 go version
 go version go1.13 linux/amd64
 
-cd caches_bench; go test -bench=. -benchmem -benchtime=4s ./... -timeout 30m
+go test -bench=. -benchmem -benchtime=4s ./... -timeout 30m
 goos: linux
 goarch: amd64
 pkg: github.com/allegro/bigcache/v2/caches_bench
@@ -132,7 +134,7 @@ Writes to map are the slowest.
 go version
 go version go1.13 linux/amd64
 
-cd caches_bench; go run caches_gc_overhead_comparison.go
+go run caches_gc_overhead_comparison.go
 
 Number of entries:  20000000
 GC pause for bigcache:  1.506077ms
@@ -144,7 +146,7 @@ GC pause for map:  9.347015ms
 go version
 go version go1.13 linux/arm64
 
-cd caches_bench; go run caches_gc_overhead_comparison.go
+go run caches_gc_overhead_comparison.go
 Number of entries:  20000000
 GC pause for bigcache:  22.382827ms
 GC pause for freecache:  41.264651ms
@@ -164,8 +166,8 @@ BigCache relies on optimization presented in 1.5 version of Go ([issue-9477](htt
 This optimization states that if map without pointers in keys and values is used then GC will omit its content.
 Therefore BigCache uses `map[uint64]uint32` where keys are hashed and values are offsets of entries.
 
-Entries are kept in bytes array, to omit GC again.
-Bytes array size can grow to gigabytes without impact on performance
+Entries are kept in byte slices, to omit GC again.
+Byte slices size can grow to gigabytes without impact on performance
 because GC will only see single pointer to it.
 
 ### Collisions

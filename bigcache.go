@@ -34,12 +34,12 @@ type RemoveReason uint32
 const (
 	_ RemoveReason = iota
 	// Expired means the key is past its LifeWindow.
-	Expired
+	Expired = RemoveReason(1)
 	// NoSpace means the key is the oldest and the cache size was at its maximum when Set was called, or the
 	// entry exceeded the maximum shard size.
-	NoSpace
+	NoSpace = RemoveReason(2)
 	// Deleted means Delete was called and this key was removed as a result.
-	Deleted
+	Deleted = RemoveReason(3)
 )
 
 // NewBigCache initialize new instance of BigCache
@@ -69,7 +69,9 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 	}
 
 	var onRemove func(wrappedEntry []byte, reason RemoveReason)
-	if config.OnRemove != nil {
+	if config.OnRemoveWithMetadata != nil {
+		onRemove = cache.providedOnRemoveWithMetadata
+	} else if config.OnRemove != nil {
 		onRemove = cache.providedOnRemove
 	} else if config.OnRemoveWithReason != nil {
 		onRemove = cache.providedOnRemoveWithReason
@@ -116,10 +118,9 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 	return shard.get(key, hashedKey)
 }
 
-// GetWithInfo reads entry for the key.
+// GetWithInfo reads entry for the key with Response info.
 // It returns an ErrEntryNotFound when
 // no entry exists for the given key.
-// It also returns Response with entry status information
 func (c *BigCache) GetWithInfo(key string) ([]byte, Response, error) {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
@@ -131,6 +132,15 @@ func (c *BigCache) Set(key string, entry []byte) error {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	return shard.set(key, hashedKey, entry)
+}
+
+// Append appends entry under the key if key exists, otherwise
+// it will set the key (same behaviour as Set()). With Append() you can
+// concatenate multiple entries under the same key in an lock optimized way.
+func (c *BigCache) Append(key string, entry []byte) error {
+	hashedKey := c.hash.Sum64(key)
+	shard := c.getShard(hashedKey)
+	return shard.append(key, hashedKey, entry)
 }
 
 // Delete removes the key
@@ -180,6 +190,13 @@ func (c *BigCache) Stats() Stats {
 	return s
 }
 
+// KeyMetadata returns number of times a cached resource was requested.
+func (c *BigCache) KeyMetadata(key string) Metadata {
+	hashedKey := c.hash.Sum64(key)
+	shard := c.getShard(hashedKey)
+	return shard.getKeyMetadataWithLock(hashedKey)
+}
+
 // Iterator returns iterator function to iterate over EntryInfo's from whole cache.
 func (c *BigCache) Iterator() *EntryInfoIterator {
 	return newIterator(c)
@@ -215,4 +232,10 @@ func (c *BigCache) providedOnRemoveWithReason(wrappedEntry []byte, reason Remove
 }
 
 func (c *BigCache) notProvidedOnRemove(wrappedEntry []byte, reason RemoveReason) {
+}
+
+func (c *BigCache) providedOnRemoveWithMetadata(wrappedEntry []byte, reason RemoveReason) {
+	hashedKey := c.hash.Sum64(readKeyFromEntry(wrappedEntry))
+	shard := c.getShard(hashedKey)
+	c.config.OnRemoveWithMetadata(readKeyFromEntry(wrappedEntry), readEntry(wrappedEntry), shard.getKeyMetadata(hashedKey))
 }

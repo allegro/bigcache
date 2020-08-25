@@ -16,6 +16,8 @@ type Config struct {
 	MaxEntriesInWindow int
 	// Max size of entry in bytes. Used only to calculate initial size for cache shards.
 	MaxEntrySize int
+	// StatsEnabled if true calculate the number of times a cached resource was requested.
+	StatsEnabled bool
 	// Verbose mode prints information about new memory allocation
 	Verbose bool
 	// Hasher used to map between string keys and unsigned 64bit integers, by default fnv64 hashing is used.
@@ -28,7 +30,12 @@ type Config struct {
 	// OnRemove is a callback fired when the oldest entry is removed because of its expiration time or no space left
 	// for the new entry, or because delete was called.
 	// Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
+	// ignored if OnRemoveWithMetadata is specified.
 	OnRemove func(key string, entry []byte)
+	// OnRemoveWithMetadata is a callback fired when the oldest entry is removed because of its expiration time or no space left
+	// for the new entry, or because delete was called. A structure representing details about that specific entry.
+	// Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
+	OnRemoveWithMetadata func(key string, entry []byte, keyMetadata Metadata)
 	// OnRemoveWithReason is a callback fired when the oldest entry is removed because of its expiration time or no space left
 	// for the new entry, or because delete was called. A constant representing the reason will be passed through.
 	// Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
@@ -51,6 +58,7 @@ func DefaultConfig(eviction time.Duration) Config {
 		CleanWindow:        1 * time.Second,
 		MaxEntriesInWindow: 1000 * 10 * 60,
 		MaxEntrySize:       500,
+		StatsEnabled:       false,
 		Verbose:            true,
 		Hasher:             newDefaultHasher(),
 		HardMaxCacheSize:   0,
@@ -60,7 +68,7 @@ func DefaultConfig(eviction time.Duration) Config {
 
 // initialShardSize computes initial shard size
 func (c Config) initialShardSize() int {
-	return max(c.MaxEntriesInWindow/c.Shards, minimumEntriesInShard)
+	return max(min(c.MaxEntriesInWindow/c.Shards, c.maximumShardSize()), minimumEntriesInShard)
 }
 
 // maximumShardSize computes maximum shard size
