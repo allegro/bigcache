@@ -71,7 +71,7 @@ func (c Config) initialShardSize() int {
 	return max(c.MaxEntriesInWindow/c.Shards, minimumEntriesInShard)
 }
 
-// maximumShardSizeInBytes computes maximum shard size
+// maximumShardSizeInBytes computes maximum shard size in bytes
 func (c Config) maximumShardSizeInBytes() int {
 	maxShardSize := 0
 
