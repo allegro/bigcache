@@ -389,7 +389,7 @@ func (s *cacheShard) collision() {
 }
 
 func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheShard {
-	bytesQueueInitialCapacity := config.initialShardSize()*config.MaxEntrySize
+	bytesQueueInitialCapacity := config.initialShardSize() * config.MaxEntrySize
 	maximumShardSizeInBytes := config.maximumShardSizeInBytes()
 	if maximumShardSizeInBytes > 0 && bytesQueueInitialCapacity > maximumShardSizeInBytes {
 		bytesQueueInitialCapacity = maximumShardSizeInBytes
