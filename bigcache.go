@@ -63,7 +63,7 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 		hash:         config.Hasher,
 		config:       config,
 		shardMask:    uint64(config.Shards - 1),
-		maxShardSize: uint32(config.maximumShardSize()),
+		maxShardSize: uint32(config.maximumShardSizeInBytes()),
 		close:        make(chan struct{}),
 	}
 
