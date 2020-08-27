@@ -490,6 +490,33 @@ func TestCacheCapacity(t *testing.T) {
 	assertEqual(t, 40960, cache.Capacity())
 }
 
+func TestCacheInitialCapacity(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{
+		Shards:             1,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 2 * 1024,
+		HardMaxCacheSize:   1,
+		MaxEntrySize:       1024,
+	})
+
+	assertEqual(t, 0, cache.Len())
+	assertEqual(t, 1024*1024, cache.Capacity())
+
+	keys := 1024 * 1024
+
+	// when
+	for i := 0; i < keys; i++ {
+		cache.Set(fmt.Sprintf("key%d", i), []byte("value"))
+	}
+
+	// then
+	assertEqual(t, true, cache.Len() < keys)
+	assertEqual(t, 1024*1024, cache.Capacity())
+}
+
 func TestRemoveEntriesWhenShardIsFull(t *testing.T) {
 	t.Parallel()
 

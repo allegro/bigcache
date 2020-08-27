@@ -68,11 +68,11 @@ func DefaultConfig(eviction time.Duration) Config {
 
 // initialShardSize computes initial shard size
 func (c Config) initialShardSize() int {
-	return max(min(c.MaxEntriesInWindow/c.Shards, c.maximumShardSize()), minimumEntriesInShard)
+	return max(c.MaxEntriesInWindow/c.Shards, minimumEntriesInShard)
 }
 
-// maximumShardSize computes maximum shard size
-func (c Config) maximumShardSize() int {
+// maximumShardSizeInBytes computes maximum shard size in bytes
+func (c Config) maximumShardSizeInBytes() int {
 	maxShardSize := 0
 
 	if c.HardMaxCacheSize > 0 {

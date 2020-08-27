@@ -389,10 +389,15 @@ func (s *cacheShard) collision() {
 }
 
 func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheShard {
+	bytesQueueInitialCapacity := config.initialShardSize() * config.MaxEntrySize
+	maximumShardSizeInBytes := config.maximumShardSizeInBytes()
+	if maximumShardSizeInBytes > 0 && bytesQueueInitialCapacity > maximumShardSizeInBytes {
+		bytesQueueInitialCapacity = maximumShardSizeInBytes
+	}
 	return &cacheShard{
 		hashmap:      make(map[uint64]uint32, config.initialShardSize()),
 		hashmapStats: make(map[uint64]uint32, config.initialShardSize()),
-		entries:      *queue.NewBytesQueue(config.initialShardSize()*config.MaxEntrySize, config.maximumShardSize(), config.Verbose),
+		entries:      *queue.NewBytesQueue(bytesQueueInitialCapacity, maximumShardSizeInBytes, config.Verbose),
 		entryBuffer:  make([]byte, config.MaxEntrySize+headersSizeInBytes),
 		onRemove:     callback,
 
