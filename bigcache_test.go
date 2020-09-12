@@ -389,7 +389,7 @@ func TestOnRemoveFilterExpired(t *testing.T) {
 
 	cache.Set("key", []byte("value"))
 	clock.set(5)
-	cache.cleanUp(uint64(clock.epoch()))
+	cache.cleanUp(uint64(clock.Epoch()))
 
 	err = cache.Delete("key")
 
@@ -406,7 +406,7 @@ func TestOnRemoveFilterExpired(t *testing.T) {
 	cache.Set("key2", []byte("value2"))
 	err = cache.Delete("key2")
 	clock.set(5)
-	cache.cleanUp(uint64(clock.epoch()))
+	cache.cleanUp(uint64(clock.Epoch()))
 	// then
 
 	assertEqual(t, err, nil)
@@ -1079,7 +1079,7 @@ type mockedClock struct {
 	value int64
 }
 
-func (mc *mockedClock) epoch() int64 {
+func (mc *mockedClock) Epoch() int64 {
 	return mc.value
 }
 

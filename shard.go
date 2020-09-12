@@ -33,7 +33,7 @@ type cacheShard struct {
 }
 
 func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, resp Response, err error) {
-	currentTime := uint64(s.clock.epoch())
+	currentTime := uint64(s.clock.Epoch())
 	s.lock.RLock()
 	wrappedEntry, err := s.getWrappedEntry(hashedKey)
 	if err != nil {
@@ -117,7 +117,7 @@ func (s *cacheShard) getWrappedEntry(hashedKey uint64) ([]byte, error) {
 }
 
 func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
-	currentTimestamp := uint64(s.clock.epoch())
+	currentTimestamp := uint64(s.clock.Epoch())
 
 	s.lock.Lock()
 
@@ -147,7 +147,7 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 }
 
 func (s *cacheShard) setWithoutLock(key string, hashedKey uint64, entry []byte) error {
-	currentTimestamp := uint64(s.clock.epoch())
+	currentTimestamp := uint64(s.clock.Epoch())
 
 	if previousIndex := s.hashmap[hashedKey]; previousIndex != 0 {
 		if previousEntry, err := s.entries.Get(int(previousIndex)); err == nil {
