@@ -22,17 +22,16 @@ var (
 // BytesQueue is a non-thread safe queue type of fifo based on bytes array.
 // For every push operation index of entry is returned. It can be used to read the entry later
 type BytesQueue struct {
-	full            bool
-	array           []byte
-	capacity        int
-	maxCapacity     int
-	head            int
-	tail            int
-	count           int
-	rightMargin     int
-	headerBuffer    []byte
-	verbose         bool
-	initialCapacity int
+	full         bool
+	array        []byte
+	capacity     int
+	maxCapacity  int
+	head         int
+	tail         int
+	count        int
+	rightMargin  int
+	headerBuffer []byte
+	verbose      bool
 }
 
 type queueError struct {
@@ -55,19 +54,18 @@ func getUvarintSize(x uint32) int {
 }
 
 // NewBytesQueue initialize new bytes queue.
-// Initial capacity is used in bytes array allocation
+// capacity is used in bytes array allocation
 // When verbose flag is set then information about memory allocation are printed
-func NewBytesQueue(initialCapacity int, maxCapacity int, verbose bool) *BytesQueue {
+func NewBytesQueue(capacity int, maxCapacity int, verbose bool) *BytesQueue {
 	return &BytesQueue{
-		array:           make([]byte, initialCapacity),
-		capacity:        initialCapacity,
-		maxCapacity:     maxCapacity,
-		headerBuffer:    make([]byte, binary.MaxVarintLen32),
-		tail:            leftMarginIndex,
-		head:            leftMarginIndex,
-		rightMargin:     leftMarginIndex,
-		verbose:         verbose,
-		initialCapacity: initialCapacity,
+		array:        make([]byte, capacity),
+		capacity:     capacity,
+		maxCapacity:  maxCapacity,
+		headerBuffer: make([]byte, binary.MaxVarintLen32),
+		tail:         leftMarginIndex,
+		head:         leftMarginIndex,
+		rightMargin:  leftMarginIndex,
+		verbose:      verbose,
 	}
 }
 
