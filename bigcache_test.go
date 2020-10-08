@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -1063,6 +1064,54 @@ func TestBigCache_GetWithInfo(t *testing.T) {
 	assertEqual(t, err, nil)
 	assertEqual(t, Response{EntryStatus: Expired}, resp)
 	assertEqual(t, []byte(value), data)
+}
+
+// This test is designed for int32 overflow that was reported in #148
+// By default it's skipped since it need huge amount of memory
+func Test_issue_148(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
+	const n = 2070400
+	var message = bytes.Repeat([]byte{0}, 2<<10)
+	cache, _ := NewBigCache(Config{
+		Shards:             1,
+		LifeWindow:         time.Hour,
+		MaxEntriesInWindow: 10,
+		MaxEntrySize:       len(message),
+		HardMaxCacheSize:   2 << 13,
+	})
+	for i := 0; i < n; i++ {
+		err := cache.Set(strconv.Itoa(i), message)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	err := cache.Set(strconv.Itoa(n), message)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cache.Get(strconv.Itoa(n))
+
+	i := 0
+	defer func() {
+		if r := recover(); r != nil {
+			t.Log("Element: ", i)
+			t.Fatal(r)
+		}
+	}()
+
+	for ; i < n; i++ {
+		v, err := cache.Get(strconv.Itoa(i))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(v, message) {
+			t.Fatal("Should be equal", i, v, message)
+		}
+	}
 }
 
 type mockedLogger struct {

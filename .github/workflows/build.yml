@@ -42,7 +42,8 @@ jobs:
         run: |
           go test -race -count=1 -coverprofile=queue.coverprofile ./queue
           go test -race -count=1 -coverprofile=server.coverprofile  ./server
-          go test -race -count=1 -coverprofile=main.coverprofile
+          go test -race -count=1 -coverprofile=main.coverprofile -short
+          go test -count=1 -coverprofile=main.coverprofile
 
       - name: Upload coverage to codecov
         run: |
