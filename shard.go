@@ -104,7 +104,7 @@ func (s *cacheShard) getValidWrapEntry(key string, hashedKey uint64) ([]byte, er
 		return nil, err
 	}
 
-	if compareKeyFromEntry(wrappedEntry, key) {
+	if !compareKeyFromEntry(wrappedEntry, key) {
 		s.collision()
 		if s.isVerbose {
 			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, readKeyFromEntry(wrappedEntry), hashedKey)
