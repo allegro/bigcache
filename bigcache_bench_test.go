@@ -52,6 +52,13 @@ func BenchmarkWriteToCache(b *testing.B) {
 		})
 	}
 }
+func BenchmarkAppendToCache(b *testing.B) {
+	for _, shards := range []int{1, 512, 1024, 8192} {
+		b.Run(fmt.Sprintf("%d-shards", shards), func(b *testing.B) {
+			appendToCache(b, shards, 100*time.Second, b.N)
+		})
+	}
+}
 
 func BenchmarkReadFromCache(b *testing.B) {
 	for _, shards := range []int{1, 512, 1024, 8192} {
@@ -129,6 +136,29 @@ func writeToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsIn
 		b.ReportAllocs()
 		for pb.Next() {
 			cache.Set(fmt.Sprintf("key-%d-%d", id, counter), message)
+			counter = counter + 1
+		}
+	})
+}
+
+func appendToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsInLifeWindow int) {
+	cache, _ := NewBigCache(Config{
+		Shards:             shards,
+		LifeWindow:         lifeWindow,
+		MaxEntriesInWindow: max(requestsInLifeWindow, 100),
+		MaxEntrySize:       2000,
+	})
+	rand.Seed(time.Now().Unix())
+
+	b.RunParallel(func(pb *testing.PB) {
+		id := rand.Int()
+		counter := 0
+
+		b.ReportAllocs()
+		for pb.Next() {
+			for j := 0; j < 7; j++ {
+				cache.Append(fmt.Sprintf("key-%d-%d", id, counter), message)
+			}
 			counter = counter + 1
 		}
 	})
