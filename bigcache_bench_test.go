@@ -156,8 +156,9 @@ func appendToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsI
 
 		b.ReportAllocs()
 		for pb.Next() {
+			key := fmt.Sprintf("key-%d-%d", id, counter)
 			for j := 0; j < 7; j++ {
-				cache.Append(fmt.Sprintf("key-%d-%d", id, counter), message)
+				cache.Append(key, message)
 			}
 			counter = counter + 1
 		}
