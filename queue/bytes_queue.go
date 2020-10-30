@@ -118,10 +118,13 @@ func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 	if leftMarginIndex != q.rightMargin {
 		copy(q.array, oldArray[:q.rightMargin])
 
-		if q.tail < q.head {
-			headerEntrySize := getUvarintSize(uint32(q.head - q.tail))
-			emptyBlobLen := q.head - q.tail - headerEntrySize
-			q.push(make([]byte, emptyBlobLen), emptyBlobLen)
+		if q.tail <= q.head {
+			if q.tail != q.head {
+				headerEntrySize := getUvarintSize(uint32(q.head - q.tail))
+				emptyBlobLen := q.head - q.tail - headerEntrySize
+				q.push(make([]byte, emptyBlobLen), emptyBlobLen)
+			}
+
 			q.head = leftMarginIndex
 			q.tail = q.rightMargin
 		}
