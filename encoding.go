@@ -29,6 +29,21 @@ func wrapEntry(timestamp uint64, hash uint64, key string, entry []byte, buffer *
 	return blob[:blobLength]
 }
 
+func appendToWrappedEntry(timestamp uint64, wrappedEntry []byte, entry []byte, buffer *[]byte) []byte {
+	blobLength := len(wrappedEntry) + len(entry)
+	if blobLength > len(*buffer) {
+		*buffer = make([]byte, blobLength)
+	}
+
+	blob := *buffer
+
+	binary.LittleEndian.PutUint64(blob, timestamp)
+	copy(blob[timestampSizeInBytes:], wrappedEntry[timestampSizeInBytes:])
+	copy(blob[len(wrappedEntry):], entry)
+
+	return blob[:blobLength]
+}
+
 func readEntry(data []byte) []byte {
 	length := binary.LittleEndian.Uint16(data[timestampSizeInBytes+hashSizeInBytes:])
 
@@ -51,6 +66,12 @@ func readKeyFromEntry(data []byte) string {
 	copy(dst, data[headersSizeInBytes:headersSizeInBytes+length])
 
 	return bytesToString(dst)
+}
+
+func compareKeyFromEntry(data []byte, key string) bool {
+	length := binary.LittleEndian.Uint16(data[timestampSizeInBytes+hashSizeInBytes:])
+
+	return bytesToString(data[headersSizeInBytes:headersSizeInBytes+length]) == key
 }
 
 func readHashFromEntry(data []byte) uint64 {

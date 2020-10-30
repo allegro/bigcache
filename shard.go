@@ -81,24 +81,6 @@ func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
 	return entry, nil
 }
 
-func (s *cacheShard) getWithoutLock(key string, hashedKey uint64) ([]byte, error) {
-	wrappedEntry, err := s.getWrappedEntry(hashedKey)
-	if err != nil {
-		return nil, err
-	}
-	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
-		s.collision()
-		if s.isVerbose {
-			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
-		}
-		return nil, ErrEntryNotFound
-	}
-	entry := readEntry(wrappedEntry)
-	s.hitWithoutLock(hashedKey)
-
-	return entry, nil
-}
-
 func (s *cacheShard) getWrappedEntry(hashedKey uint64) ([]byte, error) {
 	itemIndex := s.hashmap[hashedKey]
 
@@ -114,6 +96,25 @@ func (s *cacheShard) getWrappedEntry(hashedKey uint64) ([]byte, error) {
 	}
 
 	return wrappedEntry, err
+}
+
+func (s *cacheShard) getValidWrapEntry(key string, hashedKey uint64) ([]byte, error) {
+	wrappedEntry, err := s.getWrappedEntry(hashedKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if !compareKeyFromEntry(wrappedEntry, key) {
+		s.collision()
+		if s.isVerbose {
+			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, readKeyFromEntry(wrappedEntry), hashedKey)
+		}
+
+		return nil, ErrEntryNotFound
+	}
+	s.hitWithoutLock(hashedKey)
+
+	return wrappedEntry, nil
 }
 
 func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
@@ -146,14 +147,8 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 	}
 }
 
-func (s *cacheShard) setWithoutLock(key string, hashedKey uint64, entry []byte) error {
+func (s *cacheShard) addNewWithoutLock(key string, hashedKey uint64, entry []byte) error {
 	currentTimestamp := uint64(s.clock.Epoch())
-
-	if previousIndex := s.hashmap[hashedKey]; previousIndex != 0 {
-		if previousEntry, err := s.entries.Get(int(previousIndex)); err == nil {
-			resetKeyFromEntry(previousEntry)
-		}
-	}
 
 	if oldestEntry, err := s.entries.Peek(); err == nil {
 		s.onEvict(oldestEntry, currentTimestamp, s.removeOldestEntry)
@@ -172,22 +167,49 @@ func (s *cacheShard) setWithoutLock(key string, hashedKey uint64, entry []byte) 
 	}
 }
 
-func (s *cacheShard) append(key string, hashedKey uint64, entry []byte) error {
-	s.lock.Lock()
-	var newEntry []byte
-	oldEntry, err := s.getWithoutLock(key, hashedKey)
-	if err != nil {
-		if err != ErrEntryNotFound {
-			s.lock.Unlock()
-			return err
+func (s *cacheShard) setWrappedEntryWithoutLock(currentTimestamp uint64, w []byte, hashedKey uint64) error {
+	if previousIndex := s.hashmap[hashedKey]; previousIndex != 0 {
+		if previousEntry, err := s.entries.Get(int(previousIndex)); err == nil {
+			resetKeyFromEntry(previousEntry)
 		}
-	} else {
-		newEntry = oldEntry
 	}
 
-	newEntry = append(newEntry, entry...)
-	err = s.setWithoutLock(key, hashedKey, newEntry)
+	if oldestEntry, err := s.entries.Peek(); err == nil {
+		s.onEvict(oldestEntry, currentTimestamp, s.removeOldestEntry)
+	}
+
+	for {
+		if index, err := s.entries.Push(w); err == nil {
+			s.hashmap[hashedKey] = uint64(index)
+			return nil
+		}
+		if s.removeOldestEntry(NoSpace) != nil {
+			return fmt.Errorf("entry is bigger than max shard size")
+		}
+	}
+}
+
+func (s *cacheShard) append(key string, hashedKey uint64, entry []byte) error {
+	s.lock.Lock()
+	wrappedEntry, err := s.getValidWrapEntry(key, hashedKey)
+
+	if err == ErrEntryNotFound {
+		err = s.addNewWithoutLock(key, hashedKey, entry)
+		s.lock.Unlock()
+		return err
+	}
+	if err != nil {
+		s.lock.Unlock()
+		return err
+	}
+
+	currentTimestamp := uint64(s.clock.Epoch())
+
+	w := appendToWrappedEntry(currentTimestamp, wrappedEntry, entry, &s.entryBuffer)
+
+	err = s.setWrappedEntryWithoutLock(currentTimestamp, w, hashedKey)
 	s.lock.Unlock()
+
 	return err
 }
 
