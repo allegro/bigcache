@@ -8,7 +8,7 @@ import (
 
 const (
 	// Number of bytes to encode 0 in uvarint format
-	minimumHeaderSize = 1
+	minimumHeaderSize = 17 // 1 byte blobsize + timestampSizeInBytes + hashSizeInBytes
 	// Bytes before left margin are not used. Zero index means element does not exist in queue, useful while reading slice from index
 	leftMarginIndex = 1
 )
