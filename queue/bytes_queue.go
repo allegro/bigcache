@@ -24,12 +24,12 @@ var (
 type BytesQueue struct {
 	full         bool
 	array        []byte
-	capacity     int
-	maxCapacity  int
-	head         int
-	tail         int
+	capacity     uint64
+	maxCapacity  uint64
+	head         uint64
+	tail         uint64
 	count        int
-	rightMargin  int
+	rightMargin  uint64
 	headerBuffer []byte
 	verbose      bool
 }
@@ -39,7 +39,7 @@ type queueError struct {
 }
 
 // getUvarintSize returns the number of bytes to encode x in uvarint format
-func getUvarintSize(x uint32) int {
+func getUvarintSize(x uint32) uint64 {
 	if x < 128 {
 		return 1
 	} else if x < 16384 {
@@ -59,8 +59,8 @@ func getUvarintSize(x uint32) int {
 func NewBytesQueue(capacity int, maxCapacity int, verbose bool) *BytesQueue {
 	return &BytesQueue{
 		array:        make([]byte, capacity),
-		capacity:     capacity,
-		maxCapacity:  maxCapacity,
+		capacity:     uint64(capacity),
+		maxCapacity:  uint64(maxCapacity),
 		headerBuffer: make([]byte, binary.MaxVarintLen32),
 		tail:         leftMarginIndex,
 		head:         leftMarginIndex,
@@ -82,7 +82,7 @@ func (q *BytesQueue) Reset() {
 // Push copies entry at the end of queue and moves tail pointer. Allocates more space if needed.
 // Returns index for pushed data or error if maximum size queue limit is reached.
 func (q *BytesQueue) Push(data []byte) (int, error) {
-	dataLen := len(data)
+	dataLen := uint64(len(data))
 	headerEntrySize := getUvarintSize(uint32(dataLen))
 
 	if !q.canInsertAfterTail(dataLen + headerEntrySize) {
@@ -99,10 +99,10 @@ func (q *BytesQueue) Push(data []byte) (int, error) {
 
 	q.push(data, dataLen)
 
-	return index, nil
+	return int(index), nil
 }
 
-func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
+func (q *BytesQueue) allocateAdditionalMemory(minimum uint64) {
 	start := time.Now()
 	if q.capacity < minimum {
 		q.capacity += minimum
@@ -137,8 +137,8 @@ func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 	}
 }
 
-func (q *BytesQueue) push(data []byte, len int) {
-	headerEntrySize := binary.PutUvarint(q.headerBuffer, uint64(len))
+func (q *BytesQueue) push(data []byte, len uint64) {
+	headerEntrySize := uint64(binary.PutUvarint(q.headerBuffer, len))
 	q.copy(q.headerBuffer, headerEntrySize)
 
 	q.copy(data, len)
@@ -153,8 +153,8 @@ func (q *BytesQueue) push(data []byte, len int) {
 	q.count++
 }
 
-func (q *BytesQueue) copy(data []byte, len int) {
-	q.tail += copy(q.array[q.tail:], data[:len])
+func (q *BytesQueue) copy(data []byte, len uint64) {
+	q.tail += uint64(copy(q.array[q.tail:], data[:len]))
 }
 
 // Pop reads the oldest entry from queue and moves head pointer to the next one
@@ -163,7 +163,7 @@ func (q *BytesQueue) Pop() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	size := len(data)
+	size := uint64(len(data))
 
 	q.head += headerEntrySize + size
 	q.count--
@@ -189,18 +189,18 @@ func (q *BytesQueue) Peek() ([]byte, error) {
 
 // Get reads entry from index
 func (q *BytesQueue) Get(index int) ([]byte, error) {
-	data, _, err := q.peek(index)
+	data, _, err := q.peek(uint64(index))
 	return data, err
 }
 
 // CheckGet checks if an entry can be read from index
 func (q *BytesQueue) CheckGet(index int) error {
-	return q.peekCheckErr(index)
+	return q.peekCheckErr(uint64(index))
 }
 
 // Capacity returns number of allocated bytes for queue
 func (q *BytesQueue) Capacity() int {
-	return q.capacity
+	return int(q.capacity)
 }
 
 // Len returns number of entries kept in queue
@@ -214,7 +214,7 @@ func (e *queueError) Error() string {
 }
 
 // peekCheckErr is identical to peek, but does not actually return any data
-func (q *BytesQueue) peekCheckErr(index int) error {
+func (q *BytesQueue) peekCheckErr(index uint64) error {
 
 	if q.count == 0 {
 		return errEmptyQueue
@@ -224,25 +224,26 @@ func (q *BytesQueue) peekCheckErr(index int) error {
 		return errInvalidIndex
 	}
 
-	if index >= len(q.array) {
+	if index >= uint64(len(q.array)) {
 		return errIndexOutOfBounds
 	}
 	return nil
 }
 
 // peek returns the data from index and the number of bytes to encode the length of the data in uvarint format
-func (q *BytesQueue) peek(index int) ([]byte, int, error) {
+func (q *BytesQueue) peek(index uint64) ([]byte, uint64, error) {
 	err := q.peekCheckErr(index)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	blockSize, n := binary.Uvarint(q.array[index:])
-	return q.array[index+n : index+n+int(blockSize)], n, nil
+	un := uint64(n)
+	return q.array[index+un : index+un+blockSize], un, nil
 }
 
 // canInsertAfterTail returns true if it's possible to insert an entry of size of need after the tail of the queue
-func (q *BytesQueue) canInsertAfterTail(need int) bool {
+func (q *BytesQueue) canInsertAfterTail(need uint64) bool {
 	if q.full {
 		return false
 	}
@@ -257,7 +258,7 @@ func (q *BytesQueue) canInsertAfterTail(need int) bool {
 }
 
 // canInsertBeforeHead returns true if it's possible to insert an entry of size of need before the head of the queue
-func (q *BytesQueue) canInsertBeforeHead(need int) bool {
+func (q *BytesQueue) canInsertBeforeHead(need uint64) bool {
 	if q.full {
 		return false
 	}
