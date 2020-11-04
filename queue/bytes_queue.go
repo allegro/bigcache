@@ -8,7 +8,7 @@ import (
 
 const (
 	// Number of bytes to encode 0 in uvarint format
-	minimumHeaderSize = 1
+	minimumHeaderSize = 17 // 1 byte blobsize + timestampSizeInBytes + hashSizeInBytes
 	// Bytes before left margin are not used. Zero index means element does not exist in queue, useful while reading slice from index
 	leftMarginIndex = 1
 )
@@ -118,10 +118,13 @@ func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 	if leftMarginIndex != q.rightMargin {
 		copy(q.array, oldArray[:q.rightMargin])
 
-		if q.tail < q.head {
-			headerEntrySize := getUvarintSize(uint32(q.head - q.tail))
-			emptyBlobLen := q.head - q.tail - headerEntrySize
-			q.push(make([]byte, emptyBlobLen), emptyBlobLen)
+		if q.tail <= q.head {
+			if q.tail != q.head {
+				headerEntrySize := getUvarintSize(uint32(q.head - q.tail))
+				emptyBlobLen := q.head - q.tail - headerEntrySize
+				q.push(make([]byte, emptyBlobLen), emptyBlobLen)
+			}
+
 			q.head = leftMarginIndex
 			q.tail = q.rightMargin
 		}
