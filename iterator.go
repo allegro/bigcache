@@ -74,9 +74,8 @@ func (it *EntryInfoIterator) SetNext() bool {
 
 		if empty {
 			return it.SetNext()
-		} else {
-			return true
 		}
+		return true
 	}
 
 	for i := it.currentShard + 1; i < it.cache.config.Shards; i++ {
@@ -93,9 +92,8 @@ func (it *EntryInfoIterator) SetNext() bool {
 
 			if empty {
 				return it.SetNext()
-			} else {
-				return true
 			}
+			return true
 		}
 	}
 	it.mutex.Unlock()

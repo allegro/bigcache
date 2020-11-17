@@ -389,8 +389,6 @@ func TestPushEntryAfterAllocateAdditionMemory(t *testing.T) {
 	queue.Push([]byte("aaa"))
 	queue.Push([]byte("bb"))
 	queue.Pop()
-	queue.Push([]byte("c"))
-	queue.Push([]byte("d"))
 
 	// allocate more memory
 	assertEqual(t, 9, queue.Capacity())
@@ -399,6 +397,30 @@ func TestPushEntryAfterAllocateAdditionMemory(t *testing.T) {
 
 	// push after allocate
 	_, err := queue.Push([]byte("d"))
+	noError(t, err)
+}
+
+func TestPushEntryAfterAllocateAdditionMemoryInFull(t *testing.T) {
+	t.Parallel()
+
+	// given
+	queue := NewBytesQueue(9, 40, true)
+
+	// when
+	queue.Push([]byte("aaa"))
+	queue.Push([]byte("bb"))
+	_, err := queue.Pop()
+	noError(t, err)
+
+	queue.Push([]byte("c"))
+	queue.Push([]byte("d"))
+	queue.Push([]byte("e"))
+	_, err = queue.Pop()
+	noError(t, err)
+	_, err = queue.Pop()
+	noError(t, err)
+	queue.Push([]byte("fff"))
+	_, err = queue.Pop()
 	noError(t, err)
 }
 
