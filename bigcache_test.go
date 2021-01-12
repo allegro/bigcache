@@ -580,10 +580,10 @@ func TestCacheStats(t *testing.T) {
 
 	// then
 	stats := cache.Stats()
-	assertEqual(t, stats.Hits, int64(10))
-	assertEqual(t, stats.Misses, int64(10))
-	assertEqual(t, stats.DelHits, int64(10))
-	assertEqual(t, stats.DelMisses, int64(10))
+	assertEqual(t, stats.Hits, int32(10))
+	assertEqual(t, stats.Misses, int32(10))
+	assertEqual(t, stats.DelHits, int32(10))
+	assertEqual(t, stats.DelMisses, int32(10))
 }
 func TestCacheEntryStats(t *testing.T) {
 	t.Parallel()
@@ -722,7 +722,7 @@ func TestWriteAndReadParallelSameKeyWithStats(t *testing.T) {
 
 	wg.Wait()
 
-	assertEqual(t, Stats{Hits: int64(n * ntest)}, cache.Stats())
+	assertEqual(t, Stats{Hits: int32(n * ntest)}, cache.Stats())
 	assertEqual(t, ntest*n, int(cache.KeyMetadata(key).RequestCount))
 }
 
@@ -946,7 +946,7 @@ func TestHashCollision(t *testing.T) {
 	assertEqual(t, []byte(nil), cachedValue)
 
 	assertEqual(t, "Collision detected. Both %q and %q have the same hash %x", ml.lastFormat)
-	assertEqual(t, cache.Stats().Collisions, int64(1))
+	assertEqual(t, cache.Stats().Collisions, int32(1))
 }
 
 func TestNilValueCaching(t *testing.T) {
@@ -1025,7 +1025,7 @@ func TestEntryNotPresent(t *testing.T) {
 	value, resp, err := cache.GetWithInfo("blah")
 	assertEqual(t, ErrEntryNotFound, err)
 	assertEqual(t, resp.EntryStatus, RemoveReason(0))
-	assertEqual(t, cache.Stats().Misses, int64(1))
+	assertEqual(t, cache.Stats().Misses, int32(1))
 	assertEqual(t, []byte(nil), value)
 }
 
