@@ -1065,6 +1065,22 @@ func TestBigCache_GetWithInfo(t *testing.T) {
 	assertEqual(t, []byte(value), data)
 }
 
+func TestCacheOperationsByHash(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(DefaultConfig(5 * time.Second))
+	value := []byte("value")
+
+	// when
+	cache.SetByHash("key", 1, value)
+	cachedValue, err := cache.GetByHash("key", 1)
+
+	// then
+	noError(t, err)
+	assertEqual(t, value, cachedValue)
+}
+
 type mockedLogger struct {
 	lastFormat string
 	lastArgs   []interface{}
