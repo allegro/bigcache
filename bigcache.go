@@ -117,6 +117,14 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 	return shard.get(key, hashedKey)
 }
 
+// Get reads entry for the hashed key.
+// It returns an ErrEntryNotFound when
+// no entry exists for the given hashed key.
+func (c *BigCache) GetByHash(key string, hashedKey uint64) ([]byte, error) {
+	shard := c.getShard(hashedKey)
+	return shard.get(key, hashedKey)
+}
+
 // GetWithInfo reads entry for the key with Response info.
 // It returns an ErrEntryNotFound when
 // no entry exists for the given key.
@@ -126,9 +134,23 @@ func (c *BigCache) GetWithInfo(key string) ([]byte, Response, error) {
 	return shard.getWithInfo(key, hashedKey)
 }
 
+// GetWithInfo reads entry for the hashed key with Response info.
+// It returns an ErrEntryNotFound when
+// no entry exists for the given hashed key.
+func (c *BigCache) GetWithInfoByHash(key string, hashedKey uint64) ([]byte, Response, error) {
+	shard := c.getShard(hashedKey)
+	return shard.getWithInfo(key, hashedKey)
+}
+
 // Set saves entry under the key
 func (c *BigCache) Set(key string, entry []byte) error {
 	hashedKey := c.hash.Sum64(key)
+	shard := c.getShard(hashedKey)
+	return shard.set(key, hashedKey, entry)
+}
+
+// Set saves entry under the hashed key
+func (c *BigCache) SetByHash(key string, hashedKey uint64, entry []byte) error {
 	shard := c.getShard(hashedKey)
 	return shard.set(key, hashedKey, entry)
 }
@@ -142,9 +164,23 @@ func (c *BigCache) Append(key string, entry []byte) error {
 	return shard.append(key, hashedKey, entry)
 }
 
+// Append appends entry under the hashed key if hashed key exists, otherwise
+// it will set the key (same behaviour as Set()). With Append() you can
+// concatenate multiple entries under the same hashed key in an lock optimized way.
+func (c *BigCache) AppendByHash(key string, hashedKey uint64, entry []byte) error {
+	shard := c.getShard(hashedKey)
+	return shard.append(key, hashedKey, entry)
+}
+
 // Delete removes the key
 func (c *BigCache) Delete(key string) error {
 	hashedKey := c.hash.Sum64(key)
+	shard := c.getShard(hashedKey)
+	return shard.del(hashedKey)
+}
+
+// Delete removes the hashed key
+func (c *BigCache) DeleteByHash(hashedKey uint64) error {
 	shard := c.getShard(hashedKey)
 	return shard.del(hashedKey)
 }
@@ -192,6 +228,12 @@ func (c *BigCache) Stats() Stats {
 // KeyMetadata returns number of times a cached resource was requested.
 func (c *BigCache) KeyMetadata(key string) Metadata {
 	hashedKey := c.hash.Sum64(key)
+	shard := c.getShard(hashedKey)
+	return shard.getKeyMetadataWithLock(hashedKey)
+}
+
+// KeyMetadata returns number of times a cached resource was requested.
+func (c *BigCache) KeyMetadataByHash(hashedKey uint64) Metadata {
 	shard := c.getShard(hashedKey)
 	return shard.getKeyMetadataWithLock(hashedKey)
 }
