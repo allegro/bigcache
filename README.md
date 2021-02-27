@@ -11,7 +11,7 @@ Requires Go 1.12 or newer.
 ### Simple initialization
 
 ```go
-import "github.com/allegro/bigcache"
+import "github.com/allegro/bigcache/v2"
 
 cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
 
@@ -30,7 +30,7 @@ allocation can be avoided in that way.
 import (
 	"log"
 
-	"github.com/allegro/bigcache"
+	"github.com/allegro/bigcache/v2"
 )
 
 config := bigcache.Config {
