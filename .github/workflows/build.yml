@@ -11,7 +11,7 @@ jobs:
       fail-fast: true
       max-parallel: 2
       matrix:
-        go: ["1.13.x", "1.14.x", "1.15.x"]
+        go: ["1.14.x", "1.15.x"]
 
     steps:
       - name: Set up Go
@@ -42,7 +42,7 @@ jobs:
         run: |
           go test -race -count=1 -coverprofile=queue.coverprofile ./queue
           go test -race -count=1 -coverprofile=server.coverprofile  ./server
-          go test -race -count=1 -coverprofile=main.coverprofile
+          go test -race -count=1 -coverprofile=main.coverprofile -short
 
       - name: Upload coverage to codecov
         run: |
