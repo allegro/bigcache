@@ -990,6 +990,7 @@ func TestClosing(t *testing.T) {
 	// given
 	config := Config{
 		CleanWindow: time.Minute,
+		Shards: 1,
 	}
 	startGR := runtime.NumGoroutine()
 
