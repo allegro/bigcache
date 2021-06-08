@@ -224,6 +224,31 @@ func TestAllocateAdditionalSpaceForInsufficientFreeFragmentedSpaceWhereTailIsBef
 	assertEqual(t, blob('d', 40), pop(queue))
 }
 
+func TestAllocateAdditionalSpaceForInsufficientFreeFragmentedSpaceWhereTailIsBeforeHead128(t *testing.T) {
+	t.Parallel()
+
+	// given
+	queue := NewBytesQueue(200, 0, false)
+
+	// when
+	queue.Push(blob('a', 30))  //  header + entry + left margin = 32 bytes
+	queue.Push(blob('b', 1))   // 32 + 128 + 1 = 161 bytes
+	queue.Push(blob('b', 125)) // 32 + 128 + 1 = 161 bytes
+	queue.Push(blob('c', 20))  //  160 + 20 + 1 = 182
+	queue.Pop()                // space freed at the beginning
+	queue.Pop()                // free 2 bytes
+	queue.Pop()                // free 126
+	queue.Push(blob('d', 30))  // 31 bytes used at the beginning, tail pointer is before head pointer, now free space is 128 bytes
+	queue.Push(blob('e', 160)) // invoke allocateAdditionalMemory but fill 127 bytes free space (It should be 128 bytes, but 127 are filled, leaving one byte unfilled)
+
+	// then
+	assertEqual(t, 400, queue.Capacity())
+	assertEqual(t, blob('d', 30), pop(queue))
+	assertEqual(t, blob(0, 126), pop(queue))  //126 bytes data with 2bytes header only possible as empty entry
+	assertEqual(t, blob('c', 20), pop(queue)) //The data is not expected
+	assertEqual(t, blob('e', 160), pop(queue))
+}
+
 func TestUnchangedEntriesIndexesAfterAdditionalMemoryAllocationWhereTailIsBeforeHead(t *testing.T) {
 	t.Parallel()
 
