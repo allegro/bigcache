@@ -19,5 +19,5 @@ func convertMBToBytes(value int) int {
 }
 
 func isPowerOfTwo(number int) bool {
-	return (number & (number - 1)) == 0
+	return (number != 0) && (number&(number-1)) == 0
 }
