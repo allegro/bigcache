@@ -1,6 +1,8 @@
 package bigcache
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"time"
 )
@@ -237,4 +239,70 @@ func (c *BigCache) providedOnRemoveWithMetadata(wrappedEntry []byte, reason Remo
 	hashedKey := c.hash.Sum64(readKeyFromEntry(wrappedEntry))
 	shard := c.getShard(hashedKey)
 	c.config.OnRemoveWithMetadata(readKeyFromEntry(wrappedEntry), readEntry(wrappedEntry), shard.getKeyMetadata(hashedKey))
+}
+
+/*
+implement to save slice
+TODO:Benchmark Testing
+examples:
+	type User struct {
+		Id string `json:"id"`
+		UserName string `json:"user_name"`
+	}
+	var userBs = make([][]byte, 0)
+
+	for i:=1;i<4;i++{
+		var u = &User{
+			Id:i,
+		}
+		bs,_:=json.Marshal(u)
+		userBs = append(userBs,bs)
+	}
+	cache.PutLists("users",userBs...)
+
+	entries,err:=cache.GetLists("users")
+*/
+
+func (c *BigCache) PutLists(key string, entries ...[]byte) (err error) {
+	entry, err := c.appendBytes(entries...)
+	if err != nil {
+		return err
+	}
+	return c.Append(key, entry)
+}
+
+// TODO: looking for High-performance byte grouping
+func (c *BigCache) appendBytes(entries ...[]byte) ([]byte, error) {
+	var buf = &bytes.Buffer{}
+	for _, v := range entries {
+		if err := binary.Write(buf, binary.BigEndian, uint16(len(v))); err != nil {
+			return nil, err
+		}
+		if err := binary.Write(buf, binary.BigEndian, v); err != nil {
+			return nil, err
+		}
+	}
+	return buf.Bytes(), nil
+}
+
+func (c *BigCache) GetLists(key string) ([][]byte, error) {
+	bs, err := c.Get(key)
+	if err != nil {
+		return nil, err
+	}
+	buf := bytes.NewReader(bs)
+	var entries = make([][]byte, 0)
+	for buf.Len() > 0 {
+		var l uint16
+		if err := binary.Read(buf, binary.BigEndian, &l); err != nil {
+			return nil, err
+		}
+		var entry = make([]byte, l)
+		if err := binary.Read(buf, binary.BigEndian, entry); err != nil {
+			return nil, err
+		}
+		entries = append(entries, entry)
+	}
+
+	return entries, nil
 }

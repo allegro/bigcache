@@ -1091,3 +1091,24 @@ func (mc *mockedClock) set(value int64) {
 func blob(char byte, len int) []byte {
 	return bytes.Repeat([]byte{char}, len)
 }
+
+func TestBigCachePutLists(t *testing.T) {
+	cache, _ := NewBigCache(DefaultConfig(10 * time.Minute))
+
+	var key = "lists"
+	var val = "val"
+	var bs = make([][]byte, 0)
+	for i := 1; i < 10; i++ {
+		bs = append(bs, []byte(val))
+	}
+
+	err := cache.PutLists(key, bs...)
+	assertEqual(t, err, nil)
+
+	entries, err := cache.GetLists(key)
+	assertEqual(t, err, nil)
+
+	for _, v := range entries {
+		assertEqual(t, string(v), val)
+	}
+}
