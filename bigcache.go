@@ -242,8 +242,7 @@ func (c *BigCache) providedOnRemoveWithMetadata(wrappedEntry []byte, reason Remo
 }
 
 /*
-implement to save slice
-TODO:Benchmark Testing
+implement to save slice,resolve append slice no boundary segmentation
 examples:
 	type User struct {
 		Id string `json:"id"`
@@ -271,7 +270,6 @@ func (c *BigCache) PutLists(key string, entries ...[]byte) (err error) {
 	return c.Append(key, entry)
 }
 
-// TODO: looking for High-performance byte grouping
 func (c *BigCache) appendBytes(entries ...[]byte) ([]byte, error) {
 	var buf = &bytes.Buffer{}
 	for _, v := range entries {

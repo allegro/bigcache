@@ -1112,3 +1112,44 @@ func TestBigCachePutLists(t *testing.T) {
 		assertEqual(t, string(v), val)
 	}
 }
+
+func BenchmarkBigCachePutLists(b *testing.B) {
+	cache, _ := NewBigCache(DefaultConfig(10 * time.Minute))
+	var val = []byte("val")
+	var bs = make([][]byte, 0)
+	for i := 1; i < 10; i++ {
+		bs = append(bs, val)
+	}
+	b.RunParallel(func(pb *testing.PB) {
+		id := rand.Int()
+		counter := 0
+
+		b.ReportAllocs()
+		for pb.Next() {
+			key := fmt.Sprintf("key-%d-%d", id, counter)
+			_ = cache.PutLists(key, bs...)
+			counter = counter + 1
+		}
+	})
+}
+
+func BenchmarkGetLists(b *testing.B) {
+	cache, _ := NewBigCache(DefaultConfig(10 * time.Minute))
+	var val = []byte("val")
+	var key = "KEY_%d"
+	var bs = make([][]byte, 0)
+	bs = append(bs, val)
+
+	for i := 0; i < b.N; i++ {
+		_ = cache.PutLists(fmt.Sprintf(key, i), bs...)
+	}
+
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		b.ReportAllocs()
+		for pb.Next() {
+			_,_=cache.GetLists(fmt.Sprintf(key, rand.Intn(b.N)))
+		}
+	})
+}
