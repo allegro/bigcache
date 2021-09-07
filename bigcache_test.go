@@ -1091,3 +1091,37 @@ func (mc *mockedClock) set(value int64) {
 func blob(char byte, len int) []byte {
 	return bytes.Repeat([]byte{char}, len)
 }
+
+//
+func TestCache_RepeatedSetWithBiggerEntry(t *testing.T) {
+
+	opt := DefaultConfig(time.Second)
+	opt.Shards = 2 << 10
+	opt.MaxEntriesInWindow = 1024
+	opt.MaxEntrySize = 1
+	opt.HardMaxCacheSize = 1
+	bc, _ := NewBigCache(opt)
+
+	err := bc.Set("2225", make([]byte, 200))
+	if nil != err {
+		t.Error(err)
+		t.FailNow()
+	}
+	err = bc.Set("8573", make([]byte, 100))
+	if nil != err {
+		t.Error(err)
+		t.FailNow()
+	}
+	//time.Sleep(5 * time.Second)
+
+	err = bc.Set("8573", make([]byte, 450))
+	if nil != err {
+		//t.Error(err)
+		//t.FailNow()
+	}
+
+	//time.Sleep(5 * time.Second)
+	_ = bc.Set("7327", make([]byte, 300))
+	_ = bc.Set("8573", make([]byte, 200))
+
+}
