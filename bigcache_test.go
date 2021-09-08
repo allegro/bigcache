@@ -1112,16 +1112,23 @@ func TestCache_RepeatedSetWithBiggerEntry(t *testing.T) {
 		t.Error(err)
 		t.FailNow()
 	}
-	//time.Sleep(5 * time.Second)
 
 	err = bc.Set("8573", make([]byte, 450))
 	if nil != err {
-		//t.Error(err)
-		//t.FailNow()
+		// occur error but go next
+		t.Error(err)
 	}
 
-	//time.Sleep(5 * time.Second)
-	_ = bc.Set("7327", make([]byte, 300))
-	_ = bc.Set("8573", make([]byte, 200))
+	err = bc.Set("7327", make([]byte, 300))
+	if nil != err {
+		t.Error(err)
+		t.FailNow()
+	}
+
+	err = bc.Set("8573", make([]byte, 200))
+	if nil != err {
+		t.Error(err)
+		t.FailNow()
+	}
 
 }
