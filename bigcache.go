@@ -46,9 +46,17 @@ func NewBigCache(config Config) (*BigCache, error) {
 }
 
 func newBigCache(config Config, clock clock) (*BigCache, error) {
-
 	if !isPowerOfTwo(config.Shards) {
 		return nil, fmt.Errorf("Shards number must be power of two")
+	}
+	if config.MaxEntrySize < 0 {
+		return nil, fmt.Errorf("MaxEntrySize must be >= 0")
+	}
+	if config.MaxEntriesInWindow < 0 {
+		return nil, fmt.Errorf("MaxEntriesInWindow must be >= 0")
+	}
+	if config.HardMaxCacheSize < 0 {
+		return nil, fmt.Errorf("HardMaxCacheSize must be >= 0")
 	}
 
 	if config.Hasher == nil {
