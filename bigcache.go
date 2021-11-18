@@ -13,14 +13,13 @@ const (
 // It keeps entries on heap but omits GC for them. To achieve that, operations take place on byte arrays,
 // therefore entries (de)serialization in front of the cache will be needed in most use cases.
 type BigCache struct {
-	shards       []*cacheShard
-	lifeWindow   uint64
-	clock        clock
-	hash         Hasher
-	config       Config
-	shardMask    uint64
-	maxShardSize uint32
-	close        chan struct{}
+	shards     []*cacheShard
+	lifeWindow uint64
+	clock      clock
+	hash       Hasher
+	config     Config
+	shardMask  uint64
+	close      chan struct{}
 }
 
 // Response will contain metadata about the entry for which GetWithInfo(key) was called
@@ -57,14 +56,13 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 	}
 
 	cache := &BigCache{
-		shards:       make([]*cacheShard, config.Shards),
-		lifeWindow:   uint64(config.LifeWindow.Seconds()),
-		clock:        clock,
-		hash:         config.Hasher,
-		config:       config,
-		shardMask:    uint64(config.Shards - 1),
-		maxShardSize: uint32(config.maximumShardSizeInBytes()),
-		close:        make(chan struct{}),
+		shards:     make([]*cacheShard, config.Shards),
+		lifeWindow: uint64(config.LifeWindow.Seconds()),
+		clock:      clock,
+		hash:       config.Hasher,
+		config:     config,
+		shardMask:  uint64(config.Shards - 1),
+		close:      make(chan struct{}),
 	}
 
 	var onRemove func(wrappedEntry []byte, reason RemoveReason)
