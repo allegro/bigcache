@@ -1024,6 +1024,7 @@ func TestClosing(t *testing.T) {
 	// then
 	endGR := runtime.NumGoroutine()
 	assertEqual(t, true, endGR >= startGR)
+	t.Logf("end:%v start:%v", endGR, startGR)
 	assertEqual(t, true, math.Abs(float64(endGR-startGR)) < 25)
 }
 
@@ -1168,18 +1169,23 @@ func TestBigCache_allocateAdditionalMemoryLeadPanic(t *testing.T) {
 	ts += 2
 	clock.set(ts)
 	cache.Set("b", blob(0xff, 235))
-	// expire the first element
+	// expire the key "a"
 	ts += 2
 	clock.set(ts)
-	// insert before head
+	// move tail to leftMargin,insert before head
 	cache.Set("c", blob(0xff, 108))
-	// reallocate memory
+	// reallocate memory,fill the tail to head with zero byte,move head to leftMargin
 	cache.Set("d", blob(0xff, 1024))
 	ts += 4
 	clock.set(ts)
+	// expire the key "c"
 	cache.Set("e", blob(0xff, 3))
+	// expire the zero bytes
 	cache.Set("f", blob(0xff, 3))
+	// expire the key "b"
 	cache.Set("g", blob(0xff, 3))
+	_, err := cache.Get("b")
+	assertEqual(t, err, ErrEntryNotFound)
 	data, _ := cache.Get("g")
 	assertEqual(t, []byte{0xff, 0xff, 0xff}, data)
 }
