@@ -156,19 +156,37 @@ func TestConstructCacheWithDefaultHasher(t *testing.T) {
 	assertEqual(t, true, ok)
 }
 
-func TestWillReturnErrorOnInvalidNumberOfPartitions(t *testing.T) {
+func TestNewBigcacheValidation(t *testing.T) {
 	t.Parallel()
 
-	// given
-	cache, error := NewBigCache(Config{
-		Shards:             18,
-		LifeWindow:         5 * time.Second,
-		MaxEntriesInWindow: 10,
-		MaxEntrySize:       256,
-	})
+	for _, tc := range []struct {
+		cfg  Config
+		want string
+	}{
+		{
+			cfg:  Config{Shards: 18},
+			want: "Shards number must be power of two",
+		},
+		{
+			cfg:  Config{Shards: 16, MaxEntriesInWindow: -1},
+			want: "MaxEntriesInWindow must be >= 0",
+		},
+		{
+			cfg:  Config{Shards: 16, MaxEntrySize: -1},
+			want: "MaxEntrySize must be >= 0",
+		},
+		{
+			cfg:  Config{Shards: 16, HardMaxCacheSize: -1},
+			want: "HardMaxCacheSize must be >= 0",
+		},
+	} {
+		t.Run(tc.want, func(t *testing.T) {
+			cache, error := NewBigCache(tc.cfg)
 
-	assertEqual(t, (*BigCache)(nil), cache)
-	assertEqual(t, "Shards number must be power of two", error.Error())
+			assertEqual(t, (*BigCache)(nil), cache)
+			assertEqual(t, tc.want, error.Error())
+		})
+	}
 }
 
 func TestEntryNotFound(t *testing.T) {
