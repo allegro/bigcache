@@ -1024,7 +1024,6 @@ func TestClosing(t *testing.T) {
 	// then
 	endGR := runtime.NumGoroutine()
 	assertEqual(t, true, endGR >= startGR)
-	t.Logf("end:%v start:%v", endGR, startGR)
 	assertEqual(t, true, math.Abs(float64(endGR-startGR)) < 25)
 }
 
