@@ -1164,7 +1164,6 @@ func TestBigCache_allocateAdditionalMemoryLeadPanic(t *testing.T) {
 	ts := time.Now().Unix()
 	clock.set(ts)
 	cache.Set("a", blob(0xff, 235))
-	// mock time.Sleep(2 * time.Second)
 	ts += 2
 	clock.set(ts)
 	cache.Set("b", blob(0xff, 235))
