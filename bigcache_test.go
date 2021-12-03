@@ -1150,3 +1150,40 @@ func TestCache_RepeatedSetWithBiggerEntry(t *testing.T) {
 	}
 
 }
+
+// TestBigCache_allocateAdditionalMemoryLeadPanic
+// The new commit 16df11e change the encoding method,it can fix issue #300
+func TestBigCache_allocateAdditionalMemoryLeadPanic(t *testing.T) {
+	t.Parallel()
+	clock := mockedClock{value: 0}
+	cache, _ := newBigCache(Config{
+		Shards:       1,
+		LifeWindow:   3 * time.Second,
+		MaxEntrySize: 52,
+	}, &clock)
+	ts := time.Now().Unix()
+	clock.set(ts)
+	cache.Set("a", blob(0xff, 235))
+	ts += 2
+	clock.set(ts)
+	cache.Set("b", blob(0xff, 235))
+	// expire the key "a"
+	ts += 2
+	clock.set(ts)
+	// move tail to leftMargin,insert before head
+	cache.Set("c", blob(0xff, 108))
+	// reallocate memory,fill the tail to head with zero byte,move head to leftMargin
+	cache.Set("d", blob(0xff, 1024))
+	ts += 4
+	clock.set(ts)
+	// expire the key "c"
+	cache.Set("e", blob(0xff, 3))
+	// expire the zero bytes
+	cache.Set("f", blob(0xff, 3))
+	// expire the key "b"
+	cache.Set("g", blob(0xff, 3))
+	_, err := cache.Get("b")
+	assertEqual(t, err, ErrEntryNotFound)
+	data, _ := cache.Get("g")
+	assertEqual(t, []byte{0xff, 0xff, 0xff}, data)
+}
