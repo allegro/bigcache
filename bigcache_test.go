@@ -2,6 +2,7 @@ package bigcache
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -26,6 +27,39 @@ func TestWriteAndGetOnCache(t *testing.T) {
 	// then
 	noError(t, err)
 	assertEqual(t, value, cachedValue)
+}
+
+func TestGetWithFallbackOnCache(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(DefaultConfig(5 * time.Second))
+	value := []byte("value")
+
+	// when
+	cachedValue, err := cache.GetWithFallback("key", func() ([]byte, error) {
+		return value, nil
+	})
+
+	// then
+	noError(t, err)
+	assertEqual(t, value, cachedValue)
+}
+
+func TestGetWithFallbackOnCacheWithError(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(DefaultConfig(5 * time.Second))
+	errStub := errors.New("some error")
+
+	// when
+	_, err := cache.GetWithFallback("key", func() ([]byte, error) {
+		return nil, errStub
+	})
+
+	// then
+	assertEqual(t, errStub, err)
 }
 
 func TestAppendAndGetOnCache(t *testing.T) {
