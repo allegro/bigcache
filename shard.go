@@ -269,7 +269,10 @@ func (s *cacheShard) del(hashedKey uint64) error {
 
 func (s *cacheShard) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func(reason RemoveReason) error) bool {
 	oldestTimestamp := readTimestampFromEntry(oldestEntry)
-	if currentTimestamp-oldestTimestamp > s.lifeWindow {
+	keyHash := readHashFromEntry(oldestEntry)
+	if keyHash == 0 || (currentTimestamp >= oldestTimestamp &&
+		currentTimestamp-oldestTimestamp > s.lifeWindow) {
+
 		evict(Expired)
 		return true
 	}
