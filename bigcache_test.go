@@ -1188,10 +1188,9 @@ func TestBigCache_allocateAdditionalMemoryLeadPanic(t *testing.T) {
 	assertEqual(t, []byte{0xff, 0xff, 0xff}, data)
 }
 
-func TestRemoveExpired(t *testing.T) {
+func TestRemoveNonExpiredData(t *testing.T) {
 	onRemove := func(key string, entry []byte, reason RemoveReason) {
 		if reason != Deleted {
-			//处理落地
 			if reason == Expired {
 				t.Errorf("[%d]Expired OnRemove [%s]\n", reason, key)
 				t.FailNow()
