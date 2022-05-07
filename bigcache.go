@@ -209,6 +209,9 @@ func (c *BigCache) Iterator() *EntryInfoIterator {
 
 func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func(reason RemoveReason) error) bool {
 	oldestTimestamp := readTimestampFromEntry(oldestEntry)
+	if currentTimestamp < oldestTimestamp {
+		return false
+	}
 	if currentTimestamp-oldestTimestamp > c.lifeWindow {
 		evict(Expired)
 		return true

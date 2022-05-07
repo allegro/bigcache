@@ -1187,3 +1187,43 @@ func TestBigCache_allocateAdditionalMemoryLeadPanic(t *testing.T) {
 	data, _ := cache.Get("g")
 	assertEqual(t, []byte{0xff, 0xff, 0xff}, data)
 }
+
+func TestRemoveExpired(t *testing.T) {
+	onRemove := func(key string, entry []byte, reason RemoveReason) {
+		if reason != Deleted {
+			//处理落地
+			if reason == Expired {
+				t.Errorf("[%d]Expired OnRemove [%s]\n", reason, key)
+				t.FailNow()
+			} else {
+				time.Sleep(time.Second)
+			}
+		}
+	}
+
+	config := DefaultConfig(10 * time.Minute)
+	config.HardMaxCacheSize = 1
+	config.MaxEntrySize = 1024
+	config.MaxEntriesInWindow = 1024
+	config.OnRemoveWithReason = onRemove
+	cache, err := NewBigCache(config)
+	noError(t, err)
+	defer func() {
+		err := cache.Close()
+		noError(t, err)
+	}()
+
+	data := func(l int) []byte {
+		m := make([]byte, l)
+		_, err := rand.Read(m)
+		noError(t, err)
+		return m
+	}
+
+	for i := 0; i < 50; i++ {
+		key := fmt.Sprintf("key_%d", i)
+		//key := "key1"
+		err := cache.Set(key, data(800))
+		noError(t, err)
+	}
+}
