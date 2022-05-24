@@ -50,12 +50,11 @@ func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, re
 	}
 
 	entry = readEntry(wrappedEntry)
-	oldestTimeStamp := readTimestampFromEntry(wrappedEntry)
-	s.lock.RUnlock()
-	s.hit(hashedKey)
-	if currentTime-oldestTimeStamp >= s.lifeWindow {
+	if s.isExpired(wrappedEntry, currentTime) {
 		resp.EntryStatus = Expired
 	}
+	s.lock.RUnlock()
+	s.hit(hashedKey)
 	return entry, resp, nil
 }
 
@@ -268,15 +267,19 @@ func (s *cacheShard) del(hashedKey uint64) error {
 }
 
 func (s *cacheShard) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func(reason RemoveReason) error) bool {
-	oldestTimestamp := readTimestampFromEntry(oldestEntry)
-	if currentTimestamp < oldestTimestamp {
-		return false
-	}
-	if currentTimestamp-oldestTimestamp > s.lifeWindow {
+	if s.isExpired(oldestEntry, currentTimestamp) {
 		evict(Expired)
 		return true
 	}
 	return false
+}
+
+func (s *cacheShard) isExpired(oldestEntry []byte, currentTimestamp uint64) bool {
+	oldestTimestamp := readTimestampFromEntry(oldestEntry)
+	if currentTimestamp <= oldestTimestamp { // if currentTimestamp < oldestTimestamp, the result will out of uint64 limits;
+		return false
+	}
+	return currentTimestamp-oldestTimestamp > s.lifeWindow
 }
 
 func (s *cacheShard) cleanUp(currentTimestamp uint64) {
