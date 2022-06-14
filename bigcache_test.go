@@ -219,11 +219,20 @@ func TestTimingEviction(t *testing.T) {
 		MaxEntrySize:       256,
 	}, &clock)
 
-	// when
 	cache.Set("key", []byte("value"))
-	clock.set(5)
+
+	// when
+	clock.set(1)
 	cache.Set("key2", []byte("value2"))
 	_, err := cache.Get("key")
+
+	// then
+	noError(t, err)
+
+	// when
+	clock.set(5)
+	cache.Set("key2", []byte("value2"))
+	_, err = cache.Get("key")
 
 	// then
 	assertEqual(t, ErrEntryNotFound, err)
@@ -1066,22 +1075,40 @@ func TestBigCache_GetWithInfo(t *testing.T) {
 	value := "100"
 	cache.Set(key, []byte(value))
 
-	// when
-	data, resp, err := cache.GetWithInfo(key)
+	for _, tc := range []struct {
+		name     string
+		clock    int64
+		wantData string
+		wantResp Response
+	}{
+		{
+			name:     "zero",
+			clock:    0,
+			wantData: value,
+			wantResp: Response{},
+		},
+		{
+			name:     "Before Expired",
+			clock:    4,
+			wantData: value,
+			wantResp: Response{},
+		},
+		{
+			name:     "Expired",
+			clock:    5,
+			wantData: value,
+			wantResp: Response{},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			clock.set(tc.clock)
+			data, resp, err := cache.GetWithInfo(key)
 
-	// then
-	assertEqual(t, []byte(value), data)
-	noError(t, err)
-	assertEqual(t, Response{}, resp)
-
-	// when
-	clock.set(5)
-	data, resp, err = cache.GetWithInfo(key)
-
-	// then
-	assertEqual(t, err, nil)
-	assertEqual(t, Response{EntryStatus: Expired}, resp)
-	assertEqual(t, []byte(value), data)
+			assertEqual(t, []byte(tc.wantData), data)
+			noError(t, err)
+			assertEqual(t, tc.wantResp, resp)
+		})
+	}
 }
 
 type mockedLogger struct {
