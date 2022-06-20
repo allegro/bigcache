@@ -13,9 +13,6 @@ func (e iteratorError) Error() string {
 // ErrInvalidIteratorState is reported when iterator is in invalid state
 const ErrInvalidIteratorState = iteratorError("Iterator is in invalid state. Use SetNext() to move to next position")
 
-// ErrCannotRetrieveEntry is reported when entry cannot be retrieved from underlying
-const ErrCannotRetrieveEntry = iteratorError("Could not retrieve entry from cache")
-
 var emptyEntryInfo = EntryInfo{}
 
 // EntryInfo holds informations about entry in the cache

@@ -1,6 +1,9 @@
 package bigcache
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // Config for BigCache
 type Config struct {
@@ -94,4 +97,21 @@ func (c Config) OnRemoveFilterSet(reasons ...RemoveReason) Config {
 	}
 
 	return c
+}
+
+// valid check config validation
+func (c *Config) valid() error {
+	if !isPowerOfTwo(c.Shards) {
+		return fmt.Errorf("shards number must be power of two")
+	}
+	if c.MaxEntrySize < 0 {
+		return fmt.Errorf("MaxEntrySize must be >= 0")
+	}
+	if c.MaxEntriesInWindow < 0 {
+		return fmt.Errorf("MaxEntriesInWindow must be >= 0")
+	}
+	if c.HardMaxCacheSize < 0 {
+		return fmt.Errorf("HardMaxCacheSize must be >= 0")
+	}
+	return nil
 }
