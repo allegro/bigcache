@@ -30,6 +30,7 @@ type cacheShard struct {
 
 	hashmapStats map[uint64]uint32
 	stats        Stats
+	cleanEnabled bool
 }
 
 func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, resp Response, err error) {
@@ -129,8 +130,10 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 		}
 	}
 
-	if oldestEntry, err := s.entries.Peek(); err == nil {
-		s.onEvict(oldestEntry, currentTimestamp, s.removeOldestEntry)
+	if !s.cleanEnabled {
+		if oldestEntry, err := s.entries.Peek(); err == nil {
+			s.onEvict(oldestEntry, currentTimestamp, s.removeOldestEntry)
+		}
 	}
 
 	w := wrapEntry(currentTimestamp, hashedKey, key, entry, &s.entryBuffer)
@@ -436,5 +439,6 @@ func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheS
 		clock:        clock,
 		lifeWindow:   uint64(config.LifeWindow.Seconds()),
 		statsEnabled: config.StatsEnabled,
+		cleanEnabled: config.CleanWindow > 0,
 	}
 }
