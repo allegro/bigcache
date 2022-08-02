@@ -1137,6 +1137,20 @@ func blob(char byte, len int) []byte {
 	return bytes.Repeat([]byte{char}, len)
 }
 
+func TestCache_SetWithoutCleanWindow(t *testing.T) {
+
+	opt := DefaultConfig(time.Second)
+	opt.CleanWindow = 0
+	opt.HardMaxCacheSize = 1
+	bc, _ := NewBigCache(opt)
+
+	err := bc.Set("2225", make([]byte, 200))
+	if nil != err {
+		t.Error(err)
+		t.FailNow()
+	}
+}
+
 //
 func TestCache_RepeatedSetWithBiggerEntry(t *testing.T) {
 

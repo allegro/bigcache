@@ -154,8 +154,10 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 func (s *cacheShard) addNewWithoutLock(key string, hashedKey uint64, entry []byte) error {
 	currentTimestamp := uint64(s.clock.Epoch())
 
-	if oldestEntry, err := s.entries.Peek(); err == nil {
-		s.onEvict(oldestEntry, currentTimestamp, s.removeOldestEntry)
+	if !s.cleanEnabled {
+		if oldestEntry, err := s.entries.Peek(); err == nil {
+			s.onEvict(oldestEntry, currentTimestamp, s.removeOldestEntry)
+		}
 	}
 
 	w := wrapEntry(currentTimestamp, hashedKey, key, entry, &s.entryBuffer)
@@ -178,8 +180,10 @@ func (s *cacheShard) setWrappedEntryWithoutLock(currentTimestamp uint64, w []byt
 		}
 	}
 
-	if oldestEntry, err := s.entries.Peek(); err == nil {
-		s.onEvict(oldestEntry, currentTimestamp, s.removeOldestEntry)
+	if !s.cleanEnabled {
+		if oldestEntry, err := s.entries.Peek(); err == nil {
+			s.onEvict(oldestEntry, currentTimestamp, s.removeOldestEntry)
+		}
 	}
 
 	for {
