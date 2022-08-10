@@ -1274,8 +1274,7 @@ func TestSetCb(t *testing.T) {
 	cache, err := NewBigCache(DefaultConfig(10 * time.Minute))
 	noError(t, err)
 	defer func() {
-		err := cache.Close()
-		noError(t, err)
+		noError(t, cache.Close())
 	}()
 	
 	err = cache.Set("key", []byte("value"))
