@@ -136,7 +136,18 @@ func (c *BigCache) GetWithInfo(key string) ([]byte, Response, error) {
 func (c *BigCache) Set(key string, entry []byte) error {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
-	return shard.set(key, hashedKey, entry)
+	return shard.set(key, hashedKey, entry, nil)
+}
+
+//SetCb callback executed when set successful
+type SetCb func()
+
+//SetCb saves entry under the key
+//SetCb locks the shard containing the key
+func (c *BigCache) SetCb(key string, entry []byte, cb SetCb) error {
+	hashedKey := c.hash.Sum64(key)
+	shard := c.getShard(hashedKey)
+	return shard.set(key, hashedKey, entry, cb)
 }
 
 // Append appends entry under the key if key exists, otherwise

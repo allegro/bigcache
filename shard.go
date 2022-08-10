@@ -117,7 +117,7 @@ func (s *cacheShard) getValidWrapEntry(key string, hashedKey uint64) ([]byte, er
 	return wrappedEntry, nil
 }
 
-func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
+func (s *cacheShard) set(key string, hashedKey uint64, entry []byte, cb SetCb) error {
 	currentTimestamp := uint64(s.clock.Epoch())
 
 	s.lock.Lock()
@@ -141,6 +141,9 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 	for {
 		if index, err := s.entries.Push(w); err == nil {
 			s.hashmap[hashedKey] = uint32(index)
+			if cb != nil {
+				cb()
+			}
 			s.lock.Unlock()
 			return nil
 		}

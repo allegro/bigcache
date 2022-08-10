@@ -1230,6 +1230,7 @@ func TestBigCache_allocateAdditionalMemoryLeadPanic(t *testing.T) {
 }
 
 func TestRemoveNonExpiredData(t *testing.T) {
+	t.Parallel()
 	onRemove := func(key string, entry []byte, reason RemoveReason) {
 		if reason != Deleted {
 			if reason == Expired {
@@ -1266,4 +1267,24 @@ func TestRemoveNonExpiredData(t *testing.T) {
 		err := cache.Set(key, data(800))
 		noError(t, err)
 	}
+}
+
+func TestSetCb(t *testing.T) {
+	t.Parallel()
+	cache, err := NewBigCache(DefaultConfig(10 * time.Minute))
+	noError(t, err)
+	defer func() {
+		err := cache.Close()
+		noError(t, err)
+	}()
+	
+	err = cache.Set("key", []byte("value"))
+	noError(t, err)
+
+	isCalled := false
+	err = cache.SetCb("key", []byte("value"), func() {
+		isCalled = true
+	})
+	noError(t, err)
+	assertEqual(t, true, isCalled)
 }
