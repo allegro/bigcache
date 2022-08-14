@@ -95,7 +95,7 @@ func (s *cacheShard) getWrappedEntry(hashedKey uint64) ([]byte, error) {
 		return nil, err
 	}
 
-	return wrappedEntry, err
+	return wrappedEntry, nil
 }
 
 func (s *cacheShard) getValidWrapEntry(key string, hashedKey uint64) ([]byte, error) {
