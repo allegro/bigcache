@@ -141,6 +141,39 @@ func TestAppendRandomly(t *testing.T) {
 	}
 }
 
+func TestAppendCollision(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{
+		Shards:             1,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 10,
+		MaxEntrySize:       256,
+		Verbose:            true,
+		Hasher:             hashStub(5),
+	})
+
+	//when
+	cache.Append("a", []byte("1"))
+	cachedValue, err := cache.Get("a")
+
+	//then
+	noError(t, err)
+	assertEqual(t, []byte("1"), cachedValue)
+
+	// when
+	err = cache.Append("b", []byte("2"))
+
+	// then
+	noError(t, err)
+	assertEqual(t, cache.Stats().Collisions, int64(1))
+	cachedValue, err = cache.Get("b")
+	noError(t, err)
+	assertEqual(t, []byte("2"), cachedValue)
+
+}
+
 func TestConstructCacheWithDefaultHasher(t *testing.T) {
 	t.Parallel()
 
@@ -1115,6 +1148,39 @@ func TestBigCache_GetWithInfo(t *testing.T) {
 			assertEqual(t, tc.wantResp, resp)
 		})
 	}
+}
+
+func TestBigCache_GetWithInfoCollision(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{
+		Shards:             1,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 10,
+		MaxEntrySize:       256,
+		Verbose:            true,
+		Hasher:             hashStub(5),
+	})
+
+	//when
+	cache.Set("a", []byte("1"))
+	cachedValue, resp, err := cache.GetWithInfo("a")
+
+	// then
+	noError(t, err)
+	assertEqual(t, []byte("1"), cachedValue)
+	assertEqual(t, Response{}, resp)
+
+	// when
+	cachedValue, resp, err = cache.GetWithInfo("b")
+
+	// then
+	assertEqual(t, []byte(nil), cachedValue)
+	assertEqual(t, Response{}, resp)
+	assertEqual(t, ErrEntryNotFound, err)
+	assertEqual(t, cache.Stats().Collisions, int64(1))
+
 }
 
 type mockedLogger struct {
