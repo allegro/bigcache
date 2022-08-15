@@ -1099,6 +1099,12 @@ func TestBigCache_GetWithInfo(t *testing.T) {
 			wantData: value,
 			wantResp: Response{},
 		},
+		{
+			name:     "After Expired",
+			clock:    6,
+			wantData: value,
+			wantResp: Response{EntryStatus: Expired},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			clock.set(tc.clock)
