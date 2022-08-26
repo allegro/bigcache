@@ -1151,7 +1151,6 @@ func TestCache_SetWithoutCleanWindow(t *testing.T) {
 	}
 }
 
-//
 func TestCache_RepeatedSetWithBiggerEntry(t *testing.T) {
 
 	opt := DefaultConfig(time.Second)
