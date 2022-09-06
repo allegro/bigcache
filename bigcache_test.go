@@ -669,6 +669,55 @@ func TestCacheEntryStats(t *testing.T) {
 	assertEqual(t, uint32(10), keyMetadata.RequestCount)
 }
 
+func TestCacheRestStats(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := NewBigCache(Config{
+		Shards:             8,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	})
+
+	// when
+	for i := 0; i < 100; i++ {
+		cache.Set(fmt.Sprintf("key%d", i), []byte("value"))
+	}
+
+	for i := 0; i < 10; i++ {
+		value, err := cache.Get(fmt.Sprintf("key%d", i))
+		noError(t, err)
+		assertEqual(t, string(value), "value")
+	}
+	for i := 100; i < 110; i++ {
+		_, err := cache.Get(fmt.Sprintf("key%d", i))
+		assertEqual(t, ErrEntryNotFound, err)
+	}
+	for i := 10; i < 20; i++ {
+		err := cache.Delete(fmt.Sprintf("key%d", i))
+		noError(t, err)
+	}
+	for i := 110; i < 120; i++ {
+		err := cache.Delete(fmt.Sprintf("key%d", i))
+		assertEqual(t, ErrEntryNotFound, err)
+	}
+
+	stats := cache.Stats()
+	assertEqual(t, stats.Hits, int64(10))
+	assertEqual(t, stats.Misses, int64(10))
+	assertEqual(t, stats.DelHits, int64(10))
+	assertEqual(t, stats.DelMisses, int64(10))
+
+	//then
+	cache.ResetStats()
+	stats = cache.Stats()
+	assertEqual(t, stats.Hits, int64(0))
+	assertEqual(t, stats.Misses, int64(0))
+	assertEqual(t, stats.DelHits, int64(0))
+	assertEqual(t, stats.DelMisses, int64(0))
+}
+
 func TestCacheDel(t *testing.T) {
 	t.Parallel()
 
