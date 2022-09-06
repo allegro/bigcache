@@ -163,6 +163,14 @@ func (c *BigCache) Reset() error {
 	return nil
 }
 
+// ResetStats all cache shards
+func (c *BigCache) ResetStats() error {
+	for _, shard := range c.shards {
+		shard.resetStats()
+	}
+	return nil
+}
+
 // Len computes number of entries in cache
 func (c *BigCache) Len() int {
 	var len int
