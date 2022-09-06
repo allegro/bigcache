@@ -353,6 +353,12 @@ func (s *cacheShard) reset(config Config) {
 	s.lock.Unlock()
 }
 
+func (s *cacheShard) resetStats() {
+	s.lock.Lock()
+	s.stats = Stats{}
+	s.lock.Unlock()
+}
+
 func (s *cacheShard) len() int {
 	s.lock.RLock()
 	res := len(s.hashmap)
