@@ -123,6 +123,32 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 	return shard.get(key, hashedKey)
 }
 
+// GetWithFallback reads entry for the key and if it is not exists
+// tries to call second argument callback function to resolve actual value,
+// after tries to save it as new cached value for the key and returns it as result.
+func (c *BigCache) GetWithFallback(key string, fallbackFn func() ([]byte, error)) ([]byte, error) {
+	entry, err := c.Get(key)
+	if err == nil {
+		return entry, nil
+	}
+
+	if err != ErrEntryNotFound {
+		return nil, err
+	}
+
+	entry, err = fallbackFn()
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.Set(key, entry)
+	if err != nil {
+		return nil, err
+	}
+
+	return entry, nil
+}
+
 // GetWithInfo reads entry for the key with Response info.
 // It returns an ErrEntryNotFound when
 // no entry exists for the given key.

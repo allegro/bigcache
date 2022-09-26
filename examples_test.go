@@ -18,6 +18,18 @@ func Example() {
 	// Output: value
 }
 
+func Example_getWithFallback() {
+	cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
+
+	entry, _ := cache.GetWithFallback("my-unique-key", func() ([]byte, error) {
+		/* Some amount of code for resolving value... */
+		return []byte("value"), nil
+	})
+
+	fmt.Println(string(entry))
+	// Output: value
+}
+
 func Example_custom() {
 	// When cache load can be predicted in advance then it is better to use custom initialization
 	// because additional memory allocation can be avoided in that way.
