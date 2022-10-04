@@ -41,9 +41,18 @@ const (
 	Deleted = RemoveReason(3)
 )
 
-// NewBigCache initialize new instance of BigCache
-func NewBigCache(ctx context.Context, config Config) (*BigCache, error) {
+// New initialize new instance of BigCache
+func New(ctx context.Context, config Config) (*BigCache, error) {
 	return newBigCache(ctx, config, &systemClock{})
+}
+
+// NewBigCache initialize new instance of BigCache
+//
+// Deprecated: NewBigCache is deprecated, please use New(ctx, config) instead,
+// New takes in context and can gracefully
+// shutdown with context cancellations
+func NewBigCache(config Config) (*BigCache, error) {
+	return newBigCache(context.Background(), config, &systemClock{})
 }
 
 func newBigCache(ctx context.Context, config Config, clock clock) (*BigCache, error) {

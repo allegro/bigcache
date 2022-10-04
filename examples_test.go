@@ -10,7 +10,7 @@ import (
 )
 
 func Example() {
-	cache, _ := bigcache.NewBigCache(context.TODO(), bigcache.DefaultConfig(10*time.Minute))
+	cache, _ := bigcache.New(context.Background(), bigcache.DefaultConfig(10*time.Minute))
 
 	cache.Set("my-unique-key", []byte("value"))
 
@@ -60,7 +60,7 @@ func Example_custom() {
 		OnRemoveWithReason: nil,
 	}
 
-	cache, initErr := bigcache.NewBigCache(context.TODO(), config)
+	cache, initErr := bigcache.New(context.Background(), config)
 	if initErr != nil {
 		log.Fatal(initErr)
 	}

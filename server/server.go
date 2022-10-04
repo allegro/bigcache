@@ -68,7 +68,7 @@ func main() {
 	}
 
 	var err error
-	cache, err = bigcache.NewBigCache(context.TODO(), config)
+	cache, err = bigcache.New(context.Background(), config)
 	if err != nil {
 		logger.Fatal(err)
 	}

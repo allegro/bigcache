@@ -17,7 +17,7 @@ func TestWriteAndGetOnCache(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), DefaultConfig(5*time.Second))
+	cache, _ := New(context.Background(), DefaultConfig(5*time.Second))
 	value := []byte("value")
 
 	// when
@@ -33,7 +33,7 @@ func TestAppendAndGetOnCache(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), DefaultConfig(5*time.Second))
+	cache, _ := New(context.Background(), DefaultConfig(5*time.Second))
 	key := "key"
 	value1 := make([]byte, 50)
 	rand.Read(value1)
@@ -94,7 +94,7 @@ func TestAppendRandomly(t *testing.T) {
 		HardMaxCacheSize:   1,
 		Logger:             DefaultLogger(),
 	}
-	cache, err := NewBigCache(context.TODO(), c)
+	cache, err := New(context.Background(), c)
 	noError(t, err)
 
 	nKeys := 5
@@ -146,7 +146,7 @@ func TestAppendCollision(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             1,
 		LifeWindow:         5 * time.Second,
 		MaxEntriesInWindow: 10,
@@ -179,7 +179,7 @@ func TestConstructCacheWithDefaultHasher(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             16,
 		LifeWindow:         5 * time.Second,
 		MaxEntriesInWindow: 10,
@@ -215,7 +215,7 @@ func TestNewBigcacheValidation(t *testing.T) {
 		},
 	} {
 		t.Run(tc.want, func(t *testing.T) {
-			cache, error := NewBigCache(context.TODO(), tc.cfg)
+			cache, error := New(context.Background(), tc.cfg)
 
 			assertEqual(t, (*BigCache)(nil), cache)
 			assertEqual(t, tc.want, error.Error())
@@ -227,7 +227,7 @@ func TestEntryNotFound(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             16,
 		LifeWindow:         5 * time.Second,
 		MaxEntriesInWindow: 10,
@@ -246,7 +246,7 @@ func TestTimingEviction(t *testing.T) {
 
 	// given
 	clock := mockedClock{value: 0}
-	cache, _ := newBigCache(context.TODO(), Config{
+	cache, _ := newBigCache(context.Background(), Config{
 		Shards:             1,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
@@ -277,7 +277,7 @@ func TestTimingEvictionShouldEvictOnlyFromUpdatedShard(t *testing.T) {
 
 	// given
 	clock := mockedClock{value: 0}
-	cache, _ := newBigCache(context.TODO(), Config{
+	cache, _ := newBigCache(context.Background(), Config{
 		Shards:             4,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
@@ -299,7 +299,7 @@ func TestCleanShouldEvictAll(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             4,
 		LifeWindow:         time.Second,
 		CleanWindow:        time.Second,
@@ -332,7 +332,7 @@ func TestOnRemoveCallback(t *testing.T) {
 	onRemoveExt := func(key string, entry []byte, reason RemoveReason) {
 		onRemoveExtInvoked = true
 	}
-	cache, _ := newBigCache(context.TODO(), Config{
+	cache, _ := newBigCache(context.Background(), Config{
 		Shards:             1,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
@@ -363,7 +363,7 @@ func TestOnRemoveWithReasonCallback(t *testing.T) {
 		assertEqual(t, []byte("value"), entry)
 		assertEqual(t, reason, RemoveReason(Expired))
 	}
-	cache, _ := newBigCache(context.TODO(), Config{
+	cache, _ := newBigCache(context.Background(), Config{
 		Shards:             1,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
@@ -397,7 +397,7 @@ func TestOnRemoveFilter(t *testing.T) {
 		OnRemoveWithReason: onRemove,
 	}.OnRemoveFilterSet(Deleted, NoSpace)
 
-	cache, _ := newBigCache(context.TODO(), c, &clock)
+	cache, _ := newBigCache(context.Background(), c, &clock)
 
 	// when
 	cache.Set("key", []byte("value"))
@@ -440,7 +440,7 @@ func TestOnRemoveFilterExpired(t *testing.T) {
 		OnRemoveWithReason: onRemove,
 	}
 
-	cache, err := newBigCache(context.TODO(), c, &clock)
+	cache, err := newBigCache(context.Background(), c, &clock)
 	assertEqual(t, err, nil)
 
 	// case 1: key is deleted AFTER expire
@@ -493,7 +493,7 @@ func TestOnRemoveGetEntryStats(t *testing.T) {
 		StatsEnabled:         true,
 	}.OnRemoveFilterSet(Deleted, NoSpace)
 
-	cache, _ := newBigCache(context.TODO(), c, &clock)
+	cache, _ := newBigCache(context.Background(), c, &clock)
 
 	// when
 	cache.Set("key", []byte("value"))
@@ -512,7 +512,7 @@ func TestCacheLen(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             8,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
@@ -533,7 +533,7 @@ func TestCacheCapacity(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             8,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
@@ -555,7 +555,7 @@ func TestCacheInitialCapacity(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             1,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 2 * 1024,
@@ -582,7 +582,7 @@ func TestRemoveEntriesWhenShardIsFull(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             1,
 		LifeWindow:         100 * time.Second,
 		MaxEntriesInWindow: 100,
@@ -609,7 +609,7 @@ func TestCacheStats(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             8,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
@@ -650,7 +650,7 @@ func TestCacheEntryStats(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             8,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
@@ -674,7 +674,7 @@ func TestCacheRestStats(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             8,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
@@ -723,7 +723,7 @@ func TestCacheDel(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), DefaultConfig(time.Second))
+	cache, _ := New(context.Background(), DefaultConfig(time.Second))
 
 	// when
 	err := cache.Delete("nonExistingKey")
@@ -758,7 +758,7 @@ func TestCacheDelRandomly(t *testing.T) {
 		Logger:             DefaultLogger(),
 	}
 
-	cache, _ := NewBigCache(context.TODO(), c)
+	cache, _ := New(context.Background(), c)
 	var wg sync.WaitGroup
 	var ntest = 800000
 	wg.Add(3)
@@ -809,7 +809,7 @@ func TestWriteAndReadParallelSameKeyWithStats(t *testing.T) {
 	c := DefaultConfig(0)
 	c.StatsEnabled = true
 
-	cache, _ := NewBigCache(context.TODO(), c)
+	cache, _ := New(context.Background(), c)
 	var wg sync.WaitGroup
 	ntest := 1000
 	n := 10
@@ -840,7 +840,7 @@ func TestCacheReset(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             8,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
@@ -875,7 +875,7 @@ func TestIterateOnResetCache(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             8,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
@@ -899,7 +899,7 @@ func TestGetOnResetCache(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             8,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
@@ -926,7 +926,7 @@ func TestEntryUpdate(t *testing.T) {
 
 	// given
 	clock := mockedClock{value: 0}
-	cache, _ := newBigCache(context.TODO(), Config{
+	cache, _ := newBigCache(context.Background(), Config{
 		Shards:             1,
 		LifeWindow:         6 * time.Second,
 		MaxEntriesInWindow: 1,
@@ -949,7 +949,7 @@ func TestOldestEntryDeletionWhenMaxCacheSizeIsReached(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             1,
 		LifeWindow:         5 * time.Second,
 		MaxEntriesInWindow: 1,
@@ -976,7 +976,7 @@ func TestRetrievingEntryShouldCopy(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             1,
 		LifeWindow:         5 * time.Second,
 		MaxEntriesInWindow: 1,
@@ -1002,7 +1002,7 @@ func TestEntryBiggerThanMaxShardSizeError(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             1,
 		LifeWindow:         5 * time.Second,
 		MaxEntriesInWindow: 1,
@@ -1022,7 +1022,7 @@ func TestHashCollision(t *testing.T) {
 
 	ml := &mockedLogger{}
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             16,
 		LifeWindow:         5 * time.Second,
 		MaxEntriesInWindow: 10,
@@ -1063,7 +1063,7 @@ func TestNilValueCaching(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             1,
 		LifeWindow:         5 * time.Second,
 		MaxEntriesInWindow: 1,
@@ -1106,7 +1106,7 @@ func TestClosing(t *testing.T) {
 
 	// when
 	for i := 0; i < 100; i++ {
-		cache, _ := NewBigCache(context.TODO(), config)
+		cache, _ := New(context.Background(), config)
 		cache.Close()
 	}
 
@@ -1124,7 +1124,7 @@ func TestEntryNotPresent(t *testing.T) {
 
 	// given
 	clock := mockedClock{value: 0}
-	cache, _ := newBigCache(context.TODO(), Config{
+	cache, _ := newBigCache(context.Background(), Config{
 		Shards:             1,
 		LifeWindow:         5 * time.Second,
 		MaxEntriesInWindow: 1,
@@ -1145,7 +1145,7 @@ func TestBigCache_GetWithInfo(t *testing.T) {
 
 	// given
 	clock := mockedClock{value: 0}
-	cache, _ := newBigCache(context.TODO(), Config{
+	cache, _ := newBigCache(context.Background(), Config{
 		Shards:             1,
 		LifeWindow:         5 * time.Second,
 		CleanWindow:        5 * time.Minute,
@@ -1204,7 +1204,7 @@ func TestBigCache_GetWithInfoCollision(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             1,
 		LifeWindow:         5 * time.Second,
 		MaxEntriesInWindow: 10,
@@ -1264,7 +1264,7 @@ func TestCache_SetWithoutCleanWindow(t *testing.T) {
 	opt := DefaultConfig(time.Second)
 	opt.CleanWindow = 0
 	opt.HardMaxCacheSize = 1
-	bc, _ := NewBigCache(context.TODO(), opt)
+	bc, _ := New(context.Background(), opt)
 
 	err := bc.Set("2225", make([]byte, 200))
 	if nil != err {
@@ -1280,7 +1280,7 @@ func TestCache_RepeatedSetWithBiggerEntry(t *testing.T) {
 	opt.MaxEntriesInWindow = 1024
 	opt.MaxEntrySize = 1
 	opt.HardMaxCacheSize = 1
-	bc, _ := NewBigCache(context.TODO(), opt)
+	bc, _ := New(context.Background(), opt)
 
 	err := bc.Set("2225", make([]byte, 200))
 	if nil != err {
@@ -1318,7 +1318,7 @@ func TestCache_RepeatedSetWithBiggerEntry(t *testing.T) {
 func TestBigCache_allocateAdditionalMemoryLeadPanic(t *testing.T) {
 	t.Parallel()
 	clock := mockedClock{value: 0}
-	cache, _ := newBigCache(context.TODO(), Config{
+	cache, _ := newBigCache(context.Background(), Config{
 		Shards:       1,
 		LifeWindow:   3 * time.Second,
 		MaxEntrySize: 52,
@@ -1367,7 +1367,7 @@ func TestRemoveNonExpiredData(t *testing.T) {
 	config.MaxEntrySize = 1024
 	config.MaxEntriesInWindow = 1024
 	config.OnRemoveWithReason = onRemove
-	cache, err := NewBigCache(context.TODO(), config)
+	cache, err := New(context.Background(), config)
 	noError(t, err)
 	defer func() {
 		err := cache.Close()

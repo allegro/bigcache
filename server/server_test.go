@@ -18,7 +18,7 @@ const (
 )
 
 func testCacheSetup() {
-	cache, _ = bigcache.NewBigCache(context.TODO(), bigcache.Config{
+	cache, _ = bigcache.New(context.Background(), bigcache.Config{
 		Shards:             1024,
 		LifeWindow:         10 * time.Minute,
 		MaxEntriesInWindow: 1000 * 10 * 60,

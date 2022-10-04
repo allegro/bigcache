@@ -17,7 +17,7 @@ func BenchmarkWriteToCacheWith1Shard(b *testing.B) {
 
 func BenchmarkWriteToLimitedCacheWithSmallInitSizeAnd1Shard(b *testing.B) {
 	m := blob('a', 1024)
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             1,
 		LifeWindow:         100 * time.Second,
 		MaxEntriesInWindow: 100,
@@ -33,7 +33,7 @@ func BenchmarkWriteToLimitedCacheWithSmallInitSizeAnd1Shard(b *testing.B) {
 
 func BenchmarkWriteToUnlimitedCacheWithSmallInitSizeAnd1Shard(b *testing.B) {
 	m := blob('a', 1024)
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             1,
 		LifeWindow:         100 * time.Second,
 		MaxEntriesInWindow: 100,
@@ -82,7 +82,7 @@ func BenchmarkIterateOverCache(b *testing.B) {
 
 	for _, shards := range []int{512, 1024, 8192} {
 		b.Run(fmt.Sprintf("%d-shards", shards), func(b *testing.B) {
-			cache, _ := NewBigCache(context.TODO(), Config{
+			cache, _ := New(context.Background(), Config{
 				Shards:             shards,
 				LifeWindow:         1000 * time.Second,
 				MaxEntriesInWindow: max(b.N, 100),
@@ -122,7 +122,7 @@ func BenchmarkReadFromCacheNonExistentKeys(b *testing.B) {
 }
 
 func writeToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsInLifeWindow int) {
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             shards,
 		LifeWindow:         lifeWindow,
 		MaxEntriesInWindow: max(requestsInLifeWindow, 100),
@@ -143,7 +143,7 @@ func writeToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsIn
 }
 
 func appendToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsInLifeWindow int) {
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             shards,
 		LifeWindow:         lifeWindow,
 		MaxEntriesInWindow: max(requestsInLifeWindow, 100),
@@ -167,7 +167,7 @@ func appendToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsI
 }
 
 func readFromCache(b *testing.B, shards int, info bool) {
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             shards,
 		LifeWindow:         1000 * time.Second,
 		MaxEntriesInWindow: max(b.N, 100),
@@ -192,7 +192,7 @@ func readFromCache(b *testing.B, shards int, info bool) {
 }
 
 func readFromCacheNonExistentKeys(b *testing.B, shards int) {
-	cache, _ := NewBigCache(context.TODO(), Config{
+	cache, _ := New(context.Background(), Config{
 		Shards:             shards,
 		LifeWindow:         1000 * time.Second,
 		MaxEntriesInWindow: max(b.N, 100),
