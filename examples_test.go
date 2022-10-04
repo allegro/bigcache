@@ -1,6 +1,7 @@
 package bigcache_test
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -9,7 +10,7 @@ import (
 )
 
 func Example() {
-	cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
+	cache, _ := bigcache.NewBigCache(context.TODO(), bigcache.DefaultConfig(10*time.Minute))
 
 	cache.Set("my-unique-key", []byte("value"))
 
@@ -59,7 +60,7 @@ func Example_custom() {
 		OnRemoveWithReason: nil,
 	}
 
-	cache, initErr := bigcache.NewBigCache(config)
+	cache, initErr := bigcache.NewBigCache(context.TODO(), config)
 	if initErr != nil {
 		log.Fatal(initErr)
 	}

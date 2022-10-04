@@ -1,6 +1,7 @@
 package bigcache
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -41,11 +42,11 @@ const (
 )
 
 // NewBigCache initialize new instance of BigCache
-func NewBigCache(config Config) (*BigCache, error) {
-	return newBigCache(config, &systemClock{})
+func NewBigCache(ctx context.Context, config Config) (*BigCache, error) {
+	return newBigCache(ctx, config, &systemClock{})
 }
 
-func newBigCache(config Config, clock clock) (*BigCache, error) {
+func newBigCache(ctx context.Context, config Config, clock clock) (*BigCache, error) {
 	if !isPowerOfTwo(config.Shards) {
 		return nil, fmt.Errorf("Shards number must be power of two")
 	}
@@ -94,6 +95,9 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 			defer ticker.Stop()
 			for {
 				select {
+				case <-ctx.Done():
+					fmt.Println("ctx done, shutting down bigcache cleanup routine")
+					return
 				case t := <-ticker.C:
 					cache.cleanUp(uint64(t.Unix()))
 				case <-cache.close:

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -17,7 +18,7 @@ const (
 )
 
 func testCacheSetup() {
-	cache, _ = bigcache.NewBigCache(bigcache.Config{
+	cache, _ = bigcache.NewBigCache(context.TODO(), bigcache.Config{
 		Shards:             1024,
 		LifeWindow:         10 * time.Minute,
 		MaxEntriesInWindow: 1000 * 10 * 60,

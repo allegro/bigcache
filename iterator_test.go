@@ -16,7 +16,7 @@ func TestEntriesIterator(t *testing.T) {
 
 	// given
 	keysCount := 1000
-	cache, _ := NewBigCache(Config{
+	cache, _ := NewBigCache(context.TODO(), Config{
 		Shards:             8,
 		LifeWindow:         6 * time.Second,
 		MaxEntriesInWindow: 1,
@@ -49,7 +49,7 @@ func TestEntriesIteratorWithMostShardsEmpty(t *testing.T) {
 
 	// given
 	clock := mockedClock{value: 0}
-	cache, _ := newBigCache(Config{
+	cache, _ := newBigCache(context.TODO(), Config{
 		Shards:             8,
 		LifeWindow:         6 * time.Second,
 		MaxEntriesInWindow: 1,
@@ -80,7 +80,7 @@ func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{
+	cache, _ := NewBigCache(context.TODO(), Config{
 		Shards:             1,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
@@ -122,7 +122,7 @@ func TestEntriesIteratorWithAllShardsEmpty(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{
+	cache, _ := NewBigCache(context.TODO(), Config{
 		Shards:             1,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
@@ -142,7 +142,7 @@ func TestEntriesIteratorInInvalidState(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := NewBigCache(Config{
+	cache, _ := NewBigCache(context.TODO(), Config{
 		Shards:             1,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
@@ -159,7 +159,7 @@ func TestEntriesIteratorInInvalidState(t *testing.T) {
 }
 
 func TestEntriesIteratorParallelAdd(t *testing.T) {
-	bc, err := NewBigCache(DefaultConfig(1 * time.Minute))
+	bc, err := NewBigCache(context.TODO(), DefaultConfig(1*time.Minute))
 	if err != nil {
 		panic(err)
 	}
@@ -192,7 +192,7 @@ func TestParallelSetAndIteration(t *testing.T) {
 
 	rand.Seed(0)
 
-	cache, _ := NewBigCache(Config{
+	cache, _ := NewBigCache(context.TODO(), Config{
 		Shards:             1,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 100,
