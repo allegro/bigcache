@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -67,7 +68,7 @@ func main() {
 	}
 
 	var err error
-	cache, err = bigcache.NewBigCache(config)
+	cache, err = bigcache.New(context.Background(), config)
 	if err != nil {
 		logger.Fatal(err)
 	}

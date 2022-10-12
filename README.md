@@ -11,9 +11,13 @@ Requires Go 1.12 or newer.
 ### Simple initialization
 
 ```go
-import "github.com/allegro/bigcache/v3"
+import (
+	"fmt"
+	"context"
+	"github.com/allegro/bigcache/v3"
+)
 
-cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
+cache, _ := bigcache.New(context.Background(), bigcache.DefaultConfig(10 * time.Minute))
 
 cache.Set("my-unique-key", []byte("value"))
 
@@ -71,7 +75,7 @@ config := bigcache.Config {
 		OnRemoveWithReason: nil,
 	}
 
-cache, initErr := bigcache.NewBigCache(config)
+cache, initErr := bigcache.New(context.Background(), config)
 if initErr != nil {
 	log.Fatal(initErr)
 }
