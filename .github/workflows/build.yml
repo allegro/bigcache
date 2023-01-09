@@ -11,7 +11,7 @@ jobs:
       fail-fast: true
       max-parallel: 2
       matrix:
-        go: ["1.14.x", "1.15.x", "1.16.x"]
+        go: ["stable", "oldstable"]
 
     steps:
       - name: Set up Go
@@ -27,7 +27,7 @@ jobs:
         run: |
           gofiles=$(find ./ -name '*.go') && [ -z "$gofiles" ] || unformatted=$(goimports -l $gofiles) && [ -z "$unformatted" ] || (echo >&2 "Go files must be formatted with gofmt. Following files has problem: $unformatted" &&  true);
           diff <(echo -n) <(gofmt -s -d .)
-          go get -u golang.org/x/lint/golint 
+          go get -u golang.org/x/lint/golint
           golint ./...
 
       - name: Static code check
