@@ -23,7 +23,7 @@ func requestMetrics(l *log.Logger) service {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			h.ServeHTTP(w, r)
-			l.Printf("%s request to %s took %vns.", r.Method, r.URL.Path, time.Now().Sub(start).Nanoseconds())
+			l.Printf("%s request to %s took %vns.", r.Method, r.URL.Path, time.Since(start).Nanoseconds())
 		})
 	}
 }

@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -71,7 +71,7 @@ func TestGetKey(t *testing.T) {
 	getCacheHandler(rr, req)
 	resp := rr.Result()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Errorf("cannot deserialise test response: %s", err)
 	}
@@ -218,7 +218,7 @@ func TestGetStatsIndex(t *testing.T) {
 	testHandlers = statsIndexHandler()
 	testHandlers.ServeHTTP(rr, putreq)
 	resp = rr.Result()
-	_, err := ioutil.ReadAll(resp.Body)
+	_, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Errorf("cannot deserialise test response: %s", err)
 	}
