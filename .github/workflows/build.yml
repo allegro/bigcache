@@ -24,18 +24,9 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Lint code
-        run: |
-          gofiles=$(find ./ -name '*.go') && [ -z "$gofiles" ] || unformatted=$(goimports -l $gofiles) && [ -z "$unformatted" ] || (echo >&2 "Go files must be formatted with gofmt. Following files has problem: $unformatted" &&  true);
-          diff <(echo -n) <(gofmt -s -d .)
-          export PATH=$PATH:$(go env GOPATH)/bin
-          go install golang.org/x/lint/golint
-          golint ./...
-
-      - name: Static code check
-        run: |
-          go install github.com/gordonklaus/ineffassign
-          ineffassign .
-          go vet ./...
+        uses: golangci/golangci-lint-action@v3
+        with:
+          only-new-issues: true
 
       - name: Test
         run: |
