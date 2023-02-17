@@ -27,13 +27,13 @@ jobs:
         run: |
           gofiles=$(find ./ -name '*.go') && [ -z "$gofiles" ] || unformatted=$(goimports -l $gofiles) && [ -z "$unformatted" ] || (echo >&2 "Go files must be formatted with gofmt. Following files has problem: $unformatted" &&  true);
           diff <(echo -n) <(gofmt -s -d .)
-          go get -u golang.org/x/lint/golint
+          export PATH=$PATH:$(go env GOPATH)/bin
+          go install golang.org/x/lint/golint
           golint ./...
 
       - name: Static code check
         run: |
-          export PATH=$PATH:$(go env GOPATH)/bin
-          go get -u github.com/gordonklaus/ineffassign
+          go install github.com/gordonklaus/ineffassign
           ineffassign .
           go vet ./...
 
@@ -45,7 +45,7 @@ jobs:
 
       - name: Upload coverage to codecov
         run: |
-          go get github.com/modocache/gover;
+          go install github.com/modocache/gover;
           echo "" > coverage.txt
           gover
           cat gover.coverprofile >> coverage.txt
