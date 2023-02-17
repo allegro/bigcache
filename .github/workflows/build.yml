@@ -36,7 +36,7 @@ jobs:
 
       - name: Upload coverage to codecov
         run: |
-          go install github.com/modocache/gover;
+          go install github.com/modocache/gover
           echo "" > coverage.txt
           gover
           cat gover.coverprofile >> coverage.txt
