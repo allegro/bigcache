@@ -1,0 +1,8 @@
+linters:
+  disable:
+    - errcheck
+linters-settings:
+  staticcheck:
+    checks:
+    - all
+    - '-SA1019'

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -53,7 +53,7 @@ func putCacheHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entry, err := ioutil.ReadAll(r.Body)
+	entry, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -83,5 +83,4 @@ func deleteCacheHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// this is what the RFC says to use when calling DELETE.
 	w.WriteHeader(http.StatusOK)
-	return
 }
