@@ -124,7 +124,7 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 
 	if previousIndex := s.hashmap[hashedKey]; previousIndex != 0 {
 		if previousEntry, err := s.entries.Get(int(previousIndex)); err == nil {
-			resetKeyFromEntry(previousEntry)
+			resetHashFromEntry(previousEntry)
 			//remove hashkey
 			delete(s.hashmap, hashedKey)
 		}
@@ -176,7 +176,7 @@ func (s *cacheShard) addNewWithoutLock(key string, hashedKey uint64, entry []byt
 func (s *cacheShard) setWrappedEntryWithoutLock(currentTimestamp uint64, w []byte, hashedKey uint64) error {
 	if previousIndex := s.hashmap[hashedKey]; previousIndex != 0 {
 		if previousEntry, err := s.entries.Get(int(previousIndex)); err == nil {
-			resetKeyFromEntry(previousEntry)
+			resetHashFromEntry(previousEntry)
 		}
 	}
 
@@ -265,7 +265,7 @@ func (s *cacheShard) del(hashedKey uint64) error {
 		if s.statsEnabled {
 			delete(s.hashmapStats, hashedKey)
 		}
-		resetKeyFromEntry(wrappedEntry)
+		resetHashFromEntry(wrappedEntry)
 	}
 	s.lock.Unlock()
 
@@ -332,7 +332,7 @@ func (s *cacheShard) removeOldestEntry(reason RemoveReason) error {
 	if err == nil {
 		hash := readHashFromEntry(oldest)
 		if hash == 0 {
-			// entry has been explicitly deleted with resetKeyFromEntry, ignore
+			// entry has been explicitly deleted with resetHashFromEntry, ignore
 			return nil
 		}
 		delete(s.hashmap, hash)
