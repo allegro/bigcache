@@ -158,6 +158,28 @@ func TestDeleteKey(t *testing.T) {
 	}
 }
 
+func TestClearCache(t *testing.T) {
+	t.Parallel()
+
+	putRequest := httptest.NewRequest("PUT", testBaseString+"/api/v1/cache/putKey", bytes.NewBuffer([]byte("123")))
+	putResponseRecorder := httptest.NewRecorder()
+
+	putCacheHandler(putResponseRecorder, putRequest)
+
+	requestClear := httptest.NewRequest("DELETE", testBaseString+"/api/v1/cache/clear", nil)
+	rr := httptest.NewRecorder()
+
+	if err := cache.Set("testDeleteKey", []byte("123")); err != nil {
+		t.Errorf("can't set key for testing. %s", err)
+	}
+
+	clearCache(rr, requestClear)
+	resp := rr.Result()
+
+	if resp.StatusCode != 200 {
+		t.Errorf("want: 200; got: %d.\n\tcan't delete keys.", resp.StatusCode)
+	}
+}
 func TestGetStats(t *testing.T) {
 	t.Parallel()
 	var testStats bigcache.Stats
