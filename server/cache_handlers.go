@@ -20,6 +20,21 @@ func cacheIndexHandler() http.Handler {
 	})
 }
 
+func cacheClearHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		clearCache(w, r)
+	})
+}
+
+func clearCache(w http.ResponseWriter, r *http.Request) {
+	if err := cache.Reset(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Printf("internal cache error: %s", err)
+	}
+	log.Println("cache is successfully cleared")
+	w.WriteHeader(http.StatusOK)
+}
+
 // handles get requests.
 func getCacheHandler(w http.ResponseWriter, r *http.Request) {
 	target := r.URL.Path[len(cachePath):]
