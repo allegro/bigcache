@@ -2,6 +2,7 @@ package bigcache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -57,16 +58,16 @@ func NewBigCache(config Config) (*BigCache, error) {
 
 func newBigCache(ctx context.Context, config Config, clock clock) (*BigCache, error) {
 	if !isPowerOfTwo(config.Shards) {
-		return nil, fmt.Errorf("Shards number must be power of two")
+		return nil, errors.New("Shards number must be power of two")
 	}
 	if config.MaxEntrySize < 0 {
-		return nil, fmt.Errorf("MaxEntrySize must be >= 0")
+		return nil, errors.New("MaxEntrySize must be >= 0")
 	}
 	if config.MaxEntriesInWindow < 0 {
-		return nil, fmt.Errorf("MaxEntriesInWindow must be >= 0")
+		return nil, errors.New("MaxEntriesInWindow must be >= 0")
 	}
 	if config.HardMaxCacheSize < 0 {
-		return nil, fmt.Errorf("HardMaxCacheSize must be >= 0")
+		return nil, errors.New("HardMaxCacheSize must be >= 0")
 	}
 
 	if config.Hasher == nil {

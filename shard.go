@@ -1,7 +1,7 @@
 package bigcache
 
 import (
-	"fmt"
+	"errors"
 	"sync"
 	"sync/atomic"
 
@@ -146,7 +146,7 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 		}
 		if s.removeOldestEntry(NoSpace) != nil {
 			s.lock.Unlock()
-			return fmt.Errorf("entry is bigger than max shard size")
+			return errors.New("entry is bigger than max shard size")
 		}
 	}
 }
@@ -168,7 +168,7 @@ func (s *cacheShard) addNewWithoutLock(key string, hashedKey uint64, entry []byt
 			return nil
 		}
 		if s.removeOldestEntry(NoSpace) != nil {
-			return fmt.Errorf("entry is bigger than max shard size")
+			return errors.New("entry is bigger than max shard size")
 		}
 	}
 }
@@ -192,7 +192,7 @@ func (s *cacheShard) setWrappedEntryWithoutLock(currentTimestamp uint64, w []byt
 			return nil
 		}
 		if s.removeOldestEntry(NoSpace) != nil {
-			return fmt.Errorf("entry is bigger than max shard size")
+			return errors.New("entry is bigger than max shard size")
 		}
 	}
 }
