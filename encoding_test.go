@@ -14,7 +14,7 @@ func TestEncodeDecode(t *testing.T) {
 	buffer := make([]byte, 100)
 
 	// when
-	wrapped := wrapEntry(now, hash, key, data, &buffer)
+	wrapped := wrapEntry(now, hash, key, data, buffer)
 
 	// then
 	assertEqual(t, key, readKeyFromEntry(wrapped))
@@ -33,7 +33,7 @@ func TestAllocateBiggerBuffer(t *testing.T) {
 	buffer := make([]byte, 1)
 
 	// when
-	wrapped := wrapEntry(now, hash, key, data, &buffer)
+	wrapped := wrapEntry(now, hash, key, data, buffer)
 
 	// then
 	assertEqual(t, key, readKeyFromEntry(wrapped))
