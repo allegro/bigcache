@@ -19,7 +19,7 @@ type cacheShard struct {
 	hashmap     map[uint64]uint32
 	entries     queue.BytesQueue
 	lock        sync.RWMutex
-	entryBuffer []byte
+	//entryBuffer []byte
 	onRemove    onRemoveCallback
 
 	isVerbose    bool
@@ -31,6 +31,8 @@ type cacheShard struct {
 	hashmapStats map[uint64]uint32
 	stats        Stats
 	cleanEnabled bool
+
+	bufferPool sync.Pool
 }
 
 func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, resp Response, err error) {
@@ -136,7 +138,8 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 		}
 	}
 
-	w := wrapEntry(currentTimestamp, hashedKey, key, entry, &s.entryBuffer)
+	w := wrapEntry(currentTimestamp, hashedKey, key, entry, s.bufferPool.Get().([]byte))
+	defer s.bufferPool.Put(w)
 
 	for {
 		if index, err := s.entries.Push(w); err == nil {
@@ -160,7 +163,8 @@ func (s *cacheShard) addNewWithoutLock(key string, hashedKey uint64, entry []byt
 		}
 	}
 
-	w := wrapEntry(currentTimestamp, hashedKey, key, entry, &s.entryBuffer)
+	w := wrapEntry(currentTimestamp, hashedKey, key, entry, s.bufferPool.Get().([]byte))
+	defer s.bufferPool.Put(w)
 
 	for {
 		if index, err := s.entries.Push(w); err == nil {
@@ -213,7 +217,8 @@ func (s *cacheShard) append(key string, hashedKey uint64, entry []byte) error {
 
 	currentTimestamp := uint64(s.clock.Epoch())
 
-	w := appendToWrappedEntry(currentTimestamp, wrappedEntry, entry, &s.entryBuffer)
+	w := appendToWrappedEntry(currentTimestamp, wrappedEntry, entry, s.bufferPool.Get().([]byte))
+	defer s.bufferPool.Put(w)
 
 	err = s.setWrappedEntryWithoutLock(currentTimestamp, w, hashedKey)
 	s.lock.Unlock()
@@ -348,7 +353,7 @@ func (s *cacheShard) removeOldestEntry(reason RemoveReason) error {
 func (s *cacheShard) reset(config Config) {
 	s.lock.Lock()
 	s.hashmap = make(map[uint64]uint32, config.initialShardSize())
-	s.entryBuffer = make([]byte, config.MaxEntrySize+headersSizeInBytes)
+	//s.entryBuffer = make([]byte, config.MaxEntrySize+headersSizeInBytes)
 	s.entries.Reset()
 	s.lock.Unlock()
 }
@@ -441,7 +446,7 @@ func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheS
 		hashmap:      make(map[uint64]uint32, config.initialShardSize()),
 		hashmapStats: make(map[uint64]uint32, config.initialShardSize()),
 		entries:      *queue.NewBytesQueue(bytesQueueInitialCapacity, maximumShardSizeInBytes, config.Verbose),
-		entryBuffer:  make([]byte, config.MaxEntrySize+headersSizeInBytes),
+		//entryBuffer:  make([]byte, config.MaxEntrySize+headersSizeInBytes),
 		onRemove:     callback,
 
 		isVerbose:    config.Verbose,
@@ -450,5 +455,10 @@ func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheS
 		lifeWindow:   uint64(config.LifeWindow.Seconds()),
 		statsEnabled: config.StatsEnabled,
 		cleanEnabled: config.CleanWindow > 0,
+		bufferPool: sync.Pool{
+			New: func() interface{} {
+				return make([]byte, config.MaxEntrySize+headersSizeInBytes)
+			},
+		},
 	}
 }

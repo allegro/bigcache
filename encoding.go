@@ -11,14 +11,15 @@ const (
 	headersSizeInBytes   = timestampSizeInBytes + hashSizeInBytes + keySizeInBytes // Number of bytes used for all headers
 )
 
-func wrapEntry(timestamp uint64, hash uint64, key string, entry []byte, buffer *[]byte) []byte {
+func wrapEntry(timestamp uint64, hash uint64, key string, entry []byte, blob []byte) []byte {
 	keyLength := len(key)
 	blobLength := len(entry) + headersSizeInBytes + keyLength
 
-	if blobLength > len(*buffer) {
-		*buffer = make([]byte, blobLength)
+	if blobLength > len(blob) {
+		blob = make([]byte, blobLength)
+	} else {
+		blob = blob[0:]
 	}
-	blob := *buffer
 
 	binary.LittleEndian.PutUint64(blob, timestamp)
 	binary.LittleEndian.PutUint64(blob[timestampSizeInBytes:], hash)
@@ -29,14 +30,14 @@ func wrapEntry(timestamp uint64, hash uint64, key string, entry []byte, buffer *
 	return blob[:blobLength]
 }
 
-func appendToWrappedEntry(timestamp uint64, wrappedEntry []byte, entry []byte, buffer *[]byte) []byte {
+func appendToWrappedEntry(timestamp uint64, wrappedEntry []byte, entry []byte, blob []byte) []byte {
 	blobLength := len(wrappedEntry) + len(entry)
-	if blobLength > len(*buffer) {
-		*buffer = make([]byte, blobLength)
+	if blobLength > len(blob) {
+		blob = make([]byte, blobLength)
+	} else {
+		blob = blob[0:]
 	}
-
-	blob := *buffer
-
+	
 	binary.LittleEndian.PutUint64(blob, timestamp)
 	copy(blob[timestampSizeInBytes:], wrappedEntry[timestampSizeInBytes:])
 	copy(blob[len(wrappedEntry):], entry)
