@@ -29,6 +29,28 @@ func TestWriteAndGetOnCache(t *testing.T) {
 	assertEqual(t, value, cachedValue)
 }
 
+func TestWriteAndGetOnCacheMulti(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := New(context.Background(), DefaultConfig(5*time.Second))
+    keys := []string{"k1","k2","k3","k4","k5"}
+	values := [][]byte{[]byte("v1"),[]byte("v2"),[]byte("v3"),[]byte("v4"),[]byte("v5")}
+
+	// when
+    for i,key := range keys{
+        cache.Set(key,values[i])
+    }
+	cachedValues, err := cache.GetMulti(keys)
+
+	// then
+	noError(t, err)
+
+    for i,cachedValue := range cachedValues{
+        assertEqual(t,values[i],cachedValue)
+    }
+}
+
 func TestAppendAndGetOnCache(t *testing.T) {
 	t.Parallel()
 

@@ -143,43 +143,24 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 func (c *BigCache) GetMulti(keys []string) ([][]byte, error) {
 
     entries := make([][]byte,len(keys))
+    var err error
+    shardsLocked := make(map[uint64]bool)
 
-    //keeps response ordered
-    order := make(map[string]int)
-    
-    shardMap := make(map[uint64]map[string]uint64)
-
-    for i,k := range keys{
-        hk := c.hash.Sum64(k)
+    for i := range keys{
+        hk := c.hash.Sum64(keys[i])
         shardKey := hk&c.shardMask
 
-        if shardMap[shardKey] == nil {
-            shardMap[shardKey] = make(map[string]uint64)
+        if !shardsLocked[shardKey]{
+            c.shards[shardKey].lock.RLock()
+            defer c.shards[shardKey].lock.RUnlock()
         }
 
-        shardMap[hk&c.shardMask][k] = hk 
-        order[k] = i
-    }
-
-    for sI,khash := range shardMap{
-        shard := c.shards[sI]
-        shard.lock.RLock()
-        for key,keyhash := range khash{
-            entry,err := shard.getWithoutLock(key,keyhash)
-
-            if err != nil{
-                shard.lock.RUnlock()
-                return nil,err
-            }
-
-            entries[order[key]] = entry
-
+        entries[i],err = c.shards[shardKey].getWithoutLock(keys[i],hk)
+        if err != nil{
+            return nil,err
         }
-        shard.lock.RUnlock()
     }
-
     return entries,nil
-
 }
 
 // GetWithInfo reads entry for the key with Response info.

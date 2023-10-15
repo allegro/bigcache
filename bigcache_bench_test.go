@@ -95,8 +95,30 @@ func BenchmarkReadFromCacheManySingle(b *testing.B) {
 	}
 }
 
-
 func BenchmarkReadFromCacheManyMulti(b *testing.B) {
+	for _, shards := range []int{1, 512, 1024, 8192} {
+        b.Run(fmt.Sprintf("%d-shards", shards), func(b *testing.B) {
+            cache, _ := New(context.Background(), Config{
+                Shards:             shards,
+                LifeWindow:         1000 * time.Second,
+                MaxEntriesInWindow: max(b.N, 100),
+                MaxEntrySize:       500,
+            })
+            keys := make([]string,b.N)
+            for i := 0; i < b.N; i++ {
+                keys[i] = fmt.Sprintf("key-%d", i)
+                cache.Set(keys[i], message)
+            }
+
+            b.ReportAllocs()
+            b.ResetTimer()
+            cache.GetMulti(keys)
+        })
+    }
+}
+
+
+func BenchmarkReadFromCacheManyMultiBatches(b *testing.B) {
 	for _, shards := range []int{1, 512, 1024, 8192} {
         for _, batchSize := range []int{1, 5, 10, 100} {
             b.Run(fmt.Sprintf("%d-shards %d-batchSize", shards,batchSize), func(b *testing.B) {
