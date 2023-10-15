@@ -152,6 +152,7 @@ func (c *BigCache) GetMulti(keys []string) ([][]byte, error) {
 
         if !shardsLocked[hashedKey & c.shardMask]{
             shard.lock.RLock()
+            shardsLocked[hashedKey & c.shardMask] = true
             defer shard.lock.RUnlock()
         }
 
@@ -160,6 +161,7 @@ func (c *BigCache) GetMulti(keys []string) ([][]byte, error) {
             return nil,err
         }
     }
+
     return entries,nil
 }
 
