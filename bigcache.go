@@ -147,15 +147,15 @@ func (c *BigCache) GetMulti(keys []string) ([][]byte, error) {
     shardsLocked := make(map[uint64]bool)
 
     for i := range keys{
-        hk := c.hash.Sum64(keys[i])
-        shardKey := hk&c.shardMask
+        hashedKey := c.hash.Sum64(keys[i])
+        shard := c.getShard(hashedKey)
 
-        if !shardsLocked[shardKey]{
-            c.shards[shardKey].lock.RLock()
-            defer c.shards[shardKey].lock.RUnlock()
+        if !shardsLocked[hashedKey & c.shardMask]{
+            shard.lock.RLock()
+            defer shard.lock.RUnlock()
         }
 
-        entries[i],err = c.shards[shardKey].getWithoutLock(keys[i],hk)
+        entries[i],err = shard.getWithoutLock(keys[i],hashedKey)
         if err != nil{
             return nil,err
         }
