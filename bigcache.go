@@ -137,6 +137,51 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 	return shard.get(key, hashedKey)
 }
 
+// GetMulti reads entry for each of the keys.
+// It returns an ErrEntryNotFound when
+// no entry exists for the given key.
+func (c *BigCache) GetMulti(keys []string) ([][]byte, error) {
+
+    entries := make([][]byte,len(keys))
+
+    //keeps response ordered
+    order := make(map[string]int)
+    
+    shardMap := make(map[uint64]map[string]uint64)
+
+    for i,k := range keys{
+        hk := c.hash.Sum64(k)
+        shardKey := hk&c.shardMask
+
+        if shardMap[shardKey] == nil {
+            shardMap[shardKey] = make(map[string]uint64)
+        }
+
+        shardMap[hk&c.shardMask][k] = hk 
+        order[k] = i
+    }
+
+    for sI,khash := range shardMap{
+        shard := c.shards[sI]
+        shard.lock.RLock()
+        for key,keyhash := range khash{
+            entry,err := shard.getWithoutLock(key,keyhash)
+
+            if err != nil{
+                shard.lock.RUnlock()
+                return nil,err
+            }
+
+            entries[order[key]] = entry
+
+        }
+        shard.lock.RUnlock()
+    }
+
+    return entries,nil
+
+}
+
 // GetWithInfo reads entry for the key with Response info.
 // It returns an ErrEntryNotFound when
 // no entry exists for the given key.
