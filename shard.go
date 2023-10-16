@@ -16,7 +16,7 @@ type Metadata struct {
 }
 
 type cacheShard struct {
-	hashmap     map[uint64]uint64
+	hashmap     map[uint64]uint32
 	entries     queue.BytesQueue
 	lock        sync.RWMutex
 	entryBuffer []byte
@@ -159,7 +159,7 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 
 	for {
 		if index, err := s.entries.Push(w); err == nil {
-			s.hashmap[hashedKey] = uint64(index)
+			s.hashmap[hashedKey] = uint32(index)
 			s.lock.Unlock()
 			return nil
 		}
@@ -183,7 +183,7 @@ func (s *cacheShard) addNewWithoutLock(key string, hashedKey uint64, entry []byt
 
 	for {
 		if index, err := s.entries.Push(w); err == nil {
-			s.hashmap[hashedKey] = uint64(index)
+			s.hashmap[hashedKey] = uint32(index)
 			return nil
 		}
 		if s.removeOldestEntry(NoSpace) != nil {
@@ -207,7 +207,7 @@ func (s *cacheShard) setWrappedEntryWithoutLock(currentTimestamp uint64, w []byt
 
 	for {
 		if index, err := s.entries.Push(w); err == nil {
-			s.hashmap[hashedKey] = uint64(index)
+			s.hashmap[hashedKey] = uint32(index)
 			return nil
 		}
 		if s.removeOldestEntry(NoSpace) != nil {
@@ -366,7 +366,7 @@ func (s *cacheShard) removeOldestEntry(reason RemoveReason) error {
 
 func (s *cacheShard) reset(config Config) {
 	s.lock.Lock()
-	s.hashmap = make(map[uint64]uint64, config.initialShardSize())
+	s.hashmap = make(map[uint64]uint32, config.initialShardSize())
 	s.entryBuffer = make([]byte, config.MaxEntrySize+headersSizeInBytes)
 	s.entries.Reset()
 	s.lock.Unlock()
@@ -457,7 +457,7 @@ func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheS
 		bytesQueueInitialCapacity = maximumShardSizeInBytes
 	}
 	return &cacheShard{
-		hashmap:      make(map[uint64]uint64, config.initialShardSize()),
+		hashmap:      make(map[uint64]uint32, config.initialShardSize()),
 		hashmapStats: make(map[uint64]uint32, config.initialShardSize()),
 		entries:      *queue.NewBytesQueue(bytesQueueInitialCapacity, maximumShardSizeInBytes, config.Verbose),
 		entryBuffer:  make([]byte, config.MaxEntrySize+headersSizeInBytes),
