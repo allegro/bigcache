@@ -61,22 +61,12 @@ func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, re
 
 func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
 	s.lock.RLock()
-	wrappedEntry, err := s.getWrappedEntry(hashedKey)
-	if err != nil {
-		s.lock.RUnlock()
-		return nil, err
-	}
-	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
-		s.lock.RUnlock()
-		s.collision()
-		if s.isVerbose {
-			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
-		}
-		return nil, ErrEntryNotFound
-	}
-	entry := readEntry(wrappedEntry)
+    entry,err := s.getWithoutLock(key,hashedKey)
 	s.lock.RUnlock()
-	s.hit(hashedKey)
+
+    if err != nil{
+        return nil,err
+    }
 
 	return entry, nil
 }
