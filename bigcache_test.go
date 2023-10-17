@@ -31,24 +31,49 @@ func TestWriteAndGetOnCache(t *testing.T) {
 
 func TestWriteAndGetOnCacheMulti(t *testing.T) {
 	t.Parallel()
+    for _, tc := range []struct {
+            keys []string
+            data [][]byte
+            want string
+    }{
+        {
+            keys: []string{"k1","k2","k3","k4","k5"},
+            data: [][]byte{
+                blob('a',10),
+                blob('b',10),
+                blob('c',10),
+                blob('d',10),
+                blob('e',10),
+            },
+            want: "Get all values ordered",
+        },
+        {
+            keys: []string{"k1","k2","k3","k4","k5"},
+            data: [][]byte{
+                blob('a',10),
+                blob('b',10),
+                nil,
+                blob('d',10),
+                blob('e',10),
+            },
+            want: "Get all values ordered with nil",
+        },
+    }{
+		t.Run(tc.want, func(t *testing.T) {
+            cache, _ := New(context.Background(), DefaultConfig(5*time.Second))
 
-	// given
-	cache, _ := New(context.Background(), DefaultConfig(5*time.Second))
-	keys := []string{"k1", "k2", "k3", "k4", "k5"}
-	values := [][]byte{[]byte("v1"), []byte("v2"), []byte("v3"), []byte("v4"), []byte("v5")}
+            for i := range tc.keys{
+                if tc.data[i] != nil{
+                    cache.Set(tc.keys[i],tc.data[i])
+                }
+            }
 
-	// when
-	for i, key := range keys {
-		cache.Set(key, values[i])
-	}
-	cachedValues, err := cache.GetMulti(keys)
+            cachedValues := cache.GetMulti(tc.keys)
 
-	// then
-	noError(t, err)
+            assertEqual(t,tc.data,cachedValues)
+        })
 
-	for i, cachedValue := range cachedValues {
-		assertEqual(t, values[i], cachedValue)
-	}
+    }
 }
 
 func TestAppendAndGetOnCache(t *testing.T) {

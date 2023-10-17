@@ -137,7 +137,7 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 	return shard.get(key, hashedKey)
 }
 
-// Used to sore information about keys in GetMulti function
+// Used to store information about keys in GetMulti function
 // order is the index in the slice the data should go
 // hashedKey is the Sum64 hash of the key
 // key is the original key input
@@ -148,9 +148,9 @@ type keyInfo struct {
 }
 
 // GetMulti reads entry for each of the keys.
-// It returns an ErrEntryNotFound when
-// no entry exists for the given key.
-func (c *BigCache) GetMulti(keys []string) ([][]byte, error) {
+// returns entries in the same order as the provided keys.
+// if entry is not found for a given key, the index will contain nil
+func (c *BigCache) GetMulti(keys []string) ([][]byte) {
 	shards := make(map[uint64][]keyInfo, len(c.shards))
 	entries := make([][]byte, len(keys))
 
@@ -165,17 +165,12 @@ func (c *BigCache) GetMulti(keys []string) ([][]byte, error) {
 		shard.lock.RLock()
 
 		for i := range keyInfos {
-			entry, err := shard.getWithoutLock(keyInfos[i].key, keyInfos[i].hashedKey)
-
-			if err != nil {
-				shard.lock.RUnlock()
-				return nil, err
-			}
+			entry,_ := shard.getWithoutLock(keyInfos[i].key, keyInfos[i].hashedKey)
             entries[keyInfos[i].order] = entry
 		}
         shard.lock.RUnlock()
 	}
-	return entries, nil
+	return entries
 }
 
 // GetWithInfo reads entry for the key with Response info.
