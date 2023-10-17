@@ -85,7 +85,7 @@ func (s *cacheShard) getWithoutLock(key string, hashedKey uint64) ([]byte, error
 		return nil, ErrEntryNotFound
 	}
 	entry := readEntry(wrappedEntry)
-	s.hitWithoutLock(hashedKey)
+	s.hit(hashedKey)
 
 	return entry, nil
 }
