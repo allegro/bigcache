@@ -151,7 +151,7 @@ type keyInfo struct {
 // It returns an ErrEntryNotFound when
 // no entry exists for the given key.
 func (c *BigCache) GetMulti(keys []string) ([][]byte, error) {
-	shards := make(map[uint64][]keyInfo)
+	shards := make(map[uint64][]keyInfo, len(c.shards))
 	entries := make([][]byte, len(keys))
 
 	for i, key := range keys {
