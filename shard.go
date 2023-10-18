@@ -61,14 +61,14 @@ func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, re
 
 func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
 	s.lock.RLock()
-    entry,err := s.getWithoutLock(key,hashedKey)
+	entry, err := s.getWithoutLock(key, hashedKey)
 	s.lock.RUnlock()
 
-    if err != nil{
-        return nil,err
-    }
+	if err != nil {
+		return nil, err
+	}
 
-    s.hit(hashedKey)
+	s.hit(hashedKey)
 	return entry, nil
 }
 
@@ -87,7 +87,6 @@ func (s *cacheShard) getWithoutLock(key string, hashedKey uint64) ([]byte, error
 	}
 
 	entry := readEntry(wrappedEntry)
-    
 
 	return entry, nil
 }

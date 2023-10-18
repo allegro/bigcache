@@ -150,7 +150,7 @@ type keyInfo struct {
 // GetMulti reads entry for each of the keys.
 // returns entries in the same order as the provided keys.
 // if entry is not found for a given key, the index will contain nil
-func (c *BigCache) GetMulti(keys []string) ([][]byte) {
+func (c *BigCache) GetMulti(keys []string) [][]byte {
 	shards := make(map[uint64][]keyInfo, len(c.shards))
 	entries := make([][]byte, len(keys))
 
@@ -161,23 +161,23 @@ func (c *BigCache) GetMulti(keys []string) ([][]byte) {
 	}
 
 	for shardKey, keyInfos := range shards {
-        hits := make([]uint64,0,len(keyInfos))
+		hits := make([]uint64, 0, len(keyInfos))
 		shard := c.shards[shardKey]
 		shard.lock.RLock()
 		for i := range keyInfos {
-			entry,_ := shard.getWithoutLock(keyInfos[i].key, keyInfos[i].hashedKey)
+			entry, _ := shard.getWithoutLock(keyInfos[i].key, keyInfos[i].hashedKey)
 
-            if entry != nil {
-                hits = append(hits, keyInfos[i].hashedKey)
-            }
+			if entry != nil {
+				hits = append(hits, keyInfos[i].hashedKey)
+			}
 
-            entries[keyInfos[i].order] = entry
+			entries[keyInfos[i].order] = entry
 		}
-        shard.lock.RUnlock()
+		shard.lock.RUnlock()
 
-        for i := range hits{
-            shard.hit(hits[i])
-        }
+		for i := range hits {
+			shard.hit(hits[i])
+		}
 	}
 	return entries
 }
