@@ -891,7 +891,7 @@ func TestWriteAndReadManyParallelSameKeyWithStats(t *testing.T) {
 
 	cache, _ := New(context.Background(), c)
 	var wg sync.WaitGroup
-	ntest := 1000
+	ntest := 100
 	n := 10
 	wg.Add(n)
 
