@@ -161,14 +161,23 @@ func (c *BigCache) GetMulti(keys []string) ([][]byte) {
 	}
 
 	for shardKey, keyInfos := range shards {
+        hits := make([]uint64,0,len(keyInfos))
 		shard := c.shards[shardKey]
 		shard.lock.RLock()
-
 		for i := range keyInfos {
 			entry,_ := shard.getWithoutLock(keyInfos[i].key, keyInfos[i].hashedKey)
+
+            if entry != nil {
+                hits = append(hits, keyInfos[i].hashedKey)
+            }
+
             entries[keyInfos[i].order] = entry
 		}
         shard.lock.RUnlock()
+
+        for i := range hits{
+            shard.hit(hits[i])
+        }
 	}
 	return entries
 }
