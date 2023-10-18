@@ -896,7 +896,7 @@ func TestWriteAndReadManyParallelSameKeyWithStats(t *testing.T) {
 	wg.Add(n)
 
 	keys := []string{"key1", "key2", "key3"}
-	values := [][]byte{blob('a', 1024), blob('b', 1024), blob('c', 1024)}
+	values := [][]byte{blob('a', 64), blob('b', 64), blob('c', 64)}
 
 	for i := 0; i < ntest; i++ {
 		for j := range keys {
