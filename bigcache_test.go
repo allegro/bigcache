@@ -883,6 +883,46 @@ func TestWriteAndReadParallelSameKeyWithStats(t *testing.T) {
 	assertEqual(t, ntest*n, int(cache.KeyMetadata(key).RequestCount))
 }
 
+func TestWriteAndReadManyParallelSameKeyWithStats(t *testing.T) {
+	t.Parallel()
+
+	c := DefaultConfig(0)
+	c.StatsEnabled = true
+
+	cache, _ := New(context.Background(), c)
+	var wg sync.WaitGroup
+	ntest := 1000
+	n := 10
+	wg.Add(n)
+    
+	keys := []string{"key1","key2","key3"}
+	values := [][]byte{blob('a', 1024),blob('b',1024),blob('c',1024)}
+
+	for i := 0; i < ntest; i++ {
+        for j := range keys{
+		    assertEqual(t, nil, cache.Set(keys[j], values[j]))
+        }
+	}
+
+	for j := 0; j < n; j++ {
+		go func() {
+			for i := 0; i < ntest; i++ {
+				v := cache.GetMulti(keys)
+				assertEqual(t, values, v)
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+
+	assertEqual(t, Stats{Hits: int64(n * ntest* len(keys))}, cache.Stats())
+
+    for i := range keys{
+	    assertEqual(t, ntest*n, int(cache.KeyMetadata(keys[i]).RequestCount))
+    }
+}
+
 func TestCacheReset(t *testing.T) {
 	t.Parallel()
 
