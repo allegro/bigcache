@@ -175,9 +175,17 @@ func (c *BigCache) GetMulti(keys []string) [][]byte {
 		}
 		shard.lock.RUnlock()
 
+        if shard.statsEnabled{
+            shard.lock.Lock()
+        }
+
 		for i := range hits {
-			shard.hit(hits[i])
+			shard.hitWithoutLock(hits[i])
 		}
+
+        if shard.statsEnabled{
+            shard.lock.Unlock()
+        }
 	}
 	return entries
 }
