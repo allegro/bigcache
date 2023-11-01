@@ -998,6 +998,32 @@ func TestSetOrGet(t *testing.T) {
 	assertEqual(t, false, loaded3)
 }
 
+func TestSetOrGetCollision(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := New(context.Background(), Config{
+		Shards:             1,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 10,
+		MaxEntrySize:       256,
+		Verbose:            true,
+		Hasher:             hashStub(5),
+	})
+
+	//when
+	entry1, loaded1, _ := cache.SetOrGet("a", []byte("value1"))
+	entry2, loaded2, _ := cache.SetOrGet("b", []byte("value2"))
+
+	// then
+	assertEqual(t, []byte("value1"), entry1)
+	assertEqual(t, []byte("value2"), entry2)
+	assertEqual(t, false, loaded1)
+	assertEqual(t, false, loaded2)
+	assertEqual(t, cache.Stats().Collisions, int64(1))
+
+}
+
 func TestOldestEntryDeletionWhenMaxCacheSizeIsReached(t *testing.T) {
 	t.Parallel()
 

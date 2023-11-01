@@ -182,15 +182,19 @@ func (s *cacheShard) setOrGet(key string, hashedKey uint64, entry []byte) (actua
 			if s.isVerbose {
 				s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
 			}
-			err = s.del(hashedKey)
-			if err != nil {
-				return entry, false, err
+
+			delete(s.hashmap, hashedKey)
+			s.onRemove(wrappedEntry, Deleted)
+			if s.statsEnabled {
+				delete(s.hashmapStats, hashedKey)
 			}
+			resetHashFromEntry(wrappedEntry)
 		}
 	} else if !errors.Is(err, ErrEntryNotFound) {
 		s.lock.RUnlock()
 		return entry, false, err
 	}
+
 	s.lock.RUnlock()
 	s.lock.Lock()
 	defer s.lock.Unlock()
