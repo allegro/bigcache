@@ -151,6 +151,37 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 	}
 }
 
+func (s *cacheShard) setIfNotExists(key string, hashedKey uint64, entry []byte) (newEntry bool, err error) {
+	currentTimestamp := uint64(s.clock.Epoch())
+
+	s.lock.Lock()
+
+	if previousIndex := s.hashmap[hashedKey]; previousIndex != 0 {
+		s.lock.Unlock()
+		return false, nil
+	}
+
+	if !s.cleanEnabled {
+		if oldestEntry, err := s.entries.Peek(); err == nil {
+			s.onEvict(oldestEntry, currentTimestamp, s.removeOldestEntry)
+		}
+	}
+
+	w := wrapEntry(currentTimestamp, hashedKey, key, entry, &s.entryBuffer)
+
+	for {
+		if index, err := s.entries.Push(w); err == nil {
+			s.hashmap[hashedKey] = uint64(index)
+			s.lock.Unlock()
+			return true, nil
+		}
+		if s.removeOldestEntry(NoSpace) != nil {
+			s.lock.Unlock()
+			return true, errors.New("entry is bigger than max shard size")
+		}
+	}
+}
+
 func (s *cacheShard) addNewWithoutLock(key string, hashedKey uint64, entry []byte) error {
 	currentTimestamp := uint64(s.clock.Epoch())
 
