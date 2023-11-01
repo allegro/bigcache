@@ -152,34 +152,43 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 }
 
 func (s *cacheShard) setIfNotExists(key string, hashedKey uint64, entry []byte) (newEntry bool, err error) {
-	currentTimestamp := uint64(s.clock.Epoch())
+	s.lock.RLock()
+	{
+		if previousIndex := s.hashmap[hashedKey]; previousIndex != 0 {
+			s.lock.RUnlock()
+			return false, nil
+		}
+	}
+	s.lock.RUnlock()
 
 	s.lock.Lock()
+	defer s.lock.Unlock()
+	return true, s.addNewWithoutLock(key, hashedKey, entry)
+}
 
-	if previousIndex := s.hashmap[hashedKey]; previousIndex != 0 {
-		s.lock.Unlock()
-		return false, nil
-	}
+func (s *cacheShard) setOrGet(key string, hashedKey uint64, entry []byte) (actual []byte, loaded bool, err error) {
+	s.lock.RLock()
 
-	if !s.cleanEnabled {
-		if oldestEntry, err := s.entries.Peek(); err == nil {
-			s.onEvict(oldestEntry, currentTimestamp, s.removeOldestEntry)
+	wrappedEntry, err := s.getWrappedEntry(hashedKey)
+	if err == nil {
+		if entryKey := readKeyFromEntry(wrappedEntry); key == entryKey {
+			actual = readEntry(wrappedEntry)
+			s.hit(hashedKey)
+			s.lock.RUnlock()
+			return actual, true, nil
+		} else {
+
+			s.collision()
+			if s.isVerbose {
+				s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
+			}
 		}
 	}
+	s.lock.RUnlock()
 
-	w := wrapEntry(currentTimestamp, hashedKey, key, entry, &s.entryBuffer)
-
-	for {
-		if index, err := s.entries.Push(w); err == nil {
-			s.hashmap[hashedKey] = uint64(index)
-			s.lock.Unlock()
-			return true, nil
-		}
-		if s.removeOldestEntry(NoSpace) != nil {
-			s.lock.Unlock()
-			return true, errors.New("entry is bigger than max shard size")
-		}
-	}
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return entry, false, s.addNewWithoutLock(key, hashedKey, entry)
 }
 
 func (s *cacheShard) addNewWithoutLock(key string, hashedKey uint64, entry []byte) error {

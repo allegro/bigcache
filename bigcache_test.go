@@ -970,6 +970,34 @@ func TestSetIfNotExists(t *testing.T) {
 	assertEqual(t, true, newEntry3)
 }
 
+func TestSetOrGet(t *testing.T) {
+	t.Parallel()
+
+	// given
+	clock := mockedClock{value: 0}
+	cache, _ := newBigCache(context.Background(), Config{
+		Shards:             1,
+		LifeWindow:         6 * time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	}, &clock)
+
+	// when
+	entry1, loaded1, _ := cache.SetOrGet("key1", []byte("value1"))
+	entry2, loaded2, _ := cache.SetOrGet("key1", []byte("value2"))
+	entry3, loaded3, _ := cache.SetOrGet("key2", []byte("value3"))
+	cachedValue, _ := cache.Get("key1")
+
+	// then
+	assertEqual(t, []byte("value1"), entry1)
+	assertEqual(t, []byte("value1"), entry2)
+	assertEqual(t, []byte("value3"), entry3)
+	assertEqual(t, []byte("value1"), cachedValue)
+	assertEqual(t, false, loaded1)
+	assertEqual(t, true, loaded2)
+	assertEqual(t, false, loaded3)
+}
+
 func TestOldestEntryDeletionWhenMaxCacheSizeIsReached(t *testing.T) {
 	t.Parallel()
 

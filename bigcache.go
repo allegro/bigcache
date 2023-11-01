@@ -160,6 +160,13 @@ func (c *BigCache) SetIfNotExists(key string, entry []byte) (newEntry bool, err 
 	return shard.setIfNotExists(key, hashedKey, entry)
 }
 
+// SetOrGet saves entry under the key unless already exist in which case return current value under the key
+func (c *BigCache) SetOrGet(key string, entry []byte) (actual []byte, loaded bool, err error) {
+	hashedKey := c.hash.Sum64(key)
+	shard := c.getShard(hashedKey)
+	return shard.setOrGet(key, hashedKey, entry)
+}
+
 // Append appends entry under the key if key exists, otherwise
 // it will set the key (same behaviour as Set()). With Append() you can
 // concatenate multiple entries under the same key in an lock optimized way.
