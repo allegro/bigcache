@@ -183,9 +183,11 @@ func (s *cacheShard) setOrGet(key string, hashedKey uint64, entry []byte) (actua
 				s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
 			}
 		}
+	} else if !errors.Is(err, ErrEntryNotFound) {
+		s.lock.RUnlock()
+		return entry, false, err
 	}
 	s.lock.RUnlock()
-
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	return entry, false, s.addNewWithoutLock(key, hashedKey, entry)
