@@ -945,31 +945,6 @@ func TestEntryUpdate(t *testing.T) {
 	assertEqual(t, []byte("value2"), cachedValue)
 }
 
-func TestSetIfNotExists(t *testing.T) {
-	t.Parallel()
-
-	// given
-	clock := mockedClock{value: 0}
-	cache, _ := newBigCache(context.Background(), Config{
-		Shards:             1,
-		LifeWindow:         6 * time.Second,
-		MaxEntriesInWindow: 1,
-		MaxEntrySize:       256,
-	}, &clock)
-
-	// when
-	newEntry1, _ := cache.SetIfNotExists("key1", []byte("value1"))
-	newEntry2, _ := cache.SetIfNotExists("key1", []byte("value2"))
-	newEntry3, _ := cache.SetIfNotExists("key2", []byte("value3"))
-	cachedValue, _ := cache.Get("key1")
-
-	// then
-	assertEqual(t, []byte("value1"), cachedValue)
-	assertEqual(t, true, newEntry1)
-	assertEqual(t, false, newEntry2)
-	assertEqual(t, true, newEntry3)
-}
-
 func TestSetOrGet(t *testing.T) {
 	t.Parallel()
 

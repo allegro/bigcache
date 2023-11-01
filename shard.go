@@ -151,21 +151,6 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 	}
 }
 
-func (s *cacheShard) setIfNotExists(key string, hashedKey uint64, entry []byte) (newEntry bool, err error) {
-	s.lock.RLock()
-	{
-		if previousIndex := s.hashmap[hashedKey]; previousIndex != 0 {
-			s.lock.RUnlock()
-			return false, nil
-		}
-	}
-	s.lock.RUnlock()
-
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	return true, s.addNewWithoutLock(key, hashedKey, entry)
-}
-
 func (s *cacheShard) setOrGet(key string, hashedKey uint64, entry []byte) (actual []byte, loaded bool, err error) {
 	s.lock.RLock()
 

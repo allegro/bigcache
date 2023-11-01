@@ -153,13 +153,6 @@ func (c *BigCache) Set(key string, entry []byte) error {
 	return shard.set(key, hashedKey, entry)
 }
 
-// SetIfNotExists saves entry under the key unless already exist
-func (c *BigCache) SetIfNotExists(key string, entry []byte) (newEntry bool, err error) {
-	hashedKey := c.hash.Sum64(key)
-	shard := c.getShard(hashedKey)
-	return shard.setIfNotExists(key, hashedKey, entry)
-}
-
 // SetOrGet saves entry under the key unless already exist in which case return current value under the key
 func (c *BigCache) SetOrGet(key string, entry []byte) (actual []byte, loaded bool, err error) {
 	hashedKey := c.hash.Sum64(key)
