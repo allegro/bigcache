@@ -119,12 +119,14 @@ func (s *cacheShard) getValidWrapEntry(key string, hashedKey uint64) ([]byte, er
 
 func (s *cacheShard) contains(key string, hashedKey uint64) bool {
 	s.lock.RLock()
-	defer s.lock.RUnlock()
 	wrappedEntry, err := s.getWrappedEntry(hashedKey)
 	if err != nil {
+		s.lock.RUnlock()
 		return false
 	}
-	return key == readKeyFromEntry(wrappedEntry)
+	entryKey := readKeyFromEntry(wrappedEntry)
+	s.lock.RUnlock()
+	return key == entryKey
 }
 
 func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
