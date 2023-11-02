@@ -961,6 +961,7 @@ func TestSetOrGet(t *testing.T) {
 	entry1, loaded1, _ := cache.SetOrGet("key1", []byte("value1"))
 	entry2, loaded2, _ := cache.SetOrGet("key1", []byte("value2"))
 	entry3, loaded3, _ := cache.SetOrGet("key2", []byte("value3"))
+
 	cachedValue, _ := cache.Get("key1")
 
 	// then
