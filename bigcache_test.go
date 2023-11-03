@@ -1000,6 +1000,28 @@ func TestSetOrGetCollision(t *testing.T) {
 
 }
 
+func TestSetOrGetErrorBiggerThanShardSize(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := New(context.Background(), Config{
+		Shards:             1,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       1,
+		HardMaxCacheSize:   1,
+	})
+
+	// when
+	entry, loaded, err := cache.SetOrGet("key1", blob('a', 1024*1025))
+
+	// then
+	assertEqual(t, blob('a', 1024*1025), entry)
+	assertEqual(t, false, loaded)
+	assertEqual(t, "entry is bigger than max shard size", err.Error())
+
+}
+
 func TestOldestEntryDeletionWhenMaxCacheSizeIsReached(t *testing.T) {
 	t.Parallel()
 
