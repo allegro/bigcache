@@ -123,7 +123,7 @@ func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 
 		if q.tail <= q.head {
 			if q.tail != q.head {
-				// created slice is slightly larger then need but this is fine after only the needed bytes are copied
+				// created slice is slightly larger than need but this is fine after only the needed bytes are copied
 				q.push(make([]byte, q.head-q.tail), q.head-q.tail)
 			}
 
