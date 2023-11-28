@@ -70,13 +70,18 @@ func newBigCache(ctx context.Context, config Config, clock clock) (*BigCache, er
 		return nil, errors.New("HardMaxCacheSize must be >= 0")
 	}
 
+	lifeWindowSeconds := uint64(config.LifeWindow.Seconds())
+	if config.CleanWindow > 0 && lifeWindowSeconds == 0 {
+		return nil, errors.New("LifeWindow must be >= 1s when CleanWindow is set")
+	}
+
 	if config.Hasher == nil {
 		config.Hasher = newDefaultHasher()
 	}
 
 	cache := &BigCache{
 		shards:     make([]*cacheShard, config.Shards),
-		lifeWindow: uint64(config.LifeWindow.Seconds()),
+		lifeWindow: lifeWindowSeconds,
 		clock:      clock,
 		hash:       config.Hasher,
 		config:     config,
