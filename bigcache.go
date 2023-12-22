@@ -270,7 +270,9 @@ func (c *BigCache) notProvidedOnRemove(wrappedEntry []byte, reason RemoveReason)
 }
 
 func (c *BigCache) providedOnRemoveWithMetadata(wrappedEntry []byte, reason RemoveReason) {
-	hashedKey := c.hash.Sum64(readKeyFromEntry(wrappedEntry))
+	key := readKeyFromEntry(wrappedEntry)
+
+	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
-	c.config.OnRemoveWithMetadata(readKeyFromEntry(wrappedEntry), readEntry(wrappedEntry), shard.getKeyMetadata(hashedKey))
+	c.config.OnRemoveWithMetadata(key, readEntry(wrappedEntry), shard.getKeyMetadata(hashedKey))
 }
