@@ -3,7 +3,6 @@ package bigcache
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 )
 
@@ -106,12 +105,13 @@ func newBigCache(ctx context.Context, config Config, clock clock) (*BigCache, er
 
 	if config.CleanWindow > 0 {
 		go func() {
+			logger := newLogger(config.Logger)
 			ticker := time.NewTicker(config.CleanWindow)
 			defer ticker.Stop()
 			for {
 				select {
 				case <-ctx.Done():
-					fmt.Println("ctx done, shutting down bigcache cleanup routine")
+					logger.Printf("ctx done, shutting down bigcache cleanup routine")
 					return
 				case t := <-ticker.C:
 					cache.cleanUp(uint64(t.Unix()))
