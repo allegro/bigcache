@@ -111,7 +111,9 @@ func newBigCache(ctx context.Context, config Config, clock clock) (*BigCache, er
 			for {
 				select {
 				case <-ctx.Done():
-					fmt.Println("ctx done, shutting down bigcache cleanup routine")
+					if config.Verbose {
+						fmt.Println("ctx done, shutting down bigcache cleanup routine")
+					}
 					return
 				case t := <-ticker.C:
 					cache.cleanUp(uint64(t.Unix()))
