@@ -3,7 +3,6 @@ package bigcache
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 )
 
