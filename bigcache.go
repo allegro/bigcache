@@ -188,7 +188,7 @@ func (c *BigCache) ResetStats() error {
 	return nil
 }
 
-// Len computes number of entries in cache
+// Len computes the number of entries in the cache.
 func (c *BigCache) Len() int {
 	var len int
 	for _, shard := range c.shards {
@@ -197,7 +197,7 @@ func (c *BigCache) Len() int {
 	return len
 }
 
-// Capacity returns amount of bytes store in the cache.
+// Capacity returns the amount of bytes stored in the cache.
 func (c *BigCache) Capacity() int {
 	var len int
 	for _, shard := range c.shards {
