@@ -29,6 +29,53 @@ func TestWriteAndGetOnCache(t *testing.T) {
 	assertEqual(t, value, cachedValue)
 }
 
+func TestWriteAndGetOnCacheMulti(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		keys []string
+		data [][]byte
+		want string
+	}{
+		{
+			keys: []string{"k1", "k2", "k3", "k4", "k5"},
+			data: [][]byte{
+				blob('a', 10),
+				blob('b', 10),
+				blob('c', 10),
+				blob('d', 10),
+				blob('e', 10),
+			},
+			want: "Get all values ordered",
+		},
+		{
+			keys: []string{"k1", "k2", "k3", "k4", "k5"},
+			data: [][]byte{
+				blob('a', 10),
+				blob('b', 10),
+				nil,
+				blob('d', 10),
+				blob('e', 10),
+			},
+			want: "Get all values ordered with nil",
+		},
+	} {
+		t.Run(tc.want, func(t *testing.T) {
+			cache, _ := New(context.Background(), DefaultConfig(5*time.Second))
+
+			for i := range tc.keys {
+				if tc.data[i] != nil {
+					cache.Set(tc.keys[i], tc.data[i])
+				}
+			}
+
+			cachedValues := cache.GetMulti(tc.keys)
+
+			assertEqual(t, tc.data, cachedValues)
+		})
+
+	}
+}
+
 func TestAppendAndGetOnCache(t *testing.T) {
 	t.Parallel()
 
@@ -834,6 +881,46 @@ func TestWriteAndReadParallelSameKeyWithStats(t *testing.T) {
 
 	assertEqual(t, Stats{Hits: int64(n * ntest)}, cache.Stats())
 	assertEqual(t, ntest*n, int(cache.KeyMetadata(key).RequestCount))
+}
+
+func TestWriteAndReadManyParallelSameKeyWithStats(t *testing.T) {
+	t.Parallel()
+
+	c := DefaultConfig(0)
+	c.StatsEnabled = true
+
+	cache, _ := New(context.Background(), c)
+	var wg sync.WaitGroup
+	ntest := 100
+	n := 10
+	wg.Add(n)
+
+	keys := []string{"key1", "key2", "key3"}
+	values := [][]byte{blob('a', 64), blob('b', 64), blob('c', 64)}
+
+	for i := 0; i < ntest; i++ {
+		for j := range keys {
+			assertEqual(t, nil, cache.Set(keys[j], values[j]))
+		}
+	}
+
+	for j := 0; j < n; j++ {
+		go func() {
+			for i := 0; i < ntest; i++ {
+				v := cache.GetMulti(keys)
+				assertEqual(t, values, v)
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+
+	assertEqual(t, Stats{Hits: int64(n * ntest * len(keys))}, cache.Stats())
+
+	for i := range keys {
+		assertEqual(t, ntest*n, int(cache.KeyMetadata(keys[i]).RequestCount))
+	}
 }
 
 func TestCacheReset(t *testing.T) {
