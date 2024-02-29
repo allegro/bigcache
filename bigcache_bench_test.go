@@ -14,7 +14,9 @@ var message = blob('a', 256)
 func BenchmarkWriteToCacheWith1Shard(b *testing.B) {
 	writeToCache(b, 1, 100*time.Second, b.N)
 }
-
+func BenchmarkWriteToCacheUsingSetOrGetWith1Shard(b *testing.B) {
+	writeToCacheWithSetOrGet(b, 1, 100*time.Second, b.N)
+}
 func BenchmarkWriteToLimitedCacheWithSmallInitSizeAnd1Shard(b *testing.B) {
 	m := blob('a', 1024)
 	cache, _ := New(context.Background(), Config{
@@ -50,6 +52,13 @@ func BenchmarkWriteToCache(b *testing.B) {
 	for _, shards := range []int{1, 512, 1024, 8192} {
 		b.Run(fmt.Sprintf("%d-shards", shards), func(b *testing.B) {
 			writeToCache(b, shards, 100*time.Second, b.N)
+		})
+	}
+}
+func BenchmarkWriteToCacheUsingSetOrGet(b *testing.B) {
+	for _, shards := range []int{1, 512, 1024, 8192} {
+		b.Run(fmt.Sprintf("%d-shards", shards), func(b *testing.B) {
+			writeToCacheWithSetOrGet(b, shards, 100*time.Second, b.N)
 		})
 	}
 }
@@ -112,7 +121,9 @@ func BenchmarkIterateOverCache(b *testing.B) {
 func BenchmarkWriteToCacheWith1024ShardsAndSmallShardInitSize(b *testing.B) {
 	writeToCache(b, 1024, 100*time.Second, 100)
 }
-
+func BenchmarkWriteUsingSetOrGetToCacheWith1024ShardsAndSmallShardInitSize(b *testing.B) {
+	writeToCacheWithSetOrGet(b, 1024, 100*time.Second, 100)
+}
 func BenchmarkReadFromCacheNonExistentKeys(b *testing.B) {
 	for _, shards := range []int{1, 512, 1024, 8192} {
 		b.Run(fmt.Sprintf("%d-shards", shards), func(b *testing.B) {
@@ -138,6 +149,25 @@ func writeToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsIn
 		for pb.Next() {
 			cache.Set(fmt.Sprintf("key-%d-%d", id, counter), message)
 			counter = counter + 1
+		}
+	})
+}
+
+func writeToCacheWithSetOrGet(b *testing.B, shards int, lifeWindow time.Duration, requestsInLifeWindow int) {
+	cache, _ := New(context.Background(), Config{
+		Shards:             shards,
+		LifeWindow:         lifeWindow,
+		MaxEntriesInWindow: max(requestsInLifeWindow, 100),
+		MaxEntrySize:       500,
+	})
+	rand.Seed(time.Now().Unix())
+
+	b.RunParallel(func(pb *testing.PB) {
+		id := rand.Int()
+
+		b.ReportAllocs()
+		for pb.Next() {
+			_, _, _ = cache.SetOrGet(fmt.Sprintf("key-%d", id), message)
 		}
 	})
 }
