@@ -806,7 +806,7 @@ func TestCacheDelRandomly(t *testing.T) {
 func TestWriteAndReadParallelSameKeyWithStats(t *testing.T) {
 	t.Parallel()
 
-	c := DefaultConfig(0)
+	c := DefaultConfig(10 * time.Second)
 	c.StatsEnabled = true
 
 	cache, _ := New(context.Background(), c)
@@ -1101,6 +1101,7 @@ func TestClosing(t *testing.T) {
 	config := Config{
 		CleanWindow: time.Minute,
 		Shards:      1,
+		LifeWindow:  1 * time.Second,
 	}
 	startGR := runtime.NumGoroutine()
 
