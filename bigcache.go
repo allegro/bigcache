@@ -140,6 +140,59 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 	return shard.get(key, hashedKey)
 }
 
+// Used to store information about keys in GetMulti function
+// order is the index in the slice the data should go
+// hashedKey is the Sum64 hash of the key
+// key is the original key input
+type keyInfo struct {
+	order     int
+	hashedKey uint64
+	key       string
+}
+
+// GetMulti reads entry for each of the keys.
+// returns entries in the same order as the provided keys.
+// if entry is not found for a given key, the index will contain nil
+func (c *BigCache) GetMulti(keys []string) [][]byte {
+	shards := make(map[uint64][]keyInfo, len(c.shards))
+	entries := make([][]byte, len(keys))
+
+	for i, key := range keys {
+		hashedKey := c.hash.Sum64(key)
+		shardIndex := hashedKey & c.shardMask
+		shards[shardIndex] = append(shards[shardIndex], keyInfo{order: i, hashedKey: hashedKey, key: key})
+	}
+
+	for shardKey, keyInfos := range shards {
+		hits := make([]uint64, 0, len(keyInfos))
+		shard := c.shards[shardKey]
+		shard.lock.RLock()
+		for i := range keyInfos {
+			entry, _ := shard.getWithoutLock(keyInfos[i].key, keyInfos[i].hashedKey)
+
+			if entry != nil {
+				hits = append(hits, keyInfos[i].hashedKey)
+			}
+
+			entries[keyInfos[i].order] = entry
+		}
+		shard.lock.RUnlock()
+
+        if shard.statsEnabled{
+            shard.lock.Lock()
+        }
+
+		for i := range hits {
+			shard.hitWithoutLock(hits[i])
+		}
+
+        if shard.statsEnabled{
+            shard.lock.Unlock()
+        }
+	}
+	return entries
+}
+
 // GetWithInfo reads entry for the key with Response info.
 // It returns an ErrEntryNotFound when
 // no entry exists for the given key.
