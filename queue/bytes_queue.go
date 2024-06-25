@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"log"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -56,13 +58,35 @@ func getNeededSize(length int) int {
 
 	return length + header
 }
+func pageUpper(in uintptr) uintptr {
+	const pageMask = ((1 << 12) - 1)
+	return (in + pageMask) &^ (pageMask)
+}
 
 // NewBytesQueue initialize new bytes queue.
 // capacity is used in bytes array allocation
 // When verbose flag is set then information about memory allocation are printed
 func NewBytesQueue(capacity int, maxCapacity int, verbose bool) *BytesQueue {
+	var array []byte
+	if maxCapacity != 0 && maxCapacity >= 1<<12 {
+		var err error
+		array, err = unix.Mmap(
+			0,
+			0,
+			int(pageUpper(uintptr(maxCapacity))),
+			unix.PROT_READ|unix.PROT_WRITE,
+			unix.MAP_ANON|unix.MAP_PRIVATE,
+		)
+		if err != nil {
+			panic(err)
+		}
+		capacity = maxCapacity
+	} else {
+		array = make([]byte, capacity)
+	}
+
 	return &BytesQueue{
-		array:        make([]byte, capacity),
+		array:        array,
 		capacity:     capacity,
 		maxCapacity:  maxCapacity,
 		headerBuffer: make([]byte, binary.MaxVarintLen32),
