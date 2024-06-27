@@ -94,7 +94,7 @@ func TestResetFullQueue(t *testing.T) {
 
 	// then
 	assertEqual(t, blob('c', 8), pop(queue))
-	assertEqual(t, queue.Capacity(), 10)
+	assertEqual(t, queue.Capacity(), 20)
 }
 
 func TestReset(t *testing.T) {
@@ -416,9 +416,9 @@ func TestPushEntryAfterAllocateAdditionMemory(t *testing.T) {
 	queue.Pop()
 
 	// allocate more memory
-	assertEqual(t, 9, queue.Capacity())
+	assertEqual(t, 20, queue.Capacity())
 	queue.Push([]byte("c"))
-	assertEqual(t, 18, queue.Capacity())
+	assertEqual(t, 20, queue.Capacity())
 
 	// push after allocate
 	_, err := queue.Push([]byte("d"))

@@ -1,4 +1,4 @@
-# BigCache [![Build Status](https://github.com/allegro/bigcache/workflows/build/badge.svg)](https://github.com/allegro/bigcache/actions?query=workflow%3Abuild)&nbsp;[![Coverage Status](https://coveralls.io/repos/github/allegro/bigcache/badge.svg?branch=main)](https://coveralls.io/github/allegro/bigcache?branch=main)&nbsp;[![GoDoc](https://godoc.org/github.com/allegro/bigcache/v3?status.svg)](https://godoc.org/github.com/allegro/bigcache/v3)&nbsp;[![Go Report Card](https://goreportcard.com/badge/github.com/allegro/bigcache/v3)](https://goreportcard.com/report/github.com/allegro/bigcache/v3)
+# BigCache [![Build Status](https://github.com/allegro/bigcache/workflows/build/badge.svg)](https://github.com/allegro/bigcache/actions?query=workflow%3Abuild)&nbsp;[![Coverage Status](https://coveralls.io/repos/github/allegro/bigcache/badge.svg?branch=main)](https://coveralls.io/github/allegro/bigcache?branch=main)&nbsp;[![GoDoc](https://godoc.org/github.com/tecty/bigcache/v3?status.svg)](https://godoc.org/github.com/tecty/bigcache/v3)&nbsp;[![Go Report Card](https://goreportcard.com/badge/github.com/tecty/bigcache/v3)](https://goreportcard.com/report/github.com/tecty/bigcache/v3)
 
 Fast, concurrent, evicting in-memory cache written to keep big number of entries without impact on performance.
 BigCache keeps entries on heap but omits GC for them. To achieve that, operations on byte slices take place,
@@ -14,7 +14,7 @@ Requires Go 1.12 or newer.
 import (
 	"fmt"
 	"context"
-	"github.com/allegro/bigcache/v3"
+	"github.com/tecty/bigcache/v3"
 )
 
 cache, _ := bigcache.New(context.Background(), bigcache.DefaultConfig(10 * time.Minute))
@@ -34,7 +34,7 @@ allocation can be avoided in that way.
 import (
 	"log"
 
-	"github.com/allegro/bigcache/v3"
+	"github.com/tecty/bigcache/v3"
 )
 
 config := bigcache.Config {
@@ -110,7 +110,7 @@ go version go1.13 linux/amd64
 go test -bench=. -benchmem -benchtime=4s ./... -timeout 30m
 goos: linux
 goarch: amd64
-pkg: github.com/allegro/bigcache/v3/caches_bench
+pkg: github.com/tecty/bigcache/v3/caches_bench
 BenchmarkMapSet-8                     	12999889	       376 ns/op	     199 B/op	       3 allocs/op
 BenchmarkConcurrentMapSet-8           	 4355726	      1275 ns/op	     337 B/op	       8 allocs/op
 BenchmarkFreeCacheSet-8               	11068976	       703 ns/op	     328 B/op	       2 allocs/op
@@ -126,7 +126,7 @@ BenchmarkBigCacheGetParallel-8        	60547064	        86.1 ns/op	     152 B/op
 BenchmarkFreeCacheGetParallel-8       	50701280	       147 ns/op	     136 B/op	       3 allocs/op
 BenchmarkConcurrentMapGetParallel-8   	27353288	       175 ns/op	      24 B/op	       2 allocs/op
 PASS
-ok  	github.com/allegro/bigcache/v3/caches_bench	256.257s
+ok  	github.com/tecty/bigcache/v3/caches_bench	256.257s
 ```
 
 Writes and reads in bigcache are faster than in freecache.
