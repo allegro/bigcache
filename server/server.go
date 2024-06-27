@@ -9,7 +9,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/allegro/bigcache/v3"
+	"github.com/tecty/bigcache/v3"
 )
 
 const (

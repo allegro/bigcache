@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/allegro/bigcache/v3"
+	"github.com/tecty/bigcache/v3"
 )
 
 func Example() {
