@@ -68,17 +68,21 @@ func pageUpper(in uintptr) uintptr {
 // When verbose flag is set then information about memory allocation are printed
 func NewBytesQueue(capacity int, maxCapacity int, verbose bool) *BytesQueue {
 	var array []byte
-	if maxCapacity != 0 && maxCapacity >= 1<<12 {
+	if maxCapacity != 0 {
 		var err error
-		array, err = unix.Mmap(
-			0,
-			0,
-			int(pageUpper(uintptr(maxCapacity))),
-			unix.PROT_READ|unix.PROT_WRITE,
-			unix.MAP_ANON|unix.MAP_PRIVATE,
-		)
-		if err != nil {
-			panic(err)
+		if maxCapacity >= 1<<12 {
+			array, err = unix.Mmap(
+				0,
+				0,
+				int(pageUpper(uintptr(maxCapacity))),
+				unix.PROT_READ|unix.PROT_WRITE,
+				unix.MAP_ANON|unix.MAP_PRIVATE,
+			)
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			array = make([]byte, maxCapacity)
 		}
 		capacity = maxCapacity
 	} else {
@@ -115,7 +119,7 @@ func (q *BytesQueue) Push(data []byte) (int, error) {
 	if !q.canInsertAfterTail(neededSize) {
 		if q.canInsertBeforeHead(neededSize) {
 			q.tail = leftMarginIndex
-		} else if q.capacity+neededSize >= q.maxCapacity && q.maxCapacity > 0 {
+		} else if q.maxCapacity > 0 {
 			return -1, &queueError{"Full queue. Maximum size limit reached."}
 		} else {
 			q.allocateAdditionalMemory(neededSize)
