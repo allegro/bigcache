@@ -256,7 +256,6 @@ func TestTimingEviction(t *testing.T) {
 	cache.Set("key", []byte("value"))
 
 	// when
-	clock.set(1)
 	cache.Set("key2", []byte("value2"))
 	_, err := cache.Get("key")
 
@@ -1181,7 +1180,7 @@ func TestBigCache_GetWithInfo(t *testing.T) {
 			name:     "Expired",
 			clock:    5,
 			wantData: value,
-			wantResp: Response{},
+			wantResp: Response{EntryStatus: Expired},
 		},
 		{
 			name:     "After Expired",
