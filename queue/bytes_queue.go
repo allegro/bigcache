@@ -14,9 +14,10 @@ const (
 )
 
 var (
-	errEmptyQueue       = &queueError{"Empty queue"}
+	errEmptyQueue       = &queueError{"Queue is empty."}
 	errInvalidIndex     = &queueError{"Index must be greater than zero. Invalid index."}
 	errIndexOutOfBounds = &queueError{"Index out of range"}
+	errFullQueue        = &queueError{"Queue is full. Maximum size limit reached."}
 )
 
 // BytesQueue is a non-thread safe queue type of fifo based on bytes array.
@@ -92,7 +93,7 @@ func (q *BytesQueue) Push(data []byte) (int, error) {
 		if q.canInsertBeforeHead(neededSize) {
 			q.tail = leftMarginIndex
 		} else if q.capacity+neededSize >= q.maxCapacity && q.maxCapacity > 0 {
-			return -1, &queueError{"Full queue. Maximum size limit reached."}
+			return -1, errFullQueue
 		} else {
 			q.allocateAdditionalMemory(neededSize)
 		}
