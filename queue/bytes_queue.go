@@ -14,7 +14,7 @@ const (
 )
 
 var (
-	errEmptyQueue       = &queueError{"Queue is empty."}
+	errEmptyQueue       = &queueError{"Empty queue"}
 	errInvalidIndex     = &queueError{"Index must be greater than zero. Invalid index."}
 	errIndexOutOfBounds = &queueError{"Index out of range"}
 	errFullQueue        = &queueError{"Queue is full. Maximum size limit reached."}
