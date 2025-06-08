@@ -510,7 +510,6 @@ func TestOnRemoveGetEntryStats(t *testing.T) {
 
 func TestCacheLen(t *testing.T) {
 	t.Parallel()
-
 	// given
 	cache, _ := New(context.Background(), Config{
 		Shards:             8,
@@ -576,6 +575,88 @@ func TestCacheInitialCapacity(t *testing.T) {
 	// then
 	assertEqual(t, true, cache.Len() < keys)
 	assertEqual(t, 1024*1024, cache.Capacity())
+}
+
+func TestNonBlockingCleanup(t *testing.T) {
+	t.Parallel()
+
+	// given
+	config := Config{
+		Shards:             16,
+		LifeWindow:         time.Second,
+		CleanWindow:        0, // We'll trigger cleanup manually
+		MaxEntriesInWindow: 10000,
+		MaxEntrySize:       256,
+		HardMaxCacheSize:   1, // Small size to trigger evictions
+		Verbose:            false,
+	}
+
+	cache, _ := New(context.Background(), config)
+	defer cache.Close()
+
+	// Create data
+	baseData := []byte("test data that is larger than the small cache")
+
+	// Fill cache with enough data to require cleanup
+	for i := 0; i < 1000; i++ {
+		key := fmt.Sprintf("test-key-%d", i)
+		cache.Set(key, baseData)
+	}
+
+	// Measure access time during cleanup
+	var accessTimes []time.Duration
+	var wg sync.WaitGroup
+
+	// Start cleanup in background
+	cleanupStarted := make(chan struct{})
+	cleanupFinished := make(chan struct{})
+
+	go func() {
+		close(cleanupStarted)
+		cache.cleanUpNonBlocking()
+		close(cleanupFinished)
+	}()
+
+	<-cleanupStarted
+
+	// Measure access times while cleanup is running
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+
+			key := fmt.Sprintf("concurrent-key-%d", idx)
+			start := time.Now()
+			cache.Set(key, baseData)
+			accessTimes = append(accessTimes, time.Since(start))
+		}(i)
+	}
+
+	wg.Wait()
+	<-cleanupFinished
+
+	// Check access times - none should be excessively long
+	var maxTime time.Duration
+	for _, duration := range accessTimes {
+		if duration > maxTime {
+			maxTime = duration
+		}
+	}
+
+	// In a non-blocking implementation, access times should be reasonable
+	// even during cleanup. This threshold can be adjusted based on the system.
+	// The key point is that no operation should be blocked for the entire
+	// duration of the cleanup process.
+	t.Logf("Maximum access time during cleanup: %v", maxTime)
+
+	// A reasonable threshold for most systems - if any operation takes longer,
+	// it suggests blocking behavior
+	reasonableThreshold := 100 * time.Millisecond
+
+	if maxTime > reasonableThreshold {
+		t.Errorf("Some operations took too long during cleanup: %v > %v",
+			maxTime, reasonableThreshold)
+	}
 }
 
 func TestRemoveEntriesWhenShardIsFull(t *testing.T) {

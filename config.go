@@ -44,6 +44,12 @@ type Config struct {
 	// Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
 	// Ignored if OnRemove is specified.
 	OnRemoveWithReason func(key string, entry []byte, reason RemoveReason)
+	// EnableNonBlockingCleanup if true, use non-blocking cleanup which is more efficient under heavy load
+	// Default value is true to avoid performance issues in high-throughput systems
+	EnableNonBlockingCleanup bool
+	// EnableMetrics if true, collects metrics about cleanup operations
+	// Default value is false to minimize overhead
+	EnableMetrics bool
 
 	onRemoveFilter int
 

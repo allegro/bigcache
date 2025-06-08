@@ -3,6 +3,7 @@ package bigcache
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 )
 
@@ -21,6 +22,7 @@ type BigCache struct {
 	config     Config
 	shardMask  uint64
 	close      chan struct{}
+	cleanupWg  sync.WaitGroup // Used to wait for cleanup goroutines during shutdown
 }
 
 // Response will contain metadata about the entry for which GetWithInfo(key) was called
@@ -111,8 +113,15 @@ func newBigCache(ctx context.Context, config Config, clock clock) (*BigCache, er
 				select {
 				case <-ctx.Done():
 					return
-				case t := <-ticker.C:
-					cache.cleanUp(uint64(t.Unix()))
+				case <-ticker.C:
+					currentTimestamp := uint64(clock.Epoch())
+					if config.EnableNonBlockingCleanup {
+						// Use non-blocking cleanup to avoid performance issues under heavy load
+						cache.cleanUpNonBlocking()
+					} else {
+						// Use traditional blocking cleanup
+						cache.cleanUp(currentTimestamp)
+					}
 				case <-cache.close:
 					return
 				}
@@ -128,6 +137,11 @@ func newBigCache(ctx context.Context, config Config, clock clock) (*BigCache, er
 // kept to the cache preventing GC of the entire cache.
 func (c *BigCache) Close() error {
 	close(c.close)
+
+	// Wait for any ongoing cleanup operations to finish
+	// This ensures all resources are properly released
+	c.cleanupWg.Wait()
+
 	return nil
 }
 
@@ -247,6 +261,38 @@ func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict fu
 func (c *BigCache) cleanUp(currentTimestamp uint64) {
 	for _, shard := range c.shards {
 		shard.cleanUp(currentTimestamp)
+	}
+}
+
+// cleanUpNonBlocking performs asynchronous cleanup of expired entries
+// This method doesn't block the main thread and processes shards concurrently
+func (c *BigCache) cleanUpNonBlocking() {
+	currentTimestamp := uint64(c.clock.Epoch())
+
+	// Limit the number of concurrent cleanup goroutines to prevent resource exhaustion
+	maxConcurrentCleanups := 8
+	if len(c.shards) < maxConcurrentCleanups {
+		maxConcurrentCleanups = len(c.shards)
+	}
+
+	// Create a semaphore channel to limit concurrency
+	semaphore := make(chan struct{}, maxConcurrentCleanups)
+
+	// Start cleanup for each shard in a separate goroutine
+	c.cleanupWg.Add(len(c.shards))
+	for i := range c.shards {
+		go func(shard *cacheShard) {
+			// Acquire semaphore slot
+			semaphore <- struct{}{}
+			defer func() {
+				// Release semaphore slot
+				<-semaphore
+				c.cleanupWg.Done()
+			}()
+
+			// Clean up the shard in batches to reduce lock contention
+			shard.cleanUpInBatches(currentTimestamp)
+		}(c.shards[i])
 	}
 }
 
