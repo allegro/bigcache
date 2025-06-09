@@ -23,6 +23,7 @@ type BigCache struct {
 	shardMask  uint64
 	close      chan struct{}
 	cleanupWg  sync.WaitGroup // Used to wait for cleanup goroutines during shutdown
+	metrics    *metrics       // Metrics for tracking cleanup performance
 }
 
 // Response will contain metadata about the entry for which GetWithInfo(key) was called
@@ -88,6 +89,7 @@ func newBigCache(ctx context.Context, config Config, clock clock) (*BigCache, er
 		config:     config,
 		shardMask:  uint64(config.Shards - 1),
 		close:      make(chan struct{}),
+		metrics:    newMetrics(config.EnableMetrics),
 	}
 
 	var onRemove func(wrappedEntry []byte, reason RemoveReason)
@@ -241,9 +243,18 @@ func (c *BigCache) KeyMetadata(key string) Metadata {
 	return shard.getKeyMetadataWithLock(hashedKey)
 }
 
-// Iterator returns iterator function to iterate over EntryInfo's from whole cache.
+// Iterator returns an iterator to traverse over EntryInfo's from whole cache.
 func (c *BigCache) Iterator() *EntryInfoIterator {
 	return newIterator(c)
+}
+
+// GetMetrics returns a copy of current cache metrics.
+// Returns empty metrics if metrics are not enabled.
+func (c *BigCache) GetMetrics() Metrics {
+	if c.metrics == nil {
+		return Metrics{}
+	}
+	return c.metrics.Get()
 }
 
 func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func(reason RemoveReason) error) bool {
@@ -268,6 +279,7 @@ func (c *BigCache) cleanUp(currentTimestamp uint64) {
 // This method doesn't block the main thread and processes shards concurrently
 func (c *BigCache) cleanUpNonBlocking() {
 	currentTimestamp := uint64(c.clock.Epoch())
+	startTime := time.Now()
 
 	// Limit the number of concurrent cleanup goroutines to prevent resource exhaustion
 	maxConcurrentCleanups := 8
@@ -277,6 +289,12 @@ func (c *BigCache) cleanUpNonBlocking() {
 
 	// Create a semaphore channel to limit concurrency
 	semaphore := make(chan struct{}, maxConcurrentCleanups)
+
+	// Channel to collect eviction counts if metrics are enabled
+	var evictionCounts chan int
+	if c.metrics != nil && c.config.EnableMetrics {
+		evictionCounts = make(chan int, len(c.shards))
+	}
 
 	// Start cleanup for each shard in a separate goroutine
 	c.cleanupWg.Add(len(c.shards))
@@ -291,8 +309,26 @@ func (c *BigCache) cleanUpNonBlocking() {
 			}()
 
 			// Clean up the shard in batches to reduce lock contention
-			shard.cleanUpInBatches(currentTimestamp)
+			evicted := shard.cleanUpInBatches(currentTimestamp)
+
+			// Report eviction count if metrics are enabled
+			if evictionCounts != nil {
+				evictionCounts <- evicted
+			}
 		}(c.shards[i])
+	}
+
+	// Collect metrics if enabled
+	if evictionCounts != nil {
+		go func() {
+			totalEvicted := 0
+			for i := 0; i < len(c.shards); i++ {
+				totalEvicted += <-evictionCounts
+			}
+
+			duration := time.Since(startTime)
+			c.metrics.recordCleanup(duration, totalEvicted)
+		}()
 	}
 }
 

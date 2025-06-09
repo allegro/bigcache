@@ -5,60 +5,79 @@ import (
 	"time"
 )
 
-// Metrics holds metrics for the cache operations
+// Metrics structure used for exposing metrics from cleanup operations
 type Metrics struct {
-	// Number of times cleanup was executed
-	CleanupCount int64
-	
-	// Total time spent on cleanup operations
-	TotalCleanupTime time.Duration
-	
-	// Total number of entries evicted during cleanup
+	// The average duration of cleanup calls in microseconds
+	AverageCleanupDurationMicros int64
+
+	// Number of entries removed during the cleanup
+	TotalEntriesRemoved int64
+
+	// Number of cleanup operations performed
+	CleanupOperationsCount int64
+
+	// For compatibility with stress tests
+	CleanupCount        int64
+	TotalCleanupTime    time.Duration
 	TotalEvictedEntries int64
 }
 
-// metrics is an internal structure to track cache performance
-type metrics struct {
-	mu                 sync.RWMutex
-	enabled            bool
-	cleanupCount       int64
-	totalCleanupTime   time.Duration
-	totalEvictedEntries int64
+// Clone creates a copy of the metrics structure
+func (m Metrics) Clone() Metrics {
+	return Metrics{
+		AverageCleanupDurationMicros: m.AverageCleanupDurationMicros,
+		TotalEntriesRemoved:          m.TotalEntriesRemoved,
+		CleanupOperationsCount:       m.CleanupOperationsCount,
+		CleanupCount:                 m.CleanupOperationsCount, // Map to existing field
+		TotalCleanupTime:             m.TotalCleanupTime,
+		TotalEvictedEntries:          m.TotalEntriesRemoved, // Map to existing field
+	}
 }
 
-// newMetrics creates a new metrics instance
+type metrics struct {
+	sync.RWMutex
+	enabled bool
+	metrics Metrics
+}
+
 func newMetrics(enabled bool) *metrics {
 	return &metrics{
 		enabled: enabled,
+		metrics: Metrics{},
 	}
 }
 
-// recordCleanup records metrics for a cleanup operation
-func (m *metrics) recordCleanup(duration time.Duration, evictedEntries int) {
-	if !m.enabled {
-		return
-	}
-	
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	
-	m.cleanupCount++
-	m.totalCleanupTime += duration
-	m.totalEvictedEntries += int64(evictedEntries)
-}
-
-// Get returns a copy of the current metrics
+// Get returns a clone of the current metrics
 func (m *metrics) Get() Metrics {
 	if !m.enabled {
 		return Metrics{}
 	}
-	
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	
-	return Metrics{
-		CleanupCount:       m.cleanupCount,
-		TotalCleanupTime:   m.totalCleanupTime,
-		TotalEvictedEntries: m.totalEvictedEntries,
+
+	m.RLock()
+	defer m.RUnlock()
+	return m.metrics.Clone()
+}
+
+// recordCleanup updates metrics with data from a cleanup operation
+func (m *metrics) recordCleanup(duration time.Duration, entriesRemoved int) {
+	if !m.enabled {
+		return
+	}
+
+	m.Lock()
+	defer m.Unlock()
+
+	durationMicros := duration.Microseconds()
+	m.metrics.CleanupOperationsCount++
+	m.metrics.TotalEntriesRemoved += int64(entriesRemoved)
+	m.metrics.TotalCleanupTime += duration
+	m.metrics.TotalEvictedEntries += int64(entriesRemoved)
+
+	// Calculate running average for cleanup duration
+	if m.metrics.CleanupOperationsCount > 1 {
+		totalDuration := m.metrics.AverageCleanupDurationMicros * (m.metrics.CleanupOperationsCount - 1)
+		m.metrics.AverageCleanupDurationMicros = (totalDuration + durationMicros) / m.metrics.CleanupOperationsCount
+	} else {
+		m.metrics.AverageCleanupDurationMicros = durationMicros
 	}
 }

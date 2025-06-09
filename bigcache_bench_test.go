@@ -208,3 +208,11 @@ func readFromCacheNonExistentKeys(b *testing.B, shards int) {
 		}
 	})
 }
+
+// Helper function - Max returns the larger of x or y.
+func max(x, y int) int {
+	if x > y {
+		return x
+	}
+	return y
+}
