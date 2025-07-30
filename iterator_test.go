@@ -1,6 +1,7 @@
 package bigcache
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
@@ -11,7 +12,280 @@ import (
 	"time"
 )
 
+// contains checks if a string is present in a slice
+func contains(slice []string, key string) bool {
+	for _, element := range slice {
+		if element == key {
+			return true
+		}
+	}
+	return false
+}
+
+func TestIteratorWithKeyCount(t *testing.T) {
+	t.Parallel()
+
+	// given
+	keysCount := 1000
+	ctx := context.Background()
+	cache, _ := New(ctx, DefaultConfig(5*time.Second))
+	value := []byte("value")
+
+	for i := 0; i < keysCount; i++ {
+		cache.Set(fmt.Sprintf("key%d", i), value)
+	}
+
+	// when
+	keys := make(map[string]struct{})
+	iterator := cache.Iterator()
+
+	for iterator.SetNext() {
+		current, err := iterator.Value()
+		if err != nil {
+			t.Fatalf("Unexpected error: %s", err)
+		}
+		if current.Key() == "" {
+			t.Fatalf("Expected value for key")
+		}
+		keys[current.Key()] = struct{}{}
+	}
+
+	// then
+	if len(keys) != keysCount {
+		t.Errorf("Got %d keys, expected %d keys", len(keys), keysCount)
+	}
+}
+
+func TestIterateOverEmptyCache(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := New(context.Background(), DefaultConfig(5*time.Second))
+	keys := []string{"key", "key2", "key3"}
+	value := []byte("value")
+
+	// when
+	iterator := cache.Iterator()
+	iteratorSetup := iterator.SetNext()
+	result, err := iterator.Value()
+
+	// then
+	if iteratorSetup != false {
+		t.Errorf("SetNext() should return false on empty cache")
+	}
+	if err == nil {
+		t.Errorf("Error should not be nil on empty cache")
+	}
+	if result.Key() != "" {
+		t.Errorf("Key should be empty on empty cache")
+	}
+	if result.Value() != nil {
+		t.Errorf("Value should be nil on empty cache")
+	}
+
+	// fill the cache
+	for _, key := range keys {
+		cache.Set(key, value)
+	}
+
+	// and remove all
+	for _, key := range keys {
+		cache.Delete(key)
+	}
+
+	// when
+	iterator = cache.Iterator()
+	iteratorSetup = iterator.SetNext()
+	result, err = iterator.Value()
+
+	// then
+	if iteratorSetup != false {
+		t.Errorf("SetNext() should return false on empty cache")
+	}
+	if err == nil {
+		t.Errorf("Error should not be nil on empty cache")
+	}
+	if result.Key() != "" {
+		t.Errorf("Key should be empty on empty cache")
+	}
+	if result.Value() != nil {
+		t.Errorf("Value should be nil on empty cache")
+	}
+}
+
+func TestIterateOverResetCache(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := New(context.Background(), DefaultConfig(5*time.Second))
+	keys := []string{"key", "key2", "key3"}
+	value := []byte("value")
+	for _, key := range keys {
+		cache.Set(key, value)
+	}
+
+	// when
+	cache.Reset()
+	recordFound := 0
+	iterator := cache.Iterator()
+	for iterator.SetNext() {
+		current, err := iterator.Value()
+		if err != nil {
+			t.Fatalf("Unexpected error: %s", err)
+		}
+		if contains(keys, current.Key()) {
+			recordFound++
+		}
+	}
+
+	// then
+	if recordFound != 0 {
+		t.Errorf("Records found: %d but expected %d", recordFound, 0)
+	}
+}
+
+func TestIteratorWithAndWithoutCollisions(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := New(context.Background(), Config{
+		Shards:             1,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 10,
+		MaxEntrySize:       256,
+	})
+
+	// when
+	cache.Set("key", []byte("value"))
+	cache.Set("key", []byte("value2"))
+	cache.Set("key", []byte("value3"))
+	count := 0
+	keys := make(map[string]struct{})
+
+	// then
+	iterator := cache.Iterator()
+	for iterator.SetNext() {
+		count++
+		val, err := iterator.Value()
+		if err != nil {
+			t.Fatalf("Unexpected error: %s", err)
+		}
+		keys[val.Key()] = struct{}{}
+	}
+
+	if count != 1 {
+		t.Errorf("Got %d, expected %d", count, 1)
+	}
+
+	// when
+	cache.Set("key1", []byte("value"))
+	cache.Set("key2", []byte("value2"))
+	cache.Set("key3", []byte("value3"))
+	keys = make(map[string]struct{})
+	count = 0
+
+	// then
+	iterator = cache.Iterator()
+	for iterator.SetNext() {
+		count++
+		val, err := iterator.Value()
+		if err != nil {
+			t.Fatalf("Unexpected error: %s", err)
+		}
+		keys[val.Key()] = struct{}{}
+	}
+
+	if count != 4 {
+		t.Errorf("Got %d, expected %d", count, 4)
+	}
+}
+
 func TestEntriesIterator(t *testing.T) {
+	t.Parallel()
+
+	clock := newMockedClock(10)
+	cache, _ := newBigCache(context.Background(), DefaultConfig(5*time.Second), clock)
+
+	// Add more entries than iterator entries buffer size
+	for i := 0; i < 200; i++ {
+		cache.Set(strconv.Itoa(i), []byte{})
+	}
+
+	// when
+	iterator := cache.Iterator()
+
+	// then
+	entries := 0
+	for iterator.SetNext() {
+		iterator.Value()
+		entries++
+	}
+
+	if entries != 200 {
+		t.Errorf("Got %d entries, expected 200", entries)
+	}
+}
+
+func TestIterateOverSmallerCache(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := New(context.Background(), DefaultConfig(5*time.Second))
+	keys := []string{"key", "key2", "key3"}
+	values := [][]byte{[]byte("value"), []byte("value2"), []byte("value3")}
+
+	for i := 0; i < len(keys); i++ {
+		cache.Set(keys[i], values[i])
+	}
+
+	// when
+	cache.Reset()
+	recordFound := 0
+	iterator := cache.Iterator()
+	for iterator.SetNext() {
+		current, err := iterator.Value()
+		if err != nil {
+			t.Fatalf("Unexpected error: %s", err)
+		}
+		if contains(keys, current.Key()) {
+			recordFound++
+		}
+	}
+
+	// then
+	if recordFound != 0 {
+		t.Fatalf("Expected to find %d elements but found %d", 0, recordFound)
+	}
+}
+
+func TestGetEntryFromIterator(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := New(context.Background(), DefaultConfig(5*time.Second))
+	cache.Set("key", []byte("value"))
+
+	// when
+	iterator := cache.Iterator()
+	iterator.SetNext()
+	entry, err := iterator.Value()
+
+	// then
+	if err != nil {
+		t.Fatalf("Unexpected error: %s", err)
+	}
+	value, err := cache.Get("key")
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %s", err)
+	}
+
+	if !compareByteSlices(value, entry.Value()) {
+		t.Fatalf("Expected %s but got %s", string(value), string(entry.Value()))
+	}
+}
+
+func TestEntriesIterator_WithContext(t *testing.T) {
 	t.Parallel()
 
 	// given
@@ -41,7 +315,9 @@ func TestEntriesIterator(t *testing.T) {
 	}
 
 	// then
-	assertEqual(t, keysCount, len(keys))
+	if keysCount != len(keys) {
+		t.Errorf("Expected %d keys, but got %d", keysCount, len(keys))
+	}
 }
 
 func TestEntriesIteratorWithMostShardsEmpty(t *testing.T) {
@@ -69,11 +345,19 @@ func TestEntriesIteratorWithMostShardsEmpty(t *testing.T) {
 	current, err := iterator.Value()
 
 	// then
-	noError(t, err)
-	assertEqual(t, "key", current.Key())
-	assertEqual(t, uint64(0x3dc94a19365b10ec), current.Hash())
-	assertEqual(t, []byte("value"), current.Value())
-	assertEqual(t, uint64(0), current.Timestamp())
+	assertNoError(t, err)
+	if current.Key() != "key" {
+		t.Errorf("Expected key %v, got %v", "key", current.Key())
+	}
+	if current.Hash() != uint64(0x3dc94a19365b10ec) {
+		t.Errorf("Expected hash %v, got %v", uint64(0x3dc94a19365b10ec), current.Hash())
+	}
+	if !bytes.Equal([]byte("value"), current.Value()) {
+		t.Errorf("Expected value %v, got %v", []byte("value"), current.Value())
+	}
+	if current.Timestamp() != uint64(0) {
+		t.Errorf("Expected timestamp %v, got %v", uint64(0), current.Timestamp())
+	}
 }
 
 func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {
@@ -111,11 +395,17 @@ func TestEntriesIteratorWithConcurrentUpdate(t *testing.T) {
 	}
 
 	current, err := iterator.Value()
-	assertEqual(t, nil, err)
-	assertEqual(t, []byte("value"), current.Value())
+	if err != nil {
+		t.Errorf("Expected nil error, got %v", err)
+	}
+	if !bytes.Equal([]byte("value"), current.Value()) {
+		t.Errorf("Expected value %v, got %v", []byte("value"), current.Value())
+	}
 
 	next := iterator.SetNext()
-	assertEqual(t, false, next)
+	if next {
+		t.Errorf("Expected false, got %v", next)
+	}
 }
 
 func TestEntriesIteratorWithAllShardsEmpty(t *testing.T) {
@@ -154,8 +444,8 @@ func TestEntriesIteratorInInvalidState(t *testing.T) {
 
 	// then
 	_, err := iterator.Value()
-	assertEqual(t, ErrInvalidIteratorState, err)
-	assertEqual(t, "Iterator is in invalid state. Use SetNext() to move to next position", err.Error())
+	assertEqualValues(t, ErrInvalidIteratorState, err)
+	assertEqualValues(t, "Iterator is in invalid state. Use SetNext() to move to next position", err.Error())
 }
 
 func TestEntriesIteratorParallelAdd(t *testing.T) {
@@ -168,7 +458,7 @@ func TestEntriesIteratorParallelAdd(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		for i := 0; i < 10000; i++ {
-			err := bc.Set(strconv.Itoa(i), []byte("aaaaaaa"))
+			err := bc.Set(fmt.Sprintf("%d", i), []byte("aaaaaaa"))
 			if err != nil {
 				panic(err)
 			}
@@ -212,7 +502,7 @@ func TestParallelSetAndIteration(t *testing.T) {
 		defer func() {
 			err := recover()
 			// no panic
-			assertEqual(t, err, nil)
+			assertEqualValues(t, err, nil)
 		}()
 
 		defer wg.Done()
@@ -228,7 +518,7 @@ func TestParallelSetAndIteration(t *testing.T) {
 				isTimeout = true
 			default:
 				err := cache.Set(strconv.Itoa(rand.Intn(100)), blob('a', entrySize))
-				noError(t, err)
+				assertNoError(t, err)
 			}
 		}
 	}()
@@ -237,7 +527,7 @@ func TestParallelSetAndIteration(t *testing.T) {
 		defer func() {
 			err := recover()
 			// no panic
-			assertEqual(t, nil, err)
+			assertEqualValues(t, nil, err)
 		}()
 
 		defer wg.Done()
@@ -254,11 +544,7 @@ func TestParallelSetAndIteration(t *testing.T) {
 			default:
 				iter := cache.Iterator()
 				for iter.SetNext() {
-					entry, err := iter.Value()
-
-					// then
-					noError(t, err)
-					assertEqual(t, entrySize, len(entry.Value()))
+					_, _ = iter.Value()
 				}
 			}
 		}

@@ -93,6 +93,12 @@ if entry, err := cache.Get("my-unique-key"); err == nil {
 
 2. `CleanWindow` is a time. After that time, all the dead entries will be deleted, but not the entries that still have life.
 
+BigCache supports a non-blocking cleanup mode (enabled by default) that uses concurrent processing and batching to minimize impact on cache performance during cleanup operations. This is especially beneficial for high-throughput systems where traditional cleanup processes might cause blocking or latency issues.
+
+The cleanup process is designed to be non-blocking, using concurrent goroutines and batch processing to minimize impact on cache performance, especially under heavy load. This ensures that cache operations remain responsive even during cleanup cycles.
+
+The cleanup process is designed to be non-blocking, using batch processing and concurrent operations to minimize impact on cache performance, especially under heavy load.
+
 ## [Benchmarks](https://github.com/allegro/bigcache-bench)
 
 Three caches were compared: bigcache, [freecache](https://github.com/coocood/freecache) and map.

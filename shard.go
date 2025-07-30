@@ -2,6 +2,7 @@ package bigcache
 
 import (
 	"errors"
+	"runtime"
 	"sync"
 	"sync/atomic"
 
@@ -299,6 +300,54 @@ func (s *cacheShard) cleanUp(currentTimestamp uint64) {
 		}
 	}
 	s.lock.Unlock()
+}
+
+// cleanUpInBatches performs cleanup in smaller batches to reduce lock contention
+// This is more efficient for heavy load systems as it allows other operations
+// to proceed between batches
+// Returns the number of entries removed during cleanup
+func (s *cacheShard) cleanUpInBatches(currentTimestamp uint64) int {
+	if !s.cleanEnabled {
+		return 0
+	}
+
+	const batchSize = 100 // Process up to 100 entries per batch
+	entriesRemoved := true
+	totalRemoved := 0
+
+	for entriesRemoved {
+		entriesRemoved = false
+		removedInBatch := 0
+
+		// Lock only for a short duration to process a batch
+		s.lock.Lock()
+
+		// Process a batch of entries
+		for i := 0; i < batchSize; i++ {
+			if oldestEntry, err := s.entries.Peek(); err != nil {
+				break
+			} else if s.isExpired(oldestEntry, currentTimestamp) {
+				if s.removeOldestEntry(Expired) == nil {
+					entriesRemoved = true
+					removedInBatch++
+				} else {
+					break
+				}
+			} else {
+				break
+			}
+		}
+
+		s.lock.Unlock()
+		totalRemoved += removedInBatch
+
+		// If we removed entries in this batch, yield to allow other goroutines to proceed
+		if entriesRemoved {
+			runtime.Gosched()
+		}
+	}
+
+	return totalRemoved
 }
 
 func (s *cacheShard) getEntry(hashedKey uint64) ([]byte, error) {

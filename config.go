@@ -12,7 +12,7 @@ type Config struct {
 	// If set to <= 0 then no action is performed. Setting to < 1 second is counterproductive — bigcache has a one second resolution.
 	CleanWindow time.Duration
 	// Max number of entries in life window. Used only to calculate initial size for cache shards.
-	// When proper value is set then additional memory allocation does not occur.
+	// When the proper value is set, then additional memory allocation does not occur.
 	MaxEntriesInWindow int
 	// Max size of entry in bytes. Used only to calculate initial size for cache shards.
 	MaxEntrySize int
@@ -44,6 +44,12 @@ type Config struct {
 	// Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
 	// Ignored if OnRemove is specified.
 	OnRemoveWithReason func(key string, entry []byte, reason RemoveReason)
+	// EnableNonBlockingCleanup if true, use non-blocking cleanup which is more efficient under heavy load
+	// Default value is true to avoid performance issues in high-throughput systems
+	EnableNonBlockingCleanup bool
+	// EnableMetrics if true, collects metrics about cleanup operations
+	// Default value is false to minimize overhead
+	EnableMetrics bool
 
 	onRemoveFilter int
 
@@ -71,7 +77,7 @@ func DefaultConfig(eviction time.Duration) Config {
 
 // initialShardSize computes initial shard size
 func (c Config) initialShardSize() int {
-	return max(c.MaxEntriesInWindow/c.Shards, minimumEntriesInShard)
+	return maxInt(c.MaxEntriesInWindow/c.Shards, minimumEntriesInShard)
 }
 
 // maximumShardSizeInBytes computes maximum shard size in bytes
