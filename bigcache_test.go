@@ -1389,3 +1389,31 @@ func TestRemoveNonExpiredData(t *testing.T) {
 		noError(t, err)
 	}
 }
+
+func TestContainsExists(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := New(context.Background(), DefaultConfig(5*time.Second))
+	value := []byte("value")
+
+	// when
+	cache.Set("key", value)
+	exists := cache.Contains("key")
+
+	// then
+	assertEqual(t, true, exists)
+}
+
+func TestContainsNotExists(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := New(context.Background(), DefaultConfig(5*time.Second))
+
+	// when
+	exists := cache.Contains("key")
+
+	// then
+	assertEqual(t, false, exists)
+}
