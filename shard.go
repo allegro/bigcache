@@ -375,11 +375,11 @@ func (s *cacheShard) capacity() int {
 
 func (s *cacheShard) getStats() Stats {
 	var stats = Stats{
-		Hits:       atomic.LoadInt64(&s.stats.Hits),
-		Misses:     atomic.LoadInt64(&s.stats.Misses),
-		DelHits:    atomic.LoadInt64(&s.stats.DelHits),
-		DelMisses:  atomic.LoadInt64(&s.stats.DelMisses),
-		Collisions: atomic.LoadInt64(&s.stats.Collisions),
+		Hits:       atomic.LoadInt32(&s.stats.Hits),
+		Misses:     atomic.LoadInt32(&s.stats.Misses),
+		DelHits:    atomic.LoadInt32(&s.stats.DelHits),
+		DelMisses:  atomic.LoadInt32(&s.stats.DelMisses),
+		Collisions: atomic.LoadInt32(&s.stats.Collisions),
 	}
 	return stats
 }
@@ -400,7 +400,7 @@ func (s *cacheShard) getKeyMetadata(key uint64) Metadata {
 }
 
 func (s *cacheShard) hit(key uint64) {
-	atomic.AddInt64(&s.stats.Hits, 1)
+	atomic.AddInt32(&s.stats.Hits, 1)
 	if s.statsEnabled {
 		s.lock.Lock()
 		s.hashmapStats[key]++
@@ -409,26 +409,26 @@ func (s *cacheShard) hit(key uint64) {
 }
 
 func (s *cacheShard) hitWithoutLock(key uint64) {
-	atomic.AddInt64(&s.stats.Hits, 1)
+	atomic.AddInt32(&s.stats.Hits, 1)
 	if s.statsEnabled {
 		s.hashmapStats[key]++
 	}
 }
 
 func (s *cacheShard) miss() {
-	atomic.AddInt64(&s.stats.Misses, 1)
+	atomic.AddInt32(&s.stats.Misses, 1)
 }
 
 func (s *cacheShard) delhit() {
-	atomic.AddInt64(&s.stats.DelHits, 1)
+	atomic.AddInt32(&s.stats.DelHits, 1)
 }
 
 func (s *cacheShard) delmiss() {
-	atomic.AddInt64(&s.stats.DelMisses, 1)
+	atomic.AddInt32(&s.stats.DelMisses, 1)
 }
 
 func (s *cacheShard) collision() {
-	atomic.AddInt64(&s.stats.Collisions, 1)
+	atomic.AddInt32(&s.stats.Collisions, 1)
 }
 
 func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheShard {
