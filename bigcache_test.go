@@ -945,6 +945,83 @@ func TestEntryUpdate(t *testing.T) {
 	assertEqual(t, []byte("value2"), cachedValue)
 }
 
+func TestSetOrGet(t *testing.T) {
+	t.Parallel()
+
+	// given
+	clock := mockedClock{value: 0}
+	cache, _ := newBigCache(context.Background(), Config{
+		Shards:             1,
+		LifeWindow:         6 * time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	}, &clock)
+
+	// when
+	entry1, loaded1, _ := cache.SetOrGet("key1", []byte("value1"))
+	entry2, loaded2, _ := cache.SetOrGet("key1", []byte("value2"))
+	entry3, loaded3, _ := cache.SetOrGet("key2", []byte("value3"))
+
+	cachedValue, _ := cache.Get("key1")
+
+	// then
+	assertEqual(t, []byte("value1"), entry1)
+	assertEqual(t, []byte("value1"), entry2)
+	assertEqual(t, []byte("value3"), entry3)
+	assertEqual(t, []byte("value1"), cachedValue)
+	assertEqual(t, false, loaded1)
+	assertEqual(t, true, loaded2)
+	assertEqual(t, false, loaded3)
+}
+
+func TestSetOrGetCollision(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := New(context.Background(), Config{
+		Shards:             1,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 10,
+		MaxEntrySize:       256,
+		Verbose:            true,
+		Hasher:             hashStub(5),
+	})
+
+	//when
+	entry1, loaded1, _ := cache.SetOrGet("a", []byte("value1"))
+	entry2, loaded2, _ := cache.SetOrGet("b", []byte("value2"))
+
+	// then
+	assertEqual(t, []byte("value1"), entry1)
+	assertEqual(t, []byte("value2"), entry2)
+	assertEqual(t, false, loaded1)
+	assertEqual(t, false, loaded2)
+	assertEqual(t, cache.Stats().Collisions, int64(1))
+
+}
+
+func TestSetOrGetErrorBiggerThanShardSize(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := New(context.Background(), Config{
+		Shards:             1,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       1,
+		HardMaxCacheSize:   1,
+	})
+
+	// when
+	entry, loaded, err := cache.SetOrGet("key1", blob('a', 1024*1025))
+
+	// then
+	assertEqual(t, blob('a', 1024*1025), entry)
+	assertEqual(t, false, loaded)
+	assertEqual(t, "entry is bigger than max shard size", err.Error())
+
+}
+
 func TestOldestEntryDeletionWhenMaxCacheSizeIsReached(t *testing.T) {
 	t.Parallel()
 
