@@ -94,7 +94,7 @@ func TestResetFullQueue(t *testing.T) {
 
 	// then
 	assertEqual(t, blob('c', 8), pop(queue))
-	assertEqual(t, queue.Capacity(), 10)
+	assertEqual(t, queue.Capacity(), unixOr_int(20, 10))
 }
 
 func TestReset(t *testing.T) {
@@ -416,9 +416,9 @@ func TestPushEntryAfterAllocateAdditionMemory(t *testing.T) {
 	queue.Pop()
 
 	// allocate more memory
-	assertEqual(t, 9, queue.Capacity())
+	assertEqual(t, unixOr_int(20, 9), queue.Capacity())
 	queue.Push([]byte("c"))
-	assertEqual(t, 18, queue.Capacity())
+	assertEqual(t, unixOr_int(20, 18), queue.Capacity())
 
 	// push after allocate
 	_, err := queue.Push([]byte("d"))
@@ -507,4 +507,13 @@ func objectsAreEqual(expected, actual interface{}) bool {
 		return exp == nil && act == nil
 	}
 	return bytes.Equal(exp, act)
+}
+
+func unixOr_int(unix, other int) int {
+	switch runtime.GOOS {
+	case "aix", "darwin", "dragonfly", "freebsd", "openbsd", "solaris", "zos", "linux", "netbsd":
+		return unix
+	default:
+		return other
+	}
 }
