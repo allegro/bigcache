@@ -188,6 +188,14 @@ func (c *BigCache) ResetStats() error {
 	return nil
 }
 
+// ResetKeyMetadata resets per-key metadata
+func (c *BigCache) ResetKeyMetadata() error {
+	for _, shard := range c.shards {
+		shard.resetKeyMetadata(c.config)
+	}
+	return nil
+}
+
 // Len computes the number of entries in the cache.
 func (c *BigCache) Len() int {
 	var len int
