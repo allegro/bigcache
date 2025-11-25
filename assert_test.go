@@ -24,8 +24,8 @@ func noError(t *testing.T, e error) {
 	if e != nil {
 		_, file, line, _ := runtime.Caller(1)
 		file = path.Base(file)
-		t.Errorf(fmt.Sprintf("\n%s:%d: Error is not nil: \n"+
-			"actual  : %T(%#v)\n", file, line, e, e))
+		t.Errorf("\n%s:%d: Error is not nil: \n"+
+			"actual  : %T(%#v)\n", file, line, e, e)
 	}
 }
 
