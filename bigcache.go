@@ -57,7 +57,7 @@ func NewBigCache(config Config) (*BigCache, error) {
 
 func newBigCache(ctx context.Context, config Config, clock clock) (*BigCache, error) {
 	if !isPowerOfTwo(config.Shards) {
-		return nil, errors.New("Shards number must be power of two")
+		return nil, errors.New("Shards number must be power of two") //nolint:staticcheck // keep for backward compatibility
 	}
 	if config.MaxEntrySize < 0 {
 		return nil, errors.New("MaxEntrySize must be >= 0")

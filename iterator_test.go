@@ -219,10 +219,8 @@ func TestParallelSetAndIteration(t *testing.T) {
 
 		isTimeout := false
 
-		for {
-			if isTimeout {
-				break
-			}
+		for !isTimeout {
+
 			select {
 			case <-ctx.Done():
 				isTimeout = true
@@ -244,10 +242,8 @@ func TestParallelSetAndIteration(t *testing.T) {
 
 		isTimeout := false
 
-		for {
-			if isTimeout {
-				break
-			}
+		for !isTimeout {
+
 			select {
 			case <-ctx.Done():
 				isTimeout = true
