@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Lint code
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@e7fa5ac41e1cf5b7d48e45e42232ce7ada589601
         with:
           only-new-issues: true
 
