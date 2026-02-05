@@ -29,5 +29,4 @@ func getCacheStatsHandler(w http.ResponseWriter, r *http.Request) {
 	// since we're sending a struct, make it easy for consumers to interface.
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Write(target)
-	return
 }

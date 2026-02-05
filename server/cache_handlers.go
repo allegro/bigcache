@@ -1,7 +1,7 @@
 package main
 
 import (
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -18,6 +18,21 @@ func cacheIndexHandler() http.Handler {
 			deleteCacheHandler(w, r)
 		}
 	})
+}
+
+func cacheClearHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		clearCache(w, r)
+	})
+}
+
+func clearCache(w http.ResponseWriter, r *http.Request) {
+	if err := cache.Reset(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Printf("internal cache error: %s", err)
+	}
+	log.Println("cache is successfully cleared")
+	w.WriteHeader(http.StatusOK)
 }
 
 // handles get requests.
@@ -53,7 +68,7 @@ func putCacheHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entry, err := ioutil.ReadAll(r.Body)
+	entry, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -83,5 +98,4 @@ func deleteCacheHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// this is what the RFC says to use when calling DELETE.
 	w.WriteHeader(http.StatusOK)
-	return
 }

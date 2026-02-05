@@ -1,7 +1,8 @@
 package bigcache
 
 import (
-	"fmt"
+	"context"
+	"errors"
 	"time"
 )
 
@@ -13,14 +14,13 @@ const (
 // It keeps entries on heap but omits GC for them. To achieve that, operations take place on byte arrays,
 // therefore entries (de)serialization in front of the cache will be needed in most use cases.
 type BigCache struct {
-	shards       []*cacheShard
-	lifeWindow   uint64
-	clock        clock
-	hash         Hasher
-	config       Config
-	shardMask    uint64
-	maxShardSize uint32
-	close        chan struct{}
+	shards     []*cacheShard
+	lifeWindow uint64
+	clock      clock
+	hash       Hasher
+	config     Config
+	shardMask  uint64
+	close      chan struct{}
 }
 
 // Response will contain metadata about the entry for which GetWithInfo(key) was called
@@ -42,15 +42,37 @@ const (
 	Deleted
 )
 
-// NewBigCache initialize new instance of BigCache
-func NewBigCache(config Config) (*BigCache, error) {
-	return newBigCache(config, &systemClock{})
+// New initialize new instance of BigCache
+func New(ctx context.Context, config Config) (*BigCache, error) {
+	return newBigCache(ctx, config, &systemClock{})
 }
 
-func newBigCache(config Config, clock clock) (*BigCache, error) {
+// NewBigCache initialize new instance of BigCache
+//
+// Deprecated: NewBigCache is deprecated, please use New(ctx, config) instead,
+// New takes in context and can gracefully
+// shutdown with context cancellations
+func NewBigCache(config Config) (*BigCache, error) {
+	return newBigCache(context.Background(), config, &systemClock{})
+}
 
+func newBigCache(ctx context.Context, config Config, clock clock) (*BigCache, error) {
 	if !isPowerOfTwo(config.Shards) {
-		return nil, fmt.Errorf("Shards number must be power of two")
+		return nil, errors.New("Shards number must be power of two") //nolint:staticcheck // keep for backward compatibility
+	}
+	if config.MaxEntrySize < 0 {
+		return nil, errors.New("MaxEntrySize must be >= 0")
+	}
+	if config.MaxEntriesInWindow < 0 {
+		return nil, errors.New("MaxEntriesInWindow must be >= 0")
+	}
+	if config.HardMaxCacheSize < 0 {
+		return nil, errors.New("HardMaxCacheSize must be >= 0")
+	}
+
+	lifeWindowSeconds := uint64(config.LifeWindow.Seconds())
+	if config.CleanWindow > 0 && lifeWindowSeconds == 0 {
+		return nil, errors.New("LifeWindow must be >= 1s when CleanWindow is set")
 	}
 
 	if config.Hasher == nil {
@@ -58,14 +80,13 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 	}
 
 	cache := &BigCache{
-		shards:       make([]*cacheShard, config.Shards),
-		lifeWindow:   uint64(config.LifeWindow.Seconds()),
-		clock:        clock,
-		hash:         config.Hasher,
-		config:       config,
-		shardMask:    uint64(config.Shards - 1),
-		maxShardSize: uint32(config.maximumShardSizeInBytes()),
-		close:        make(chan struct{}),
+		shards:     make([]*cacheShard, config.Shards),
+		lifeWindow: lifeWindowSeconds,
+		clock:      clock,
+		hash:       config.Hasher,
+		config:     config,
+		shardMask:  uint64(config.Shards - 1),
+		close:      make(chan struct{}),
 	}
 
 	var onRemove func(wrappedEntry []byte, reason RemoveReason)
@@ -89,6 +110,8 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 			defer ticker.Stop()
 			for {
 				select {
+				case <-ctx.Done():
+					return
 				case t := <-ticker.C:
 					cache.cleanUp(uint64(t.Unix()))
 				case <-cache.close:
@@ -136,7 +159,7 @@ func (c *BigCache) Set(key string, entry []byte) error {
 
 // Append appends entry under the key if key exists, otherwise
 // it will set the key (same behaviour as Set()). With Append() you can
-// concatenate multiple entries under the same key in an lock optimized way.
+// concatenate multiple entries under the same key in a lock-optimized way.
 func (c *BigCache) Append(key string, entry []byte) error {
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
@@ -158,7 +181,15 @@ func (c *BigCache) Reset() error {
 	return nil
 }
 
-// Len computes number of entries in cache
+// ResetStats resets cache stats
+func (c *BigCache) ResetStats() error {
+	for _, shard := range c.shards {
+		shard.resetStats()
+	}
+	return nil
+}
+
+// Len computes the number of entries in the cache.
 func (c *BigCache) Len() int {
 	var len int
 	for _, shard := range c.shards {
@@ -167,7 +198,7 @@ func (c *BigCache) Len() int {
 	return len
 }
 
-// Capacity returns amount of bytes store in the cache.
+// Capacity returns the amount of bytes stored in the cache.
 func (c *BigCache) Capacity() int {
 	var len int
 	for _, shard := range c.shards {
@@ -204,6 +235,9 @@ func (c *BigCache) Iterator() *EntryInfoIterator {
 
 func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func(reason RemoveReason) error) bool {
 	oldestTimestamp := readTimestampFromEntry(oldestEntry)
+	if currentTimestamp < oldestTimestamp {
+		return false
+	}
 	if currentTimestamp-oldestTimestamp > c.lifeWindow {
 		evict(Expired)
 		return true
@@ -235,7 +269,9 @@ func (c *BigCache) notProvidedOnRemove(wrappedEntry []byte, reason RemoveReason)
 }
 
 func (c *BigCache) providedOnRemoveWithMetadata(wrappedEntry []byte, reason RemoveReason) {
-	hashedKey := c.hash.Sum64(readKeyFromEntry(wrappedEntry))
+	key := readKeyFromEntry(wrappedEntry)
+
+	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
-	c.config.OnRemoveWithMetadata(readKeyFromEntry(wrappedEntry), readEntry(wrappedEntry), shard.getKeyMetadata(hashedKey))
+	c.config.OnRemoveWithMetadata(key, readEntry(wrappedEntry), shard.getKeyMetadata(hashedKey))
 }
