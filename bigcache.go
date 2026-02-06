@@ -99,8 +99,8 @@ func newBigCache(ctx context.Context, config Config, clock clock) (*BigCache, er
 	}
 
 	if config.CleanWindow > 0 {
+		logger := newLogger(config.Logger)
 		go func() {
-			logger := newLogger(config.Logger)
 			ticker := time.NewTicker(config.CleanWindow)
 			defer ticker.Stop()
 			for {
