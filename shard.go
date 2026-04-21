@@ -121,6 +121,14 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 	currentTimestamp := uint64(s.clock.Epoch())
 
 	s.lock.Lock()
+	// Hold the shard lock with defer so that a panic deeper in
+	// readEntry / onRemove / providedOnRemoveWithReason (e.g. a
+	// makeslice-len-out-of-range from a corrupted entry) does not
+	// leave the lock permanently held. Previously, a panic during
+	// onEvict would tear down the goroutine before the manual
+	// Unlock below could run, and every subsequent writer on the
+	// same shard blocked forever (#401).
+	defer s.lock.Unlock()
 
 	if previousIndex := s.hashmap[hashedKey]; previousIndex != 0 {
 		if previousEntry, err := s.entries.Get(int(previousIndex)); err == nil {
@@ -141,11 +149,9 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 	for {
 		if index, err := s.entries.Push(w); err == nil {
 			s.hashmap[hashedKey] = uint64(index)
-			s.lock.Unlock()
 			return nil
 		}
 		if s.removeOldestEntry(NoSpace) != nil {
-			s.lock.Unlock()
 			return errors.New("entry is bigger than max shard size")
 		}
 	}
@@ -199,15 +205,17 @@ func (s *cacheShard) setWrappedEntryWithoutLock(currentTimestamp uint64, w []byt
 
 func (s *cacheShard) append(key string, hashedKey uint64, entry []byte) error {
 	s.lock.Lock()
+	// Same lock-hygiene fix as set(): hold the lock across the full
+	// body so a panic deeper in readEntry / onEvict / etc. cannot
+	// strand the shard in a permanently locked state (#401).
+	defer s.lock.Unlock()
+
 	wrappedEntry, err := s.getValidWrapEntry(key, hashedKey)
 
 	if err == ErrEntryNotFound {
-		err = s.addNewWithoutLock(key, hashedKey, entry)
-		s.lock.Unlock()
-		return err
+		return s.addNewWithoutLock(key, hashedKey, entry)
 	}
 	if err != nil {
-		s.lock.Unlock()
 		return err
 	}
 
@@ -215,10 +223,7 @@ func (s *cacheShard) append(key string, hashedKey uint64, entry []byte) error {
 
 	w := appendToWrappedEntry(currentTimestamp, wrappedEntry, entry, &s.entryBuffer)
 
-	err = s.setWrappedEntryWithoutLock(currentTimestamp, w, hashedKey)
-	s.lock.Unlock()
-
-	return err
+	return s.setWrappedEntryWithoutLock(currentTimestamp, w, hashedKey)
 }
 
 func (s *cacheShard) del(hashedKey uint64) error {
