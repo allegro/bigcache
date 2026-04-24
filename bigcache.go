@@ -32,13 +32,14 @@ type Response struct {
 type RemoveReason uint32
 
 const (
+	_ RemoveReason = iota
 	// Expired means the key is past its LifeWindow.
-	Expired = RemoveReason(1)
+	Expired
 	// NoSpace means the key is the oldest and the cache size was at its maximum when Set was called, or the
 	// entry exceeded the maximum shard size.
-	NoSpace = RemoveReason(2)
+	NoSpace
 	// Deleted means Delete was called and this key was removed as a result.
-	Deleted = RemoveReason(3)
+	Deleted
 )
 
 // New initialize new instance of BigCache
@@ -57,7 +58,7 @@ func NewBigCache(config Config) (*BigCache, error) {
 
 func newBigCache(ctx context.Context, config Config, clock clock) (*BigCache, error) {
 	if !isPowerOfTwo(config.Shards) {
-		return nil, errors.New("Shards number must be power of two")
+		return nil, errors.New("Shards number must be power of two") //nolint:staticcheck // keep for backward compatibility
 	}
 	if config.MaxEntrySize < 0 {
 		return nil, errors.New("MaxEntrySize must be >= 0")

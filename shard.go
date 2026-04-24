@@ -298,7 +298,7 @@ func (s *cacheShard) isExpired(oldestEntry []byte, currentTimestamp uint64) bool
 	if currentTimestamp <= oldestTimestamp { // if currentTimestamp < oldestTimestamp, the result will out of uint64 limits;
 		return false
 	}
-	return currentTimestamp-oldestTimestamp > s.lifeWindow
+	return currentTimestamp-oldestTimestamp >= s.lifeWindow
 }
 
 func (s *cacheShard) cleanUp(currentTimestamp uint64) {
@@ -449,9 +449,13 @@ func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheS
 	if maximumShardSizeInBytes > 0 && bytesQueueInitialCapacity > maximumShardSizeInBytes {
 		bytesQueueInitialCapacity = maximumShardSizeInBytes
 	}
+	var hashmapStatsCapacity int
+	if config.StatsEnabled {
+		hashmapStatsCapacity = config.initialShardSize()
+	}
 	return &cacheShard{
 		hashmap:      make(map[uint64]uint64, config.initialShardSize()),
-		hashmapStats: make(map[uint64]uint32, config.initialShardSize()),
+		hashmapStats: make(map[uint64]uint32, hashmapStatsCapacity),
 		entries:      *queue.NewBytesQueue(bytesQueueInitialCapacity, maximumShardSizeInBytes, config.Verbose),
 		entryBuffer:  make([]byte, config.MaxEntrySize+headersSizeInBytes),
 		onRemove:     callback,

@@ -12,8 +12,9 @@ Requires Go 1.12 or newer.
 
 ```go
 import (
-	"fmt"
 	"context"
+	"fmt"
+	"time"
 	"github.com/allegro/bigcache/v3"
 )
 
@@ -32,7 +33,10 @@ allocation can be avoided in that way.
 
 ```go
 import (
+	"context"
+	"fmt"
 	"log"
+	"time"
 
 	"github.com/allegro/bigcache/v3"
 )
