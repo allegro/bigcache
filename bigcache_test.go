@@ -1388,3 +1388,55 @@ func TestRemoveNonExpiredData(t *testing.T) {
 		noError(t, err)
 	}
 }
+
+
+func TestShardUnlocksOnOnRemovePanic(t *testing.T) {
+	// A panic inside onRemove used to leave the shard mutex locked forever
+	// because set/del unlocked manually after the callback (#401).
+	// After the fix, defer unlocks and subsequent writes can proceed.
+	cache, err := New(context.Background(), Config{
+		Shards:             1,
+		LifeWindow:         time.Minute,
+		CleanWindow:        0,
+		MaxEntriesInWindow: 10,
+		MaxEntrySize:       64,
+		OnRemoveWithReason: func(key string, entry []byte, reason RemoveReason) {
+			panic("simulated onRemove panic")
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := cache.Set("key", []byte("value")); err != nil {
+		t.Fatal(err)
+	}
+
+	panicked := false
+	func() {
+		defer func() {
+			if recover() != nil {
+				panicked = true
+			}
+		}()
+		_ = cache.Delete("key")
+	}()
+	if !panicked {
+		t.Fatal("expected Delete to panic via OnRemoveWithReason")
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- cache.Set("after-panic", []byte("ok"))
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Set after panic failed: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("shard still locked after onRemove panic")
+	}
+}
+

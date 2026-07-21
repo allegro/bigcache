@@ -121,6 +121,11 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 	currentTimestamp := uint64(s.clock.Epoch())
 
 	s.lock.Lock()
+	// Hold the shard lock with defer so a panic deeper in
+	// readEntry / onRemove / providedOnRemoveWithReason (e.g. a
+	// makeslice len out of range from a corrupted entry) does not
+	// leave the lock permanently held (#401).
+	defer s.lock.Unlock()
 
 	if previousIndex := s.hashmap[hashedKey]; previousIndex != 0 {
 		if previousEntry, err := s.entries.Get(int(previousIndex)); err == nil {
@@ -141,11 +146,9 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 	for {
 		if index, err := s.entries.Push(w); err == nil {
 			s.hashmap[hashedKey] = uint64(index)
-			s.lock.Unlock()
 			return nil
 		}
 		if s.removeOldestEntry(NoSpace) != nil {
-			s.lock.Unlock()
 			return errors.New("entry is bigger than max shard size")
 		}
 	}
@@ -199,15 +202,17 @@ func (s *cacheShard) setWrappedEntryWithoutLock(currentTimestamp uint64, w []byt
 
 func (s *cacheShard) append(key string, hashedKey uint64, entry []byte) error {
 	s.lock.Lock()
+	// Same lock-hygiene fix as set(): hold the lock across the full
+	// body so a panic deeper in readEntry / onEvict cannot strand the
+	// shard in a permanently locked state (#401).
+	defer s.lock.Unlock()
+
 	wrappedEntry, err := s.getValidWrapEntry(key, hashedKey)
 
 	if err == ErrEntryNotFound {
-		err = s.addNewWithoutLock(key, hashedKey, entry)
-		s.lock.Unlock()
-		return err
+		return s.addNewWithoutLock(key, hashedKey, entry)
 	}
 	if err != nil {
-		s.lock.Unlock()
 		return err
 	}
 
@@ -215,10 +220,7 @@ func (s *cacheShard) append(key string, hashedKey uint64, entry []byte) error {
 
 	w := appendToWrappedEntry(currentTimestamp, wrappedEntry, entry, &s.entryBuffer)
 
-	err = s.setWrappedEntryWithoutLock(currentTimestamp, w, hashedKey)
-	s.lock.Unlock()
-
-	return err
+	return s.setWrappedEntryWithoutLock(currentTimestamp, w, hashedKey)
 }
 
 func (s *cacheShard) del(hashedKey uint64) error {
@@ -242,20 +244,20 @@ func (s *cacheShard) del(hashedKey uint64) error {
 	s.lock.RUnlock()
 
 	s.lock.Lock()
+	// onRemove may panic on corrupt entry data; always release the lock.
+	defer s.lock.Unlock()
 	{
 		// After obtaining the writelock, we need to read the same again,
 		// since the data delivered earlier may be stale now
 		itemIndex := s.hashmap[hashedKey]
 
 		if itemIndex == 0 {
-			s.lock.Unlock()
 			s.delmiss()
 			return ErrEntryNotFound
 		}
 
 		wrappedEntry, err := s.entries.Get(int(itemIndex))
 		if err != nil {
-			s.lock.Unlock()
 			s.delmiss()
 			return err
 		}
@@ -267,7 +269,6 @@ func (s *cacheShard) del(hashedKey uint64) error {
 		}
 		resetHashFromEntry(wrappedEntry)
 	}
-	s.lock.Unlock()
 
 	s.delhit()
 	return nil
@@ -291,6 +292,7 @@ func (s *cacheShard) isExpired(oldestEntry []byte, currentTimestamp uint64) bool
 
 func (s *cacheShard) cleanUp(currentTimestamp uint64) {
 	s.lock.Lock()
+	defer s.lock.Unlock()
 	for {
 		if oldestEntry, err := s.entries.Peek(); err != nil {
 			break
@@ -298,7 +300,6 @@ func (s *cacheShard) cleanUp(currentTimestamp uint64) {
 			break
 		}
 	}
-	s.lock.Unlock()
 }
 
 func (s *cacheShard) getEntry(hashedKey uint64) ([]byte, error) {
@@ -347,16 +348,16 @@ func (s *cacheShard) removeOldestEntry(reason RemoveReason) error {
 
 func (s *cacheShard) reset(config Config) {
 	s.lock.Lock()
+	defer s.lock.Unlock()
 	s.hashmap = make(map[uint64]uint64, config.initialShardSize())
 	s.entryBuffer = make([]byte, config.MaxEntrySize+headersSizeInBytes)
 	s.entries.Reset()
-	s.lock.Unlock()
 }
 
 func (s *cacheShard) resetStats() {
 	s.lock.Lock()
+	defer s.lock.Unlock()
 	s.stats = Stats{}
-	s.lock.Unlock()
 }
 
 func (s *cacheShard) len() int {
