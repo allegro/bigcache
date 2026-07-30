@@ -5,7 +5,8 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"math/rand"
+	crand "crypto/rand"
+	"math/rand/v2"
 	"runtime"
 	"strings"
 	"sync"
@@ -36,11 +37,11 @@ func TestAppendAndGetOnCache(t *testing.T) {
 	cache, _ := New(context.Background(), DefaultConfig(5*time.Second))
 	key := "key"
 	value1 := make([]byte, 50)
-	rand.Read(value1)
+	crand.Read(value1)
 	value2 := make([]byte, 50)
-	rand.Read(value2)
+	crand.Read(value2)
 	value3 := make([]byte, 50)
-	rand.Read(value3)
+	crand.Read(value3)
 
 	// when
 	_, err := cache.Get(key)
@@ -1376,7 +1377,7 @@ func TestRemoveNonExpiredData(t *testing.T) {
 
 	data := func(l int) []byte {
 		m := make([]byte, l)
-		_, err := rand.Read(m)
+		_, err := crand.Read(m)
 		noError(t, err)
 		return m
 	}

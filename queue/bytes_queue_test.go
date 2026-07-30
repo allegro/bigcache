@@ -2,7 +2,6 @@ package queue
 
 import (
 	"bytes"
-	"fmt"
 	"path"
 	"reflect"
 	"runtime"
@@ -473,10 +472,10 @@ func assertEqual(t *testing.T, expected, actual interface{}, msgAndArgs ...inter
 	if !objectsAreEqual(expected, actual) {
 		_, file, line, _ := runtime.Caller(1)
 		file = path.Base(file)
-		t.Errorf(fmt.Sprintf("\n%s:%d: Not equal: \n"+
+		t.Errorf("\n%s:%d: Not equal: \n"+
 			"expected: %T(%#v)\n"+
 			"actual  : %T(%#v)\n",
-			file, line, expected, expected, actual, actual), msgAndArgs...)
+			file, line, expected, expected, actual, actual)
 	}
 }
 
@@ -484,8 +483,8 @@ func noError(t *testing.T, e error) {
 	if e != nil {
 		_, file, line, _ := runtime.Caller(1)
 		file = path.Base(file)
-		t.Errorf(fmt.Sprintf("\n%s:%d: Error is not nil: \n"+
-			"actual  : %T(%#v)\n", file, line, e, e))
+		t.Errorf("\n%s:%d: Error is not nil: \n"+
+			"actual  : %T(%#v)\n", file, line, e, e)
 	}
 }
 

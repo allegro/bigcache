@@ -3,7 +3,7 @@ package bigcache
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"strconv"
 	"testing"
 	"time"
@@ -128,8 +128,6 @@ func writeToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsIn
 		MaxEntriesInWindow: max(requestsInLifeWindow, 100),
 		MaxEntrySize:       500,
 	})
-	rand.Seed(time.Now().Unix())
-
 	b.RunParallel(func(pb *testing.PB) {
 		id := rand.Int()
 		counter := 0
@@ -149,7 +147,6 @@ func appendToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsI
 		MaxEntriesInWindow: max(requestsInLifeWindow, 100),
 		MaxEntrySize:       2000,
 	})
-	rand.Seed(time.Now().Unix())
 
 	b.RunParallel(func(pb *testing.PB) {
 		id := rand.Int()
@@ -183,9 +180,9 @@ func readFromCache(b *testing.B, shards int, info bool) {
 
 		for pb.Next() {
 			if info {
-				cache.GetWithInfo(strconv.Itoa(rand.Intn(b.N)))
+				cache.GetWithInfo(strconv.Itoa(rand.IntN(b.N)))
 			} else {
-				cache.Get(strconv.Itoa(rand.Intn(b.N)))
+				cache.Get(strconv.Itoa(rand.IntN(b.N)))
 			}
 		}
 	})
@@ -204,7 +201,7 @@ func readFromCacheNonExistentKeys(b *testing.B, shards int) {
 		b.ReportAllocs()
 
 		for pb.Next() {
-			cache.Get(strconv.Itoa(rand.Intn(b.N)))
+			cache.Get(strconv.Itoa(rand.IntN(b.N)))
 		}
 	})
 }
