@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 	"math"
-	crand "crypto/rand"
-	"math/rand/v2"
+	"crypto/rand"
+	mrand "math/rand/v2"
 	"runtime"
 	"strings"
 	"sync"
@@ -37,11 +37,11 @@ func TestAppendAndGetOnCache(t *testing.T) {
 	cache, _ := New(context.Background(), DefaultConfig(5*time.Second))
 	key := "key"
 	value1 := make([]byte, 50)
-	crand.Read(value1)
+	rand.Read(value1)
 	value2 := make([]byte, 50)
-	crand.Read(value2)
+	rand.Read(value2)
 	value3 := make([]byte, 50)
-	crand.Read(value3)
+	rand.Read(value3)
 
 	// when
 	_, err := cache.Get(key)
@@ -107,7 +107,7 @@ func TestAppendRandomly(t *testing.T) {
 			keys = append(keys, fmt.Sprintf("key%d", i))
 		}
 	}
-	rand.Shuffle(len(keys), func(i, j int) {
+	mrand.Shuffle(len(keys), func(i, j int) {
 		keys[i], keys[j] = keys[j], keys[i]
 	})
 
@@ -764,7 +764,7 @@ func TestCacheDelRandomly(t *testing.T) {
 	wg.Add(3)
 	go func() {
 		for i := 0; i < ntest; i++ {
-			r := uint8(rand.Int())
+			r := uint8(mrand.Int())
 			key := fmt.Sprintf("thekey%d", r)
 
 			cache.Delete(key)
@@ -775,7 +775,7 @@ func TestCacheDelRandomly(t *testing.T) {
 	go func() {
 		val := make([]byte, valueLen)
 		for i := 0; i < ntest; i++ {
-			r := byte(rand.Int())
+			r := byte(mrand.Int())
 			key := fmt.Sprintf("thekey%d", r)
 
 			for j := 0; j < len(val); j++ {
@@ -788,7 +788,7 @@ func TestCacheDelRandomly(t *testing.T) {
 	go func() {
 		val := make([]byte, valueLen)
 		for i := 0; i < ntest; i++ {
-			r := byte(rand.Int())
+			r := byte(mrand.Int())
 			key := fmt.Sprintf("thekey%d", r)
 
 			for j := 0; j < len(val); j++ {
@@ -1377,7 +1377,7 @@ func TestRemoveNonExpiredData(t *testing.T) {
 
 	data := func(l int) []byte {
 		m := make([]byte, l)
-		_, err := crand.Read(m)
+		_, err := rand.Read(m)
 		noError(t, err)
 		return m
 	}
