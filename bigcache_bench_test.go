@@ -93,11 +93,13 @@ func BenchmarkIterateOverCache(b *testing.B) {
 				cache.Set(fmt.Sprintf("key-%d", i), m)
 			}
 
+			b.ReportAllocs()
 			b.ResetTimer()
-			it := cache.Iterator()
 
 			b.RunParallel(func(pb *testing.PB) {
-				b.ReportAllocs()
+				// EntryInfoIterator is a stateful cursor intended to be used by a single goroutine at a time.
+				// We instantiate a new iterator for each parallel goroutine to prevent data races.
+				it := cache.Iterator()
 
 				for pb.Next() {
 					if it.SetNext() {
@@ -128,11 +130,13 @@ func writeToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsIn
 		MaxEntriesInWindow: max(requestsInLifeWindow, 100),
 		MaxEntrySize:       500,
 	})
+	rand.Seed(time.Now().Unix())
+
+	b.ReportAllocs()
 	b.RunParallel(func(pb *testing.PB) {
 		id := rand.Int()
 		counter := 0
 
-		b.ReportAllocs()
 		for pb.Next() {
 			cache.Set(fmt.Sprintf("key-%d-%d", id, counter), message)
 			counter = counter + 1
@@ -148,11 +152,11 @@ func appendToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsI
 		MaxEntrySize:       2000,
 	})
 
+	b.ReportAllocs()
 	b.RunParallel(func(pb *testing.PB) {
 		id := rand.Int()
 		counter := 0
 
-		b.ReportAllocs()
 		for pb.Next() {
 			key := fmt.Sprintf("key-%d-%d", id, counter)
 			for j := 0; j < 7; j++ {
@@ -173,11 +177,10 @@ func readFromCache(b *testing.B, shards int, info bool) {
 	for i := 0; i < b.N; i++ {
 		cache.Set(strconv.Itoa(i), message)
 	}
+	b.ReportAllocs()
 	b.ResetTimer()
 
 	b.RunParallel(func(pb *testing.PB) {
-		b.ReportAllocs()
-
 		for pb.Next() {
 			if info {
 				cache.GetWithInfo(strconv.Itoa(rand.IntN(b.N)))
@@ -195,11 +198,10 @@ func readFromCacheNonExistentKeys(b *testing.B, shards int) {
 		MaxEntriesInWindow: max(b.N, 100),
 		MaxEntrySize:       500,
 	})
+	b.ReportAllocs()
 	b.ResetTimer()
 
 	b.RunParallel(func(pb *testing.PB) {
-		b.ReportAllocs()
-
 		for pb.Next() {
 			cache.Get(strconv.Itoa(rand.IntN(b.N)))
 		}
