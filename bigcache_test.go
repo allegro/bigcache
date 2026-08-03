@@ -842,7 +842,7 @@ func TestCacheReset(t *testing.T) {
 	// given
 	cache, _ := New(context.Background(), Config{
 		Shards:             8,
-		LifeWindow:         time.Second,
+		LifeWindow:         time.Minute,
 		MaxEntriesInWindow: 1,
 		MaxEntrySize:       256,
 	})
