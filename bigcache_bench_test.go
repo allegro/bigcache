@@ -130,8 +130,6 @@ func writeToCache(b *testing.B, shards int, lifeWindow time.Duration, requestsIn
 		MaxEntriesInWindow: max(requestsInLifeWindow, 100),
 		MaxEntrySize:       500,
 	})
-	rand.Seed(time.Now().Unix())
-
 	b.ReportAllocs()
 	b.RunParallel(func(pb *testing.PB) {
 		id := rand.Int()
