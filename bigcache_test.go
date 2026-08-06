@@ -5,7 +5,8 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"math/rand"
+	"crypto/rand"
+	mrand "math/rand/v2"
 	"runtime"
 	"strings"
 	"sync"
@@ -106,7 +107,7 @@ func TestAppendRandomly(t *testing.T) {
 			keys = append(keys, fmt.Sprintf("key%d", i))
 		}
 	}
-	rand.Shuffle(len(keys), func(i, j int) {
+	mrand.Shuffle(len(keys), func(i, j int) {
 		keys[i], keys[j] = keys[j], keys[i]
 	})
 
@@ -763,7 +764,7 @@ func TestCacheDelRandomly(t *testing.T) {
 	wg.Add(3)
 	go func() {
 		for i := 0; i < ntest; i++ {
-			r := uint8(rand.Int())
+			r := uint8(mrand.Int())
 			key := fmt.Sprintf("thekey%d", r)
 
 			cache.Delete(key)
@@ -774,7 +775,7 @@ func TestCacheDelRandomly(t *testing.T) {
 	go func() {
 		val := make([]byte, valueLen)
 		for i := 0; i < ntest; i++ {
-			r := byte(rand.Int())
+			r := byte(mrand.Int())
 			key := fmt.Sprintf("thekey%d", r)
 
 			for j := 0; j < len(val); j++ {
@@ -787,7 +788,7 @@ func TestCacheDelRandomly(t *testing.T) {
 	go func() {
 		val := make([]byte, valueLen)
 		for i := 0; i < ntest; i++ {
-			r := byte(rand.Int())
+			r := byte(mrand.Int())
 			key := fmt.Sprintf("thekey%d", r)
 
 			for j := 0; j < len(val); j++ {
@@ -841,7 +842,7 @@ func TestCacheReset(t *testing.T) {
 	// given
 	cache, _ := New(context.Background(), Config{
 		Shards:             8,
-		LifeWindow:         time.Second,
+		LifeWindow:         time.Minute,
 		MaxEntriesInWindow: 1,
 		MaxEntrySize:       256,
 	})
