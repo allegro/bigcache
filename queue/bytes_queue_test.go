@@ -2,7 +2,6 @@ package queue
 
 import (
 	"bytes"
-	"fmt"
 	"path"
 	"reflect"
 	"runtime"
@@ -449,6 +448,42 @@ func TestPushEntryAfterAllocateAdditionMemoryInFull(t *testing.T) {
 	noError(t, err)
 }
 
+func TestPushAndGetEmptyEntry(t *testing.T) {
+	t.Parallel()
+
+	queue := NewBytesQueue(10, 0, false)
+
+	index, err := queue.Push([]byte{})
+	noError(t, err)
+
+	result, err := queue.Get(index)
+	noError(t, err)
+	assertEqual(t, []byte{}, result)
+}
+
+func TestGetStaleIndexReturnsError(t *testing.T) {
+	t.Parallel()
+
+	q := NewBytesQueue(50, 0, false)
+
+	q.Push([]byte("aaa"))
+	staleIdx, _ := q.Push(bytes.Repeat([]byte{0xff}, 20))
+	q.Push(bytes.Repeat([]byte{0}, 20))
+
+	q.Pop()
+	q.Pop()
+
+	// Wraps tail to beginning, overwrites staleIdx position with 0xff data bytes.
+	// Reading uvarint from staleIdx now hits 0xff continuation bytes,
+	// decoding overflows and panicked before the bounds check fix.
+	q.Push(bytes.Repeat([]byte{0xff}, 24))
+
+	_, err := q.Get(staleIdx)
+	if err == nil {
+		t.Fatal("expected error for stale index pointing to overwritten data")
+	}
+}
+
 func pop(queue *BytesQueue) []byte {
 	entry, err := queue.Pop()
 	if err != nil {
@@ -473,10 +508,10 @@ func assertEqual(t *testing.T, expected, actual interface{}, msgAndArgs ...inter
 	if !objectsAreEqual(expected, actual) {
 		_, file, line, _ := runtime.Caller(1)
 		file = path.Base(file)
-		t.Errorf(fmt.Sprintf("\n%s:%d: Not equal: \n"+
+		t.Errorf("\n%s:%d: Not equal: \n"+
 			"expected: %T(%#v)\n"+
 			"actual  : %T(%#v)\n",
-			file, line, expected, expected, actual, actual), msgAndArgs...)
+			file, line, expected, expected, actual, actual)
 	}
 }
 
@@ -484,9 +519,77 @@ func noError(t *testing.T, e error) {
 	if e != nil {
 		_, file, line, _ := runtime.Caller(1)
 		file = path.Base(file)
-		t.Errorf(fmt.Sprintf("\n%s:%d: Error is not nil: \n"+
-			"actual  : %T(%#v)\n", file, line, e, e))
+		t.Errorf("\n%s:%d: Error is not nil: \n"+
+			"actual  : %T(%#v)\n", file, line, e, e)
 	}
+}
+
+func FuzzBytesQueue(f *testing.F) {
+	// First 2 bytes encode queue config:
+	//   [0] initialCapacity: b+1 → 1..256
+	//   [1] maxCapacity:     b*4 → 0..1020 (0=unlimited)
+	// Remaining bytes encode operations: each byte is consumed as
+	// op (% 4): 0=Push(size, payload…), 1=Pop, 2=Get(index), 3=Peek.
+	f.Add([]byte{
+		29, 0, // config: capacity=30, maxCapacity=0
+		0, 10, 'h', 'e', 'l', 'l', 'o', // Push "hello"
+		1,                                // Pop
+		0, 3, 'a', 'b', 'c',             // Push "abc"
+		2,                                // Get(indices[0])
+		0, 200, 'x',                      // Push empty (size truncated)
+	})
+	f.Add([]byte{
+		0, 25, // config: capacity=1, maxCapacity=100
+		0, 5, 'a', 'b', 'c', 'd', 'e',  // Push "abcde"
+		0, 3, 'x', 'y', 'z',             // Push "xyz"
+		1,                                // Pop
+		3,                                // Peek
+	})
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		if len(data) < 2 {
+			return
+		}
+		q := NewBytesQueue(int(data[0])+1, int(data[1])*4, false)
+		data = data[2:]
+		var indices []int
+
+		i := 0
+		for i < len(data) {
+			op := data[i] % 4
+			i++
+
+			switch op {
+			case 0:
+				if i >= len(data) {
+					return
+				}
+				size := int(data[i])
+				i++
+				if i+size > len(data) {
+					size = len(data) - i
+				}
+				idx, _ := q.Push(data[i : i+size])
+				if idx >= 0 {
+					indices = append(indices, idx)
+				}
+				i += size
+
+			case 1:
+				q.Pop()
+
+			case 2:
+				if len(indices) > 0 && i < len(data) {
+					idx := indices[int(data[i])%len(indices)]
+					i++
+					q.Get(idx)
+				}
+
+			case 3:
+				q.Peek()
+			}
+		}
+	})
 }
 
 func objectsAreEqual(expected, actual interface{}) bool {
