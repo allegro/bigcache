@@ -1390,6 +1390,34 @@ func TestRemoveNonExpiredData(t *testing.T) {
 	}
 }
 
+func TestContainsExists(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := New(context.Background(), DefaultConfig(5*time.Second))
+	value := []byte("value")
+
+	// when
+	cache.Set("key", value)
+	exists := cache.Contains("key")
+
+	// then
+	assertEqual(t, true, exists)
+}
+
+func TestContainsNotExists(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := New(context.Background(), DefaultConfig(5*time.Second))
+
+	// when
+	exists := cache.Contains("key")
+
+	// then
+	assertEqual(t, false, exists)
+}  
+  
 func FuzzBigCache(f *testing.F) {
 	// First 6 bytes encode config:
 	//   [0] shards:  1<<(b%4) → {1,2,4,8}

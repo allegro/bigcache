@@ -117,6 +117,18 @@ func (s *cacheShard) getValidWrapEntry(key string, hashedKey uint64) ([]byte, er
 	return wrappedEntry, nil
 }
 
+func (s *cacheShard) contains(key string, hashedKey uint64) bool {
+	s.lock.RLock()
+	wrappedEntry, err := s.getWrappedEntry(hashedKey)
+	if err != nil {
+		s.lock.RUnlock()
+		return false
+	}
+	entryKey := readKeyFromEntry(wrappedEntry)
+	s.lock.RUnlock()
+	return key == entryKey
+}
+
 func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 	currentTimestamp := uint64(s.clock.Epoch())
 
