@@ -151,6 +151,37 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 	}
 }
 
+func (s *cacheShard) setOrGet(key string, hashedKey uint64, entry []byte) (actual []byte, loaded bool, err error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	wrappedEntry, err := s.getWrappedEntry(hashedKey)
+	if err == nil {
+		if entryKey := readKeyFromEntry(wrappedEntry); key == entryKey {
+			actual = readEntry(wrappedEntry)
+			s.hit(hashedKey)
+			return actual, true, nil
+		} else {
+
+			s.collision()
+			if s.isVerbose {
+				s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
+			}
+
+			delete(s.hashmap, hashedKey)
+			s.onRemove(wrappedEntry, Deleted)
+			if s.statsEnabled {
+				delete(s.hashmapStats, hashedKey)
+			}
+			resetHashFromEntry(wrappedEntry)
+		}
+	} else if !errors.Is(err, ErrEntryNotFound) {
+		return entry, false, err
+	}
+
+	return entry, false, s.addNewWithoutLock(key, hashedKey, entry)
+}
+
 func (s *cacheShard) addNewWithoutLock(key string, hashedKey uint64, entry []byte) error {
 	currentTimestamp := uint64(s.clock.Epoch())
 
