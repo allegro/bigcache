@@ -437,16 +437,11 @@ func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheS
 	if maximumShardSizeInBytes > 0 && bytesQueueInitialCapacity > maximumShardSizeInBytes {
 		bytesQueueInitialCapacity = maximumShardSizeInBytes
 	}
-	var hashmapStatsCapacity int
-	if config.StatsEnabled {
-		hashmapStatsCapacity = config.initialShardSize()
-	}
-	return &cacheShard{
-		hashmap:      make(map[uint64]uint64, config.initialShardSize()),
-		hashmapStats: make(map[uint64]uint32, hashmapStatsCapacity),
-		entries:      *queue.NewBytesQueue(bytesQueueInitialCapacity, maximumShardSizeInBytes, config.Verbose),
-		entryBuffer:  make([]byte, config.MaxEntrySize+headersSizeInBytes),
-		onRemove:     callback,
+	shard := &cacheShard{
+		hashmap:     make(map[uint64]uint64, config.initialShardSize()),
+		entries:     *queue.NewBytesQueue(bytesQueueInitialCapacity, maximumShardSizeInBytes, config.Verbose),
+		entryBuffer: make([]byte, config.MaxEntrySize+headersSizeInBytes),
+		onRemove:    callback,
 
 		isVerbose:    config.Verbose,
 		logger:       newLogger(config.Logger),
@@ -455,4 +450,8 @@ func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheS
 		statsEnabled: config.StatsEnabled,
 		cleanEnabled: config.CleanWindow > 0,
 	}
+	if config.StatsEnabled {
+		shard.hashmapStats = make(map[uint64]uint32, config.initialShardSize())
+	}
+	return shard
 }
