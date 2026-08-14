@@ -359,6 +359,12 @@ func (s *cacheShard) resetStats() {
 	s.lock.Unlock()
 }
 
+func (s *cacheShard) resetKeyMetadata(config Config) {
+	s.lock.Lock()
+	s.hashmapStats = make(map[uint64]uint32, config.initialShardSize())
+	s.lock.Unlock()
+}
+
 func (s *cacheShard) len() int {
 	s.lock.RLock()
 	res := len(s.hashmap)
