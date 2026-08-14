@@ -240,6 +240,13 @@ func (q *BytesQueue) peek(index int) ([]byte, int, error) {
 	}
 
 	blockSize, n := binary.Uvarint(q.array[index:])
+	if n <= 0 {
+		return nil, 0, errIndexOutOfBounds
+	}
+
+	if blockSize < uint64(n) || blockSize > uint64(len(q.array)-index) {
+		return nil, 0, errIndexOutOfBounds
+	}
 	return q.array[index+n : index+int(blockSize)], int(blockSize), nil
 }
 
