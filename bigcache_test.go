@@ -5,7 +5,8 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"math/rand"
+	"crypto/rand"
+	mrand "math/rand/v2"
 	"runtime"
 	"strings"
 	"sync"
@@ -106,7 +107,7 @@ func TestAppendRandomly(t *testing.T) {
 			keys = append(keys, fmt.Sprintf("key%d", i))
 		}
 	}
-	rand.Shuffle(len(keys), func(i, j int) {
+	mrand.Shuffle(len(keys), func(i, j int) {
 		keys[i], keys[j] = keys[j], keys[i]
 	})
 
@@ -763,7 +764,7 @@ func TestCacheDelRandomly(t *testing.T) {
 	wg.Add(3)
 	go func() {
 		for i := 0; i < ntest; i++ {
-			r := uint8(rand.Int())
+			r := uint8(mrand.Int())
 			key := fmt.Sprintf("thekey%d", r)
 
 			cache.Delete(key)
@@ -774,7 +775,7 @@ func TestCacheDelRandomly(t *testing.T) {
 	go func() {
 		val := make([]byte, valueLen)
 		for i := 0; i < ntest; i++ {
-			r := byte(rand.Int())
+			r := byte(mrand.Int())
 			key := fmt.Sprintf("thekey%d", r)
 
 			for j := 0; j < len(val); j++ {
@@ -787,7 +788,7 @@ func TestCacheDelRandomly(t *testing.T) {
 	go func() {
 		val := make([]byte, valueLen)
 		for i := 0; i < ntest; i++ {
-			r := byte(rand.Int())
+			r := byte(mrand.Int())
 			key := fmt.Sprintf("thekey%d", r)
 
 			for j := 0; j < len(val); j++ {
@@ -841,7 +842,7 @@ func TestCacheReset(t *testing.T) {
 	// given
 	cache, _ := New(context.Background(), Config{
 		Shards:             8,
-		LifeWindow:         time.Second,
+		LifeWindow:         time.Minute,
 		MaxEntriesInWindow: 1,
 		MaxEntrySize:       256,
 	})
@@ -1387,4 +1388,109 @@ func TestRemoveNonExpiredData(t *testing.T) {
 		err := cache.Set(key, data(800))
 		noError(t, err)
 	}
+}
+
+func FuzzBigCache(f *testing.F) {
+	// First 6 bytes encode config:
+	//   [0] shards:  1<<(b%4) → {1,2,4,8}
+	//   [1] hardMaxCacheSize: b%3 → {0,1,2} MB
+	//   [2] maxEntrySize: b+1 → 1..256
+	//   [3] lifeWindow: (b%5+1)s → 1..5s
+	//   [4] cleanWindow: b%3 → {0,1,2}s (0=disabled)
+	//   [5] maxEntriesInWindow: b+1 → 1..256
+	// Remaining bytes encode operations: each byte is consumed as
+	// op (% 3): 0=Set(keyLen, key…, valLen, val…), 1=Get(keyLen, key…),
+	// 2=Delete(keyLen, key…).
+	f.Add([]byte{
+		0, 1, 255, 0, 0, 99, // config: 1 shard, 1MB, entrySize=256, life=1s, clean=0, entries=100
+		0, 3, 'k', '1', 5, 'v', 'a', 'l', '1', '!', // Set "k1" = "val1!"
+		0, 3, 'k', '2', 3, 'a', 'b', 'c',             // Set "k2" = "abc"
+		1, 3, 'k', '1',                                 // Get "k1"
+		2, 3, 'k', '1',                                 // Delete "k1"
+		0, 3, 'k', '3', 200, 'x',                       // Set "k3" (val truncated)
+	})
+	f.Add([]byte{
+		2, 0, 10, 4, 1, 5, // config: 4 shards, unlimited, entrySize=11, life=5s, clean=1s, entries=6
+		0, 2, 'a', 'b', 3, 'x', 'y', 'z', // Set "ab" = "xyz"
+		0, 2, 'a', 'b', 3, '1', '2', '3', // Set "ab" = "123" (overwrite)
+		1, 2, 'a', 'b',                     // Get "ab"
+	})
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		if len(data) < 6 {
+			return
+		}
+		config := Config{
+			Shards:             1 << (data[0] % 4),
+			HardMaxCacheSize:   int(data[1] % 3),
+			MaxEntrySize:       int(data[2]) + 1,
+			LifeWindow:         time.Duration(data[3]%5+1) * time.Second,
+			CleanWindow:        time.Duration(data[4]%3) * time.Second,
+			MaxEntriesInWindow: int(data[5]) + 1,
+			Hasher:             newDefaultHasher(),
+		}
+		data = data[6:]
+		cache, err := New(context.Background(), config)
+		if err != nil {
+			return
+		}
+		defer cache.Close()
+
+		i := 0
+		for i < len(data) {
+			op := data[i] % 3
+			i++
+
+			switch op {
+			case 0:
+				if i >= len(data) {
+					return
+				}
+				keyLen := int(data[i])
+				i++
+				if keyLen == 0 || i+keyLen > len(data) {
+					continue
+				}
+				key := string(data[i : i+keyLen])
+				i += keyLen
+
+				if i >= len(data) {
+					return
+				}
+				valLen := int(data[i])
+				i++
+				if i+valLen > len(data) {
+					valLen = len(data) - i
+				}
+				cache.Set(key, data[i:i+valLen])
+				i += valLen
+
+			case 1:
+				if i >= len(data) {
+					return
+				}
+				keyLen := int(data[i])
+				i++
+				if keyLen == 0 || i+keyLen > len(data) {
+					continue
+				}
+				key := string(data[i : i+keyLen])
+				i += keyLen
+				cache.Get(key)
+
+			case 2:
+				if i >= len(data) {
+					return
+				}
+				keyLen := int(data[i])
+				i++
+				if keyLen == 0 || i+keyLen > len(data) {
+					continue
+				}
+				key := string(data[i : i+keyLen])
+				i += keyLen
+				cache.Delete(key)
+			}
+		}
+	})
 }

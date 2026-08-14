@@ -3,7 +3,7 @@ package bigcache
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"runtime"
 	"strconv"
 	"sync"
@@ -190,8 +190,6 @@ func TestEntriesIteratorParallelAdd(t *testing.T) {
 func TestParallelSetAndIteration(t *testing.T) {
 	t.Parallel()
 
-	rand.Seed(0)
-
 	cache, _ := New(context.Background(), Config{
 		Shards:             1,
 		LifeWindow:         time.Second,
@@ -225,7 +223,7 @@ func TestParallelSetAndIteration(t *testing.T) {
 			case <-ctx.Done():
 				isTimeout = true
 			default:
-				err := cache.Set(strconv.Itoa(rand.Intn(100)), blob('a', entrySize))
+				err := cache.Set(strconv.Itoa(rand.IntN(100)), blob('a', entrySize))
 				noError(t, err)
 			}
 		}
