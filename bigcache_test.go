@@ -871,6 +871,33 @@ func TestCacheReset(t *testing.T) {
 	assertEqual(t, keys, cache.Len())
 }
 
+func TestResetClearsKeyMetadata(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := New(context.Background(), Config{
+		Shards:             1,
+		LifeWindow:         time.Minute,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+		StatsEnabled:       true,
+	})
+
+	cache.Set("key", []byte("value"))
+	for i := 0; i < 10; i++ {
+		_, err := cache.Get("key")
+		noError(t, err)
+	}
+	assertEqual(t, uint32(10), cache.KeyMetadata("key").RequestCount)
+
+	// when
+	cache.Reset()
+
+	// then the entry is gone, so its per-key metadata must be gone as well
+	assertEqual(t, 0, cache.Len())
+	assertEqual(t, uint32(0), cache.KeyMetadata("key").RequestCount)
+}
+
 func TestIterateOnResetCache(t *testing.T) {
 	t.Parallel()
 

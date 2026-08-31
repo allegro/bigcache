@@ -346,8 +346,13 @@ func (s *cacheShard) removeOldestEntry(reason RemoveReason) error {
 }
 
 func (s *cacheShard) reset(config Config) {
+	var hashmapStatsCapacity int
+	if config.StatsEnabled {
+		hashmapStatsCapacity = config.initialShardSize()
+	}
 	s.lock.Lock()
 	s.hashmap = make(map[uint64]uint64, config.initialShardSize())
+	s.hashmapStats = make(map[uint64]uint32, hashmapStatsCapacity)
 	s.entryBuffer = make([]byte, config.MaxEntrySize+headersSizeInBytes)
 	s.entries.Reset()
 	s.lock.Unlock()
