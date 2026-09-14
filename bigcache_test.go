@@ -512,12 +512,15 @@ func TestCacheLen(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := New(context.Background(), Config{
+	// Use a frozen clock: LifeWindow is stored in whole Unix seconds, so a
+	// 1s window expires at the next wall-clock second, not 1s after insert.
+	clock := mockedClock{value: 0}
+	cache, _ := newBigCache(context.Background(), Config{
 		Shards:             8,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
 		MaxEntrySize:       256,
-	})
+	}, &clock)
 	keys := 1337
 
 	// when
@@ -533,12 +536,13 @@ func TestCacheCapacity(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := New(context.Background(), Config{
+	clock := mockedClock{value: 0}
+	cache, _ := newBigCache(context.Background(), Config{
 		Shards:             8,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
 		MaxEntrySize:       256,
-	})
+	}, &clock)
 	keys := 1337
 
 	// when
