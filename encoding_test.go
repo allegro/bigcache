@@ -42,3 +42,21 @@ func TestAllocateBiggerBuffer(t *testing.T) {
 	assertEqual(t, data, readEntry(wrapped))
 	assertEqual(t, 2+headersSizeInBytes, len(buffer))
 }
+
+func TestDecodeShortEntries(t *testing.T) {
+	for length := 0; length < headersSizeInBytes; length++ {
+		shortData := make([]byte, length)
+		assertEqual(t, "", readKeyFromEntry(shortData))
+		assertEqual(t, uint64(0), readHashFromEntry(shortData))
+		assertEqual(t, false, compareKeyFromEntry(shortData, "anyKey"))
+		resetHashFromEntry(shortData) // should not panic
+		if length < timestampSizeInBytes {
+			assertEqual(t, uint64(0), readTimestampFromEntry(shortData))
+		}
+		if length < headersSizeInBytes {
+			var expected []byte
+			assertEqual(t, expected, readEntry(shortData))
+		}
+	}
+}
+
