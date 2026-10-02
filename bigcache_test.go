@@ -512,12 +512,15 @@ func TestCacheLen(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := New(context.Background(), Config{
+	// Use a frozen clock: LifeWindow is stored in whole Unix seconds, so a
+	// 1s window expires at the next wall-clock second, not 1s after insert.
+	clock := mockedClock{value: 0}
+	cache, _ := newBigCache(context.Background(), Config{
 		Shards:             8,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
 		MaxEntrySize:       256,
-	})
+	}, &clock)
 	keys := 1337
 
 	// when
@@ -533,12 +536,13 @@ func TestCacheCapacity(t *testing.T) {
 	t.Parallel()
 
 	// given
-	cache, _ := New(context.Background(), Config{
+	clock := mockedClock{value: 0}
+	cache, _ := newBigCache(context.Background(), Config{
 		Shards:             8,
 		LifeWindow:         time.Second,
 		MaxEntriesInWindow: 1,
 		MaxEntrySize:       256,
-	})
+	}, &clock)
 	keys := 1337
 
 	// when
@@ -869,6 +873,33 @@ func TestCacheReset(t *testing.T) {
 
 	// then
 	assertEqual(t, keys, cache.Len())
+}
+
+func TestResetClearsKeyMetadata(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := New(context.Background(), Config{
+		Shards:             1,
+		LifeWindow:         time.Minute,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+		StatsEnabled:       true,
+	})
+
+	cache.Set("key", []byte("value"))
+	for i := 0; i < 10; i++ {
+		_, err := cache.Get("key")
+		noError(t, err)
+	}
+	assertEqual(t, uint32(10), cache.KeyMetadata("key").RequestCount)
+
+	// when
+	cache.Reset()
+
+	// then the entry is gone, so its per-key metadata must be gone as well
+	assertEqual(t, 0, cache.Len())
+	assertEqual(t, uint32(0), cache.KeyMetadata("key").RequestCount)
 }
 
 func TestIterateOnResetCache(t *testing.T) {
