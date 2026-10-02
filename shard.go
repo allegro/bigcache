@@ -262,7 +262,7 @@ func (s *cacheShard) del(hashedKey uint64) error {
 
 		delete(s.hashmap, hashedKey)
 		s.onRemove(wrappedEntry, Deleted)
-		if s.statsEnabled {
+		if s.statsEnabled && s.hashmapStats != nil {
 			delete(s.hashmapStats, hashedKey)
 		}
 		resetHashFromEntry(wrappedEntry)
@@ -337,7 +337,7 @@ func (s *cacheShard) removeOldestEntry(reason RemoveReason) error {
 		}
 		delete(s.hashmap, hash)
 		s.onRemove(oldest, reason)
-		if s.statsEnabled {
+		if s.statsEnabled && s.hashmapStats != nil {
 			delete(s.hashmapStats, hash)
 		}
 		return nil
@@ -346,13 +346,13 @@ func (s *cacheShard) removeOldestEntry(reason RemoveReason) error {
 }
 
 func (s *cacheShard) reset(config Config) {
-	var hashmapStatsCapacity int
-	if config.StatsEnabled {
-		hashmapStatsCapacity = config.initialShardSize()
-	}
 	s.lock.Lock()
 	s.hashmap = make(map[uint64]uint64, config.initialShardSize())
-	s.hashmapStats = make(map[uint64]uint32, hashmapStatsCapacity)
+	if config.StatsEnabled {
+		s.hashmapStats = make(map[uint64]uint32, config.initialShardSize())
+	} else {
+		s.hashmapStats = nil
+	}
 	s.entryBuffer = make([]byte, config.MaxEntrySize+headersSizeInBytes)
 	s.entries.Reset()
 	s.lock.Unlock()
@@ -391,7 +391,10 @@ func (s *cacheShard) getStats() Stats {
 
 func (s *cacheShard) getKeyMetadataWithLock(key uint64) Metadata {
 	s.lock.RLock()
-	c := s.hashmapStats[key]
+	var c uint32
+	if s.hashmapStats != nil {
+		c = s.hashmapStats[key]
+	}
 	s.lock.RUnlock()
 	return Metadata{
 		RequestCount: c,
@@ -399,8 +402,12 @@ func (s *cacheShard) getKeyMetadataWithLock(key uint64) Metadata {
 }
 
 func (s *cacheShard) getKeyMetadata(key uint64) Metadata {
+	var c uint32
+	if s.hashmapStats != nil {
+		c = s.hashmapStats[key]
+	}
 	return Metadata{
-		RequestCount: s.hashmapStats[key],
+		RequestCount: c,
 	}
 }
 
@@ -408,14 +415,16 @@ func (s *cacheShard) hit(key uint64) {
 	atomic.AddInt64(&s.stats.Hits, 1)
 	if s.statsEnabled {
 		s.lock.Lock()
-		s.hashmapStats[key]++
+		if s.hashmapStats != nil {
+			s.hashmapStats[key]++
+		}
 		s.lock.Unlock()
 	}
 }
 
 func (s *cacheShard) hitWithoutLock(key uint64) {
 	atomic.AddInt64(&s.stats.Hits, 1)
-	if s.statsEnabled {
+	if s.statsEnabled && s.hashmapStats != nil {
 		s.hashmapStats[key]++
 	}
 }
@@ -442,13 +451,13 @@ func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheS
 	if maximumShardSizeInBytes > 0 && bytesQueueInitialCapacity > maximumShardSizeInBytes {
 		bytesQueueInitialCapacity = maximumShardSizeInBytes
 	}
-	var hashmapStatsCapacity int
+	var hashmapStats map[uint64]uint32
 	if config.StatsEnabled {
-		hashmapStatsCapacity = config.initialShardSize()
+		hashmapStats = make(map[uint64]uint32, config.initialShardSize())
 	}
 	return &cacheShard{
 		hashmap:      make(map[uint64]uint64, config.initialShardSize()),
-		hashmapStats: make(map[uint64]uint32, hashmapStatsCapacity),
+		hashmapStats: hashmapStats,
 		entries:      *queue.NewBytesQueue(bytesQueueInitialCapacity, maximumShardSizeInBytes, config.Verbose),
 		entryBuffer:  make([]byte, config.MaxEntrySize+headersSizeInBytes),
 		onRemove:     callback,

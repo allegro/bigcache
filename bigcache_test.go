@@ -902,6 +902,90 @@ func TestResetClearsKeyMetadata(t *testing.T) {
 	assertEqual(t, uint32(0), cache.KeyMetadata("key").RequestCount)
 }
 
+func TestHashmapStatsNotAllocatedWhenStatsDisabled(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cfg := DefaultConfig(time.Minute)
+	assertEqual(t, false, cfg.StatsEnabled)
+
+	cache, err := New(context.Background(), cfg)
+	noError(t, err)
+
+	// then verify hashmapStats is nil for all shards initially
+	for _, shard := range cache.shards {
+		assertEqual(t, map[uint64]uint32(nil), shard.hashmapStats)
+	}
+
+	// when performing operations with stats disabled
+	err = cache.Set("key", []byte("value"))
+	noError(t, err)
+
+	val, err := cache.Get("key")
+	noError(t, err)
+	assertEqual(t, []byte("value"), val)
+
+	val, _, err = cache.GetWithInfo("key")
+	noError(t, err)
+	assertEqual(t, []byte("value"), val)
+
+	metadata := cache.KeyMetadata("key")
+	assertEqual(t, uint32(0), metadata.RequestCount)
+
+	err = cache.Delete("key")
+	noError(t, err)
+
+	// verify hashmapStats remains unallocated
+	for _, shard := range cache.shards {
+		assertEqual(t, map[uint64]uint32(nil), shard.hashmapStats)
+	}
+
+	// when cache is reset
+	err = cache.Reset()
+	noError(t, err)
+
+	// then hashmapStats must still not be allocated
+	for _, shard := range cache.shards {
+		assertEqual(t, map[uint64]uint32(nil), shard.hashmapStats)
+	}
+}
+
+func TestHashmapStatsAllocatedWhenStatsEnabled(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cfg := DefaultConfig(time.Minute)
+	cfg.Shards = 2
+	cfg.StatsEnabled = true
+
+	cache, err := New(context.Background(), cfg)
+	noError(t, err)
+
+	// then verify hashmapStats is allocated for all shards
+	for _, shard := range cache.shards {
+		if shard.hashmapStats == nil {
+			t.Fatal("expected hashmapStats to be allocated when StatsEnabled is true")
+		}
+	}
+
+	err = cache.Set("key", []byte("value"))
+	noError(t, err)
+	_, err = cache.Get("key")
+	noError(t, err)
+
+	assertEqual(t, uint32(1), cache.KeyMetadata("key").RequestCount)
+
+	err = cache.Reset()
+	noError(t, err)
+
+	for _, shard := range cache.shards {
+		if shard.hashmapStats == nil {
+			t.Fatal("expected hashmapStats to remain allocated after reset when StatsEnabled is true")
+		}
+	}
+	assertEqual(t, uint32(0), cache.KeyMetadata("key").RequestCount)
+}
+
 func TestIterateOnResetCache(t *testing.T) {
 	t.Parallel()
 
