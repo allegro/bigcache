@@ -11,6 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Drafts your next Release notes as Pull Requests are merged into "main"
-      - uses: toolmantim/release-drafter@6db134d15f3909ccc9eefd369f02bd1e9cffdf97
+      - uses: toolmantim/release-drafter@72967cdc98ddd3160f1fc3dff619de365e137dd0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
