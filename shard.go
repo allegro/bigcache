@@ -346,13 +346,13 @@ func (s *cacheShard) removeOldestEntry(reason RemoveReason) error {
 }
 
 func (s *cacheShard) reset(config Config) {
-	var hashmapStatsCapacity int
+	var hashmapStats map[uint64]uint32
 	if config.StatsEnabled {
-		hashmapStatsCapacity = config.initialShardSize()
+		hashmapStats = make(map[uint64]uint32, config.initialShardSize())
 	}
 	s.lock.Lock()
 	s.hashmap = make(map[uint64]uint64, config.initialShardSize())
-	s.hashmapStats = make(map[uint64]uint32, hashmapStatsCapacity)
+	s.hashmapStats = hashmapStats
 	s.entryBuffer = make([]byte, config.MaxEntrySize+headersSizeInBytes)
 	s.entries.Reset()
 	s.lock.Unlock()
@@ -390,6 +390,9 @@ func (s *cacheShard) getStats() Stats {
 }
 
 func (s *cacheShard) getKeyMetadataWithLock(key uint64) Metadata {
+	if !s.statsEnabled {
+		return Metadata{}
+	}
 	s.lock.RLock()
 	c := s.hashmapStats[key]
 	s.lock.RUnlock()
@@ -399,6 +402,9 @@ func (s *cacheShard) getKeyMetadataWithLock(key uint64) Metadata {
 }
 
 func (s *cacheShard) getKeyMetadata(key uint64) Metadata {
+	if !s.statsEnabled {
+		return Metadata{}
+	}
 	return Metadata{
 		RequestCount: s.hashmapStats[key],
 	}
@@ -442,13 +448,13 @@ func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheS
 	if maximumShardSizeInBytes > 0 && bytesQueueInitialCapacity > maximumShardSizeInBytes {
 		bytesQueueInitialCapacity = maximumShardSizeInBytes
 	}
-	var hashmapStatsCapacity int
+	var hashmapStats map[uint64]uint32
 	if config.StatsEnabled {
-		hashmapStatsCapacity = config.initialShardSize()
+		hashmapStats = make(map[uint64]uint32, config.initialShardSize())
 	}
 	return &cacheShard{
 		hashmap:      make(map[uint64]uint64, config.initialShardSize()),
-		hashmapStats: make(map[uint64]uint32, hashmapStatsCapacity),
+		hashmapStats: hashmapStats,
 		entries:      *queue.NewBytesQueue(bytesQueueInitialCapacity, maximumShardSizeInBytes, config.Verbose),
 		entryBuffer:  make([]byte, config.MaxEntrySize+headersSizeInBytes),
 		onRemove:     callback,
