@@ -2,6 +2,7 @@ package bigcache
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -97,6 +98,18 @@ func TestShardResetRespectsStats(t *testing.T) {
 	configWithStats := configWithoutStats
 	configWithStats.StatsEnabled = true
 
+	// Resetting when hashmapStats is nil and StatsEnabled is true should allocate it
+	shard.reset(configWithStats)
+	if shard.hashmapStats == nil {
+		t.Fatal("expected hashmapStats to be allocated after reset when stats are enabled")
+	}
+
+	// Resetting when StatsEnabled is false should set hashmapStats back to nil
+	shard.reset(configWithoutStats)
+	if shard.hashmapStats != nil {
+		t.Fatal("expected hashmapStats to be nil after reset when stats are disabled")
+	}
+
 	shardStats := initNewShard(configWithStats, func(wrappedEntry []byte, reason RemoveReason) {}, &systemClock{})
 	if shardStats.hashmapStats == nil {
 		t.Fatal("expected hashmapStats to be non-nil before reset")
@@ -105,6 +118,50 @@ func TestShardResetRespectsStats(t *testing.T) {
 	if shardStats.hashmapStats == nil {
 		t.Fatal("expected hashmapStats to be non-nil after reset when stats are enabled")
 	}
+}
+
+func TestShardResetClearsStatsMapPreservingCapacity(t *testing.T) {
+	t.Parallel()
+
+	config := Config{
+		Shards:             1,
+		LifeWindow:         10 * time.Second,
+		MaxEntriesInWindow: 100,
+		MaxEntrySize:       256,
+		StatsEnabled:       true,
+		Hasher:             newDefaultHasher(),
+	}
+
+	shard := initNewShard(config, func(wrappedEntry []byte, reason RemoveReason) {}, &systemClock{})
+	if shard.hashmapStats == nil {
+		t.Fatal("expected hashmapStats to be allocated when stats are enabled")
+	}
+
+	shard.hit(10)
+	shard.hit(20)
+	shard.hit(30)
+	assertEqual(t, 3, len(shard.hashmapStats))
+	assertEqual(t, uint32(1), shard.getKeyMetadata(10).RequestCount)
+	assertEqual(t, uint32(1), shard.getKeyMetadata(20).RequestCount)
+	assertEqual(t, uint32(1), shard.getKeyMetadata(30).RequestCount)
+
+	origStatsMap := shard.hashmapStats
+	origPtr := reflect.ValueOf(origStatsMap).Pointer()
+
+	shard.reset(config)
+
+	assertEqual(t, 0, len(shard.hashmapStats))
+	assertEqual(t, uint32(0), shard.getKeyMetadata(10).RequestCount)
+	assertEqual(t, uint32(0), shard.getKeyMetadata(20).RequestCount)
+	assertEqual(t, uint32(0), shard.getKeyMetadata(30).RequestCount)
+
+	if reflect.ValueOf(shard.hashmapStats).Pointer() != origPtr {
+		t.Fatal("expected hashmapStats map instance pointer to be preserved across reset")
+	}
+
+	shard.hit(40)
+	assertEqual(t, 1, len(shard.hashmapStats))
+	assertEqual(t, uint32(1), origStatsMap[40])
 }
 
 func TestInitNewShardConfiguredCapacity(t *testing.T) {
