@@ -3,7 +3,6 @@ package bigcache
 import (
 	"errors"
 	"sync"
-	"sync/atomic"
 
 	"github.com/allegro/bigcache/v3/queue"
 )
@@ -29,7 +28,7 @@ type cacheShard struct {
 	lifeWindow   uint64
 
 	hashmapStats map[uint64]uint32
-	stats        Stats
+	stats        shardStats
 	cleanEnabled bool
 }
 
@@ -359,9 +358,11 @@ func (s *cacheShard) reset(config Config) {
 }
 
 func (s *cacheShard) resetStats() {
-	s.lock.Lock()
-	s.stats = Stats{}
-	s.lock.Unlock()
+	s.stats.hits.Store(0)
+	s.stats.misses.Store(0)
+	s.stats.delHits.Store(0)
+	s.stats.delMisses.Store(0)
+	s.stats.collisions.Store(0)
 }
 
 func (s *cacheShard) len() int {
@@ -380,11 +381,11 @@ func (s *cacheShard) capacity() int {
 
 func (s *cacheShard) getStats() Stats {
 	var stats = Stats{
-		Hits:       atomic.LoadInt64(&s.stats.Hits),
-		Misses:     atomic.LoadInt64(&s.stats.Misses),
-		DelHits:    atomic.LoadInt64(&s.stats.DelHits),
-		DelMisses:  atomic.LoadInt64(&s.stats.DelMisses),
-		Collisions: atomic.LoadInt64(&s.stats.Collisions),
+		Hits:       s.stats.hits.Load(),
+		Misses:     s.stats.misses.Load(),
+		DelHits:    s.stats.delHits.Load(),
+		DelMisses:  s.stats.delMisses.Load(),
+		Collisions: s.stats.collisions.Load(),
 	}
 	return stats
 }
@@ -405,7 +406,7 @@ func (s *cacheShard) getKeyMetadata(key uint64) Metadata {
 }
 
 func (s *cacheShard) hit(key uint64) {
-	atomic.AddInt64(&s.stats.Hits, 1)
+	s.stats.hits.Add(1)
 	if s.statsEnabled {
 		s.lock.Lock()
 		s.hashmapStats[key]++
@@ -414,26 +415,26 @@ func (s *cacheShard) hit(key uint64) {
 }
 
 func (s *cacheShard) hitWithoutLock(key uint64) {
-	atomic.AddInt64(&s.stats.Hits, 1)
+	s.stats.hits.Add(1)
 	if s.statsEnabled {
 		s.hashmapStats[key]++
 	}
 }
 
 func (s *cacheShard) miss() {
-	atomic.AddInt64(&s.stats.Misses, 1)
+	s.stats.misses.Add(1)
 }
 
 func (s *cacheShard) delhit() {
-	atomic.AddInt64(&s.stats.DelHits, 1)
+	s.stats.delHits.Add(1)
 }
 
 func (s *cacheShard) delmiss() {
-	atomic.AddInt64(&s.stats.DelMisses, 1)
+	s.stats.delMisses.Add(1)
 }
 
 func (s *cacheShard) collision() {
-	atomic.AddInt64(&s.stats.Collisions, 1)
+	s.stats.collisions.Add(1)
 }
 
 func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheShard {

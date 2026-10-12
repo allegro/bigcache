@@ -34,6 +34,9 @@ jobs:
           go test -race -count=1 -coverprofile=server.coverprofile  ./server
           go test -race -count=1 -coverprofile=main.coverprofile
 
+      - name: Test on 386
+        run: GOARCH=386 go test -count=1 . ./queue
+
       - name: Upload coverage to codecov
         run: |
           go install github.com/modocache/gover@v0.0.0-20171022184752-b58185e213c5
