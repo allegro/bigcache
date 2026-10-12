@@ -15,12 +15,20 @@ type Metadata struct {
 	RequestCount uint32
 }
 
+type removedCall struct {
+	wrapped []byte
+	reason  RemoveReason
+	hash    uint64
+}
+
 type cacheShard struct {
 	hashmap     map[uint64]uint64
 	entries     queue.BytesQueue
 	lock        sync.RWMutex
 	entryBuffer []byte
 	onRemove    onRemoveCallback
+	pending     []removedCall
+	notify      bool
 
 	isVerbose    bool
 	statsEnabled bool
@@ -141,11 +149,11 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 	for {
 		if index, err := s.entries.Push(w); err == nil {
 			s.hashmap[hashedKey] = uint64(index)
-			s.lock.Unlock()
+			s.unlockAndNotify()
 			return nil
 		}
 		if s.removeOldestEntry(NoSpace) != nil {
-			s.lock.Unlock()
+			s.unlockAndNotify()
 			return errors.New("entry is bigger than max shard size")
 		}
 	}
@@ -203,11 +211,11 @@ func (s *cacheShard) append(key string, hashedKey uint64, entry []byte) error {
 
 	if err == ErrEntryNotFound {
 		err = s.addNewWithoutLock(key, hashedKey, entry)
-		s.lock.Unlock()
+		s.unlockAndNotify()
 		return err
 	}
 	if err != nil {
-		s.lock.Unlock()
+		s.unlockAndNotify()
 		return err
 	}
 
@@ -216,7 +224,7 @@ func (s *cacheShard) append(key string, hashedKey uint64, entry []byte) error {
 	w := appendToWrappedEntry(currentTimestamp, wrappedEntry, entry, &s.entryBuffer)
 
 	err = s.setWrappedEntryWithoutLock(currentTimestamp, w, hashedKey)
-	s.lock.Unlock()
+	s.unlockAndNotify()
 
 	return err
 }
@@ -248,26 +256,23 @@ func (s *cacheShard) del(hashedKey uint64) error {
 		itemIndex := s.hashmap[hashedKey]
 
 		if itemIndex == 0 {
-			s.lock.Unlock()
+			s.unlockAndNotify()
 			s.delmiss()
 			return ErrEntryNotFound
 		}
 
 		wrappedEntry, err := s.entries.Get(int(itemIndex))
 		if err != nil {
-			s.lock.Unlock()
+			s.unlockAndNotify()
 			s.delmiss()
 			return err
 		}
 
 		delete(s.hashmap, hashedKey)
-		s.onRemove(wrappedEntry, Deleted)
-		if s.statsEnabled {
-			delete(s.hashmapStats, hashedKey)
-		}
+		s.pushRemove(wrappedEntry, Deleted)
 		resetHashFromEntry(wrappedEntry)
 	}
-	s.lock.Unlock()
+	s.unlockAndNotify()
 
 	s.delhit()
 	return nil
@@ -297,6 +302,40 @@ func (s *cacheShard) cleanUp(currentTimestamp uint64) {
 		} else if evicted := s.onEvict(oldestEntry, currentTimestamp, s.removeOldestEntry); !evicted {
 			break
 		}
+	}
+	s.unlockAndNotify()
+}
+
+func (s *cacheShard) pushRemove(wrapped []byte, reason RemoveReason) {
+	hash := readHashFromEntry(wrapped)
+	if !s.notify {
+		if s.statsEnabled {
+			delete(s.hashmapStats, hash)
+		}
+		return
+	}
+	copied := make([]byte, len(wrapped))
+	copy(copied, wrapped)
+	s.pending = append(s.pending, removedCall{
+		wrapped: copied,
+		reason:  reason,
+		hash:    hash,
+	})
+}
+
+func (s *cacheShard) unlockAndNotify() {
+	pending := s.pending
+	s.pending = nil
+	s.lock.Unlock()
+	for i := range pending {
+		s.onRemove(pending[i].wrapped, pending[i].reason)
+	}
+	if len(pending) == 0 || !s.statsEnabled {
+		return
+	}
+	s.lock.Lock()
+	for i := range pending {
+		delete(s.hashmapStats, pending[i].hash)
 	}
 	s.lock.Unlock()
 }
@@ -336,10 +375,7 @@ func (s *cacheShard) removeOldestEntry(reason RemoveReason) error {
 			return nil
 		}
 		delete(s.hashmap, hash)
-		s.onRemove(oldest, reason)
-		if s.statsEnabled {
-			delete(s.hashmapStats, hash)
-		}
+		s.pushRemove(oldest, reason)
 		return nil
 	}
 	return err
@@ -452,6 +488,7 @@ func initNewShard(config Config, callback onRemoveCallback, clock clock) *cacheS
 		entries:      *queue.NewBytesQueue(bytesQueueInitialCapacity, maximumShardSizeInBytes, config.Verbose),
 		entryBuffer:  make([]byte, config.MaxEntrySize+headersSizeInBytes),
 		onRemove:     callback,
+		notify:       config.OnRemove != nil || config.OnRemoveWithReason != nil || config.OnRemoveWithMetadata != nil,
 
 		isVerbose:    config.Verbose,
 		logger:       newLogger(config.Logger),
