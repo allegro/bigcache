@@ -37,6 +37,12 @@ jobs:
       - name: Test on 386
         run: GOARCH=386 go test -count=1 . ./queue
 
+      - name: Test on arm
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q qemu-user
+          GOARCH=arm go test -exec qemu-arm -count=1 . ./queue
+
       - name: Upload coverage to codecov
         run: |
           go install github.com/modocache/gover@v0.0.0-20171022184752-b58185e213c5
