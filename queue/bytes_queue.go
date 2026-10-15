@@ -106,6 +106,19 @@ func (q *BytesQueue) Push(data []byte) (int, error) {
 	return index, nil
 }
 
+// CanFit reports whether data of the given length can fit in the queue when
+// the queue is empty without exceeding its maximum capacity.
+func (q *BytesQueue) CanFit(dataLen int) bool {
+	if dataLen < 0 {
+		return false
+	}
+	if q.maxCapacity == 0 {
+		return true
+	}
+
+	return getNeededSize(dataLen) <= q.maxCapacity-leftMarginIndex
+}
+
 func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 	start := time.Now()
 	if q.capacity < minimum {

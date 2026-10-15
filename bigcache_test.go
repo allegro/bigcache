@@ -1045,7 +1045,63 @@ func TestEntryBiggerThanMaxShardSizeError(t *testing.T) {
 	err := cache.Set("key1", blob('a', 1024*1025))
 
 	// then
-	assertEqual(t, "entry is bigger than max shard size", err.Error())
+	assertEqual(t, ErrEntryTooBig, err)
+}
+
+func TestEntryBiggerThanMaxShardSizeDoesNotAllocateOrEvict(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, err := New(context.Background(), Config{
+		Shards:             1,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+		HardMaxCacheSize:   1,
+	})
+	noError(t, err)
+	noError(t, cache.Set("existing", []byte("value")))
+	initialEntryBufferSize := len(cache.shards[0].entryBuffer)
+	initialQueueCapacity := cache.shards[0].entries.Capacity()
+
+	// when
+	err = cache.Set("too-large", blob('a', 1024*1025))
+
+	// then
+	assertEqual(t, ErrEntryTooBig, err)
+	assertEqual(t, initialEntryBufferSize, len(cache.shards[0].entryBuffer))
+	assertEqual(t, initialQueueCapacity, cache.shards[0].entries.Capacity())
+	value, getErr := cache.Get("existing")
+	noError(t, getErr)
+	assertEqual(t, []byte("value"), value)
+}
+
+func TestAppendEntryBiggerThanMaxShardSizeDoesNotAllocateOrEvict(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, err := New(context.Background(), Config{
+		Shards:             1,
+		LifeWindow:         5 * time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+		HardMaxCacheSize:   1,
+	})
+	noError(t, err)
+	noError(t, cache.Set("existing", []byte("value")))
+	initialEntryBufferSize := len(cache.shards[0].entryBuffer)
+	initialQueueCapacity := cache.shards[0].entries.Capacity()
+
+	// when
+	err = cache.Append("existing", blob('a', 1024*1025))
+
+	// then
+	assertEqual(t, ErrEntryTooBig, err)
+	assertEqual(t, initialEntryBufferSize, len(cache.shards[0].entryBuffer))
+	assertEqual(t, initialQueueCapacity, cache.shards[0].entries.Capacity())
+	value, getErr := cache.Get("existing")
+	noError(t, getErr)
+	assertEqual(t, []byte("value"), value)
 }
 
 func TestHashCollision(t *testing.T) {
