@@ -209,7 +209,6 @@ func TestGetStats(t *testing.T) {
 }
 
 func TestGetStatsIndex(t *testing.T) {
-	t.Parallel()
 	var testStats bigcache.Stats
 
 	getreq := httptest.NewRequest("GET", testBaseString+"/api/v1/stats", nil)
