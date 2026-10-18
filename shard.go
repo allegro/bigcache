@@ -154,6 +154,13 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 func (s *cacheShard) addNewWithoutLock(key string, hashedKey uint64, entry []byte) error {
 	currentTimestamp := uint64(s.clock.Epoch())
 
+	if previousIndex := s.hashmap[hashedKey]; previousIndex != 0 {
+		if previousEntry, err := s.entries.Get(int(previousIndex)); err == nil {
+			resetHashFromEntry(previousEntry)
+			delete(s.hashmap, hashedKey)
+		}
+	}
+
 	if !s.cleanEnabled {
 		if oldestEntry, err := s.entries.Peek(); err == nil {
 			s.onEvict(oldestEntry, currentTimestamp, s.removeOldestEntry)
