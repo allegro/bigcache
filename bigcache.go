@@ -150,8 +150,12 @@ func (c *BigCache) GetWithInfo(key string) ([]byte, Response, error) {
 	return shard.getWithInfo(key, hashedKey)
 }
 
-// Set saves entry under the key
+// Set saves entry under the key. Keys longer than 65535 bytes are rejected.
 func (c *BigCache) Set(key string, entry []byte) error {
+	if len(key) > maxKeySizeInBytes {
+		return errors.New("key is longer than 65535 bytes")
+	}
+
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	return shard.set(key, hashedKey, entry)
@@ -160,7 +164,12 @@ func (c *BigCache) Set(key string, entry []byte) error {
 // Append appends entry under the key if key exists, otherwise
 // it will set the key (same behaviour as Set()). With Append() you can
 // concatenate multiple entries under the same key in a lock-optimized way.
+// Keys longer than 65535 bytes are rejected.
 func (c *BigCache) Append(key string, entry []byte) error {
+	if len(key) > maxKeySizeInBytes {
+		return errors.New("key is longer than 65535 bytes")
+	}
+
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	return shard.append(key, hashedKey, entry)
