@@ -1525,3 +1525,30 @@ func FuzzBigCache(f *testing.F) {
 		}
 	})
 }
+
+func TestCloseIdempotent(t *testing.T) {
+	t.Parallel()
+
+	cache, err := New(context.Background(), DefaultConfig(10*time.Minute))
+	noError(t, err)
+
+	// First close should succeed
+	err = cache.Close()
+	noError(t, err)
+
+	// Subsequent close should be idempotent and not panic
+	err = cache.Close()
+	noError(t, err)
+
+	// Concurrent close calls should also be safe
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			closeErr := cache.Close()
+			noError(t, closeErr)
+		}()
+	}
+	wg.Wait()
+}
