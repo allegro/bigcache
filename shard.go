@@ -41,6 +41,10 @@ func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, re
 		s.lock.RUnlock()
 		return nil, resp, err
 	}
+	if len(wrappedEntry) < headersSizeInBytes {
+		s.lock.RUnlock()
+		return nil, resp, ErrEntryNotFound
+	}
 	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
 		s.lock.RUnlock()
 		s.collision()
@@ -65,6 +69,10 @@ func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
 	if err != nil {
 		s.lock.RUnlock()
 		return nil, err
+	}
+	if len(wrappedEntry) < headersSizeInBytes {
+		s.lock.RUnlock()
+		return nil, ErrEntryNotFound
 	}
 	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
 		s.lock.RUnlock()
@@ -102,6 +110,9 @@ func (s *cacheShard) getValidWrapEntry(key string, hashedKey uint64) ([]byte, er
 	wrappedEntry, err := s.getWrappedEntry(hashedKey)
 	if err != nil {
 		return nil, err
+	}
+	if len(wrappedEntry) < headersSizeInBytes {
+		return nil, ErrEntryNotFound
 	}
 
 	if !compareKeyFromEntry(wrappedEntry, key) {
@@ -261,11 +272,13 @@ func (s *cacheShard) del(hashedKey uint64) error {
 		}
 
 		delete(s.hashmap, hashedKey)
-		s.onRemove(wrappedEntry, Deleted)
+		if len(wrappedEntry) >= headersSizeInBytes {
+			s.onRemove(wrappedEntry, Deleted)
+			resetHashFromEntry(wrappedEntry)
+		}
 		if s.statsEnabled {
 			delete(s.hashmapStats, hashedKey)
 		}
-		resetHashFromEntry(wrappedEntry)
 	}
 	s.lock.Unlock()
 
@@ -282,6 +295,9 @@ func (s *cacheShard) onEvict(oldestEntry []byte, currentTimestamp uint64, evict 
 }
 
 func (s *cacheShard) isExpired(oldestEntry []byte, currentTimestamp uint64) bool {
+	if len(oldestEntry) < headersSizeInBytes {
+		return true
+	}
 	oldestTimestamp := readTimestampFromEntry(oldestEntry)
 	if currentTimestamp <= oldestTimestamp { // if currentTimestamp < oldestTimestamp, the result will out of uint64 limits;
 		return false
@@ -305,13 +321,21 @@ func (s *cacheShard) getEntry(hashedKey uint64) ([]byte, error) {
 	s.lock.RLock()
 
 	entry, err := s.getWrappedEntry(hashedKey)
+	if err != nil {
+		s.lock.RUnlock()
+		return nil, err
+	}
+	if len(entry) < headersSizeInBytes {
+		s.lock.RUnlock()
+		return nil, ErrEntryNotFound
+	}
 	// copy entry
 	newEntry := make([]byte, len(entry))
 	copy(newEntry, entry)
 
 	s.lock.RUnlock()
 
-	return newEntry, err
+	return newEntry, nil
 }
 
 func (s *cacheShard) copyHashedKeys() (keys []uint64, next int) {
@@ -330,6 +354,9 @@ func (s *cacheShard) copyHashedKeys() (keys []uint64, next int) {
 func (s *cacheShard) removeOldestEntry(reason RemoveReason) error {
 	oldest, err := s.entries.Pop()
 	if err == nil {
+		if len(oldest) < headersSizeInBytes {
+			return nil
+		}
 		hash := readHashFromEntry(oldest)
 		if hash == 0 {
 			// entry has been explicitly deleted with resetHashFromEntry, ignore

@@ -1382,6 +1382,46 @@ func TestBigCache_allocateAdditionalMemoryLeadPanic(t *testing.T) {
 	assertEqual(t, []byte{0xff, 0xff, 0xff}, data)
 }
 
+// TestBigCache_EvictionWithShortDummyEntries verifies issue #312 where dummy/padding entries (< 18 bytes)
+// placed in the queue do not cause panic during eviction/expiration in cleanUp, Set, or onEvict.
+func TestBigCache_EvictionWithShortDummyEntries(t *testing.T) {
+	t.Parallel()
+	clock := mockedClock{value: 1000}
+	onRemoveCalled := false
+	cache, err := newBigCache(context.Background(), Config{
+		Shards:             1,
+		LifeWindow:         5 * time.Second,
+		CleanWindow:        0,
+		MaxEntrySize:       50,
+		OnRemoveWithReason: func(key string, entry []byte, reason RemoveReason) {
+			onRemoveCalled = true
+		},
+	}, &clock)
+	noError(t, err)
+
+	shard := cache.shards[0]
+	// Inject dummy entries smaller than headersSizeInBytes directly into shard.entries
+	for length := 0; length < headersSizeInBytes; length++ {
+		_, pushErr := shard.entries.Push(make([]byte, length))
+		noError(t, pushErr)
+	}
+
+	// 1. Evict via Set when CleanWindow == 0
+	err = cache.Set("key1", []byte("val1"))
+	noError(t, err)
+
+	// 2. Evict via cleanUp
+	cache.cleanUp(1000)
+
+	// OnRemove should not be called for dummy entries
+	assertEqual(t, false, onRemoveCalled)
+
+	// Valid entry should be retrievable
+	data, err := cache.Get("key1")
+	noError(t, err)
+	assertEqual(t, []byte("val1"), data)
+}
+
 func TestRemoveNonExpiredData(t *testing.T) {
 	onRemove := func(key string, entry []byte, reason RemoveReason) {
 		if reason != Deleted {
