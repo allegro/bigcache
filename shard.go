@@ -1,7 +1,6 @@
 package bigcache
 
 import (
-	"errors"
 	"sync"
 	"sync/atomic"
 
@@ -118,6 +117,10 @@ func (s *cacheShard) getValidWrapEntry(key string, hashedKey uint64) ([]byte, er
 }
 
 func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
+	if !s.entries.CanFit(len(entry) + len(key) + headersSizeInBytes) {
+		return ErrEntryTooBig
+	}
+
 	currentTimestamp := uint64(s.clock.Epoch())
 
 	s.lock.Lock()
@@ -146,12 +149,16 @@ func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
 		}
 		if s.removeOldestEntry(NoSpace) != nil {
 			s.lock.Unlock()
-			return errors.New("entry is bigger than max shard size")
+			return ErrEntryTooBig
 		}
 	}
 }
 
 func (s *cacheShard) addNewWithoutLock(key string, hashedKey uint64, entry []byte) error {
+	if !s.entries.CanFit(len(entry) + len(key) + headersSizeInBytes) {
+		return ErrEntryTooBig
+	}
+
 	currentTimestamp := uint64(s.clock.Epoch())
 
 	if !s.cleanEnabled {
@@ -168,7 +175,7 @@ func (s *cacheShard) addNewWithoutLock(key string, hashedKey uint64, entry []byt
 			return nil
 		}
 		if s.removeOldestEntry(NoSpace) != nil {
-			return errors.New("entry is bigger than max shard size")
+			return ErrEntryTooBig
 		}
 	}
 }
@@ -192,7 +199,7 @@ func (s *cacheShard) setWrappedEntryWithoutLock(currentTimestamp uint64, w []byt
 			return nil
 		}
 		if s.removeOldestEntry(NoSpace) != nil {
-			return errors.New("entry is bigger than max shard size")
+			return ErrEntryTooBig
 		}
 	}
 }
@@ -209,6 +216,10 @@ func (s *cacheShard) append(key string, hashedKey uint64, entry []byte) error {
 	if err != nil {
 		s.lock.Unlock()
 		return err
+	}
+	if !s.entries.CanFit(len(wrappedEntry) + len(entry)) {
+		s.lock.Unlock()
+		return ErrEntryTooBig
 	}
 
 	currentTimestamp := uint64(s.clock.Epoch())
