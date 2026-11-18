@@ -3,6 +3,7 @@ package bigcache
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 )
 
@@ -21,6 +22,7 @@ type BigCache struct {
 	config     Config
 	shardMask  uint64
 	close      chan struct{}
+	closeOnce  sync.Once
 }
 
 // Response will contain metadata about the entry for which GetWithInfo(key) was called
@@ -127,8 +129,11 @@ func newBigCache(ctx context.Context, config Config, clock clock) (*BigCache, er
 // Close is used to signal a shutdown of the cache when you are done with it.
 // This allows the cleaning goroutines to exit and ensures references are not
 // kept to the cache preventing GC of the entire cache.
+// Close is idempotent and safe to call concurrently.
 func (c *BigCache) Close() error {
-	close(c.close)
+	c.closeOnce.Do(func() {
+		close(c.close)
+	})
 	return nil
 }
 
