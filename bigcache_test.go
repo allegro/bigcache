@@ -723,6 +723,41 @@ func TestCacheRestStats(t *testing.T) {
 	assertEqual(t, stats.DelMisses, int64(0))
 }
 
+func TestCacheResetStatsWhileReading(t *testing.T) {
+	t.Parallel()
+
+	// given
+	cache, _ := New(context.Background(), Config{
+		Shards:             1,
+		LifeWindow:         time.Second,
+		MaxEntriesInWindow: 1,
+		MaxEntrySize:       256,
+	})
+	err := cache.Set("key", []byte("value"))
+	noError(t, err)
+
+	// when
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 1000; i++ {
+			cache.Get("key")
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 1000; i++ {
+			cache.ResetStats()
+		}
+	}()
+	wg.Wait()
+
+	// then
+	cache.ResetStats()
+	assertEqual(t, Stats{}, cache.Stats())
+}
+
 func TestCacheDel(t *testing.T) {
 	t.Parallel()
 
