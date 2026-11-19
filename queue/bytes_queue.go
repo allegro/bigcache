@@ -92,7 +92,7 @@ func (q *BytesQueue) Push(data []byte) (int, error) {
 	if !q.canInsertAfterTail(neededSize) {
 		if q.canInsertBeforeHead(neededSize) {
 			q.tail = leftMarginIndex
-		} else if q.capacity+neededSize >= q.maxCapacity && q.maxCapacity > 0 {
+		} else if q.maxCapacity > 0 && (q.capacity >= q.maxCapacity || q.rightMargin+neededSize > q.maxCapacity) {
 			return -1, errFullQueue
 		} else {
 			q.allocateAdditionalMemory(neededSize)
