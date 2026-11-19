@@ -403,6 +403,17 @@ func TestMaxSizeLimit(t *testing.T) {
 	assertEqual(t, blob('b', 5), pop(queue))
 }
 
+func TestCanFit(t *testing.T) {
+	t.Parallel()
+
+	// given
+	queue := NewBytesQueue(30, 50, false)
+
+	// then
+	assertEqual(t, true, queue.CanFit(48))
+	assertEqual(t, false, queue.CanFit(49))
+}
+
 func TestPushEntryAfterAllocateAdditionMemory(t *testing.T) {
 	t.Parallel()
 
