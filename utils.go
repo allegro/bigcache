@@ -8,6 +8,10 @@ func max(a, b int) int {
 }
 
 func convertMBToBytes(value int) int {
+	const maxInt = int(^uint(0) >> 1)
+	if value > maxInt/(1024*1024) {
+		return maxInt
+	}
 	return value * 1024 * 1024
 }
 

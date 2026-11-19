@@ -260,3 +260,73 @@ func TestParallelSetAndIteration(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestIterator_IterativeNonRecursive(t *testing.T) {
+	t.Parallel()
+
+	clock := mockedClock{value: 0}
+	cache, err := newBigCache(context.Background(), Config{
+		Shards:             1,
+		LifeWindow:         1 * time.Second,
+		CleanWindow:        0,
+		MaxEntriesInWindow: 10000,
+		MaxEntrySize:       64,
+	}, &clock)
+	noError(t, err)
+
+	// Insert 2000 keys
+	count := 2000
+	for i := 0; i < count; i++ {
+		err := cache.Set(strconv.Itoa(i), []byte("v"))
+		noError(t, err)
+	}
+
+	// Creating an iterator: iterator takes snapshot of keys
+	iterator := cache.Iterator()
+
+	// Clear shard entries queue to simulate all entries having been evicted/removed
+	cache.shards[0].lock.Lock()
+	cache.shards[0].entries.Reset()
+	cache.shards[0].hashmap = make(map[uint64]uint64)
+	cache.shards[0].lock.Unlock()
+
+	// SetNext should iterate iteratively through all 2000 missing keys without stack overflow
+	hasElements := iterator.SetNext()
+	assertEqual(t, false, hasElements)
+}
+
+func TestIterator_ValueConcurrentSafety(t *testing.T) {
+	t.Parallel()
+
+	cache, err := New(context.Background(), Config{
+		Shards:             4,
+		LifeWindow:         10 * time.Minute,
+		MaxEntriesInWindow: 1000,
+		MaxEntrySize:       64,
+	})
+	noError(t, err)
+
+	for i := 0; i < 500; i++ {
+		cache.Set(fmt.Sprintf("k%d", i), []byte("val"))
+	}
+
+	iterator := cache.Iterator()
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 200; i++ {
+			iterator.SetNext()
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 200; i++ {
+			iterator.Value()
+		}
+	}()
+
+	wg.Wait()
+}

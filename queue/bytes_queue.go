@@ -111,10 +111,13 @@ func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
 	if q.capacity < minimum {
 		q.capacity += minimum
 	}
-	q.capacity = q.capacity * 2
-	if q.capacity > q.maxCapacity && q.maxCapacity > 0 {
-		q.capacity = q.maxCapacity
+	newCapacity := q.capacity * 2
+	if newCapacity < 0 || (newCapacity > q.maxCapacity && q.maxCapacity > 0) {
+		if q.maxCapacity > 0 {
+			newCapacity = q.maxCapacity
+		}
 	}
+	q.capacity = newCapacity
 
 	oldArray := q.array
 	q.array = make([]byte, q.capacity)
