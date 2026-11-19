@@ -16,6 +16,8 @@ func cacheIndexHandler() http.Handler {
 			putCacheHandler(w, r)
 		case http.MethodDelete:
 			deleteCacheHandler(w, r)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
 	})
 }
@@ -30,6 +32,7 @@ func clearCache(w http.ResponseWriter, r *http.Request) {
 	if err := cache.Reset(); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Printf("internal cache error: %s", err)
+		return
 	}
 	log.Println("cache is successfully cleared")
 	w.WriteHeader(http.StatusOK)
@@ -95,6 +98,7 @@ func deleteCacheHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Printf("internal cache error: %s", err)
+		return
 	}
 	// this is what the RFC says to use when calling DELETE.
 	w.WriteHeader(http.StatusOK)

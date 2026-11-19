@@ -62,42 +62,45 @@ type EntryInfoIterator struct {
 // SetNext moves to next element and returns true if it exists.
 func (it *EntryInfoIterator) SetNext() bool {
 	it.mutex.Lock()
+	defer it.mutex.Unlock()
 
-	it.valid = false
-	it.currentIndex++
+	for {
+		it.valid = false
+		it.currentIndex++
 
-	if it.elementsCount > it.currentIndex {
-		it.valid = true
-
-		empty := it.setCurrentEntry()
-		it.mutex.Unlock()
-
-		if empty {
-			return it.SetNext()
-		}
-		return true
-	}
-
-	for i := it.currentShard + 1; i < it.cache.config.Shards; i++ {
-		it.elements, it.elementsCount = it.cache.shards[i].copyHashedKeys()
-
-		// Non empty shard - stick with it
-		if it.elementsCount > 0 {
-			it.currentIndex = 0
-			it.currentShard = i
-			it.valid = true
-
+		if it.elementsCount > it.currentIndex {
 			empty := it.setCurrentEntry()
-			it.mutex.Unlock()
-
 			if empty {
-				return it.SetNext()
+				continue
 			}
+			it.valid = true
 			return true
 		}
+
+		found := false
+		for i := it.currentShard + 1; i < it.cache.config.Shards; i++ {
+			it.elements, it.elementsCount = it.cache.shards[i].copyHashedKeys()
+
+			// Non empty shard - stick with it
+			if it.elementsCount > 0 {
+				it.currentIndex = 0
+				it.currentShard = i
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return false
+		}
+
+		empty := it.setCurrentEntry()
+		if empty {
+			continue
+		}
+		it.valid = true
+		return true
 	}
-	it.mutex.Unlock()
-	return false
 }
 
 func (it *EntryInfoIterator) setCurrentEntry() bool {
@@ -138,6 +141,9 @@ func newIterator(cache *BigCache) *EntryInfoIterator {
 
 // Value returns current value from the iterator
 func (it *EntryInfoIterator) Value() (EntryInfo, error) {
+	it.mutex.Lock()
+	defer it.mutex.Unlock()
+
 	if !it.valid {
 		return emptyEntryInfo, ErrInvalidIteratorState
 	}
