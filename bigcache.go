@@ -182,6 +182,7 @@ func (c *BigCache) Delete(key string) error {
 func (c *BigCache) Reset() error {
 	for _, shard := range c.shards {
 		shard.reset(c.config)
+		shard.resetStats()
 	}
 	return nil
 }

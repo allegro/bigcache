@@ -3,9 +3,9 @@ package bigcache
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"fmt"
 	"math"
-	"crypto/rand"
 	mrand "math/rand/v2"
 	"runtime"
 	"strings"
@@ -1470,16 +1470,16 @@ func FuzzBigCache(f *testing.F) {
 	f.Add([]byte{
 		0, 1, 255, 0, 0, 99, // config: 1 shard, 1MB, entrySize=256, life=1s, clean=0, entries=100
 		0, 3, 'k', '1', 5, 'v', 'a', 'l', '1', '!', // Set "k1" = "val1!"
-		0, 3, 'k', '2', 3, 'a', 'b', 'c',             // Set "k2" = "abc"
-		1, 3, 'k', '1',                                 // Get "k1"
-		2, 3, 'k', '1',                                 // Delete "k1"
-		0, 3, 'k', '3', 200, 'x',                       // Set "k3" (val truncated)
+		0, 3, 'k', '2', 3, 'a', 'b', 'c', // Set "k2" = "abc"
+		1, 3, 'k', '1', // Get "k1"
+		2, 3, 'k', '1', // Delete "k1"
+		0, 3, 'k', '3', 200, 'x', // Set "k3" (val truncated)
 	})
 	f.Add([]byte{
 		2, 0, 10, 4, 1, 5, // config: 4 shards, unlimited, entrySize=11, life=5s, clean=1s, entries=6
 		0, 2, 'a', 'b', 3, 'x', 'y', 'z', // Set "ab" = "xyz"
 		0, 2, 'a', 'b', 3, '1', '2', '3', // Set "ab" = "123" (overwrite)
-		1, 2, 'a', 'b',                     // Get "ab"
+		1, 2, 'a', 'b', // Get "ab"
 	})
 
 	f.Fuzz(func(t *testing.T, data []byte) {
@@ -1586,4 +1586,29 @@ func TestCloseIdempotent(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestResetClearsStats(t *testing.T) {
+	cache, err := NewBigCache(DefaultConfig(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := cache.Set("key", []byte("value")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cache.Get("key"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cache.Get("missing"); err == nil {
+		t.Fatal("expected missing key error")
+	}
+	if err := cache.Reset(); err != nil {
+		t.Fatal(err)
+	}
+
+	stats := cache.Stats()
+	if stats.Hits != 0 || stats.Misses != 0 || stats.DelHits != 0 || stats.DelMisses != 0 || stats.Collisions != 0 {
+		t.Fatalf("Reset() did not clear statistics: %+v", stats)
+	}
 }
