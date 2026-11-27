@@ -114,8 +114,8 @@ func newBigCache(ctx context.Context, config Config, clock clock) (*BigCache, er
 				select {
 				case <-ctx.Done():
 					return
-				case t := <-ticker.C:
-					cache.cleanUp(uint64(t.Unix()))
+				case <-ticker.C:
+					cache.cleanUp(uint64(cache.clock.Epoch()))
 				case <-cache.close:
 					return
 				}
