@@ -1587,3 +1587,37 @@ func TestCloseIdempotent(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestBigCache_KeyTooLong(t *testing.T) {
+	t.Parallel()
+
+	cache, err := New(context.Background(), DefaultConfig(10*time.Minute))
+	noError(t, err)
+
+	tooLongKey := string(make([]byte, maxKeyLength+1))
+	maxLenKey := string(make([]byte, maxKeyLength))
+
+	// Keys exceeding maxKeyLength should fail validation
+	err = cache.Set(tooLongKey, []byte("value"))
+	assertEqual(t, ErrKeyTooLong, err)
+
+	err = cache.Append(tooLongKey, []byte("value"))
+	assertEqual(t, ErrKeyTooLong, err)
+
+	_, err = cache.Get(tooLongKey)
+	assertEqual(t, ErrEntryNotFound, err)
+
+	_, _, err = cache.GetWithInfo(tooLongKey)
+	assertEqual(t, ErrEntryNotFound, err)
+
+	err = cache.Delete(tooLongKey)
+	assertEqual(t, ErrEntryNotFound, err)
+
+	// Key with exact maxKeyLength should be valid
+	err = cache.Set(maxLenKey, []byte("valid"))
+	noError(t, err)
+
+	val, err := cache.Get(maxLenKey)
+	noError(t, err)
+	assertEqual(t, []byte("valid"), val)
+}

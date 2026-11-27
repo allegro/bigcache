@@ -141,6 +141,9 @@ func (c *BigCache) Close() error {
 // It returns an ErrEntryNotFound when
 // no entry exists for the given key.
 func (c *BigCache) Get(key string) ([]byte, error) {
+	if len(key) > maxKeyLength {
+		return nil, ErrEntryNotFound
+	}
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	return shard.get(key, hashedKey)
@@ -150,6 +153,9 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 // It returns an ErrEntryNotFound when
 // no entry exists for the given key.
 func (c *BigCache) GetWithInfo(key string) ([]byte, Response, error) {
+	if len(key) > maxKeyLength {
+		return nil, Response{}, ErrEntryNotFound
+	}
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	return shard.getWithInfo(key, hashedKey)
@@ -157,6 +163,9 @@ func (c *BigCache) GetWithInfo(key string) ([]byte, Response, error) {
 
 // Set saves entry under the key
 func (c *BigCache) Set(key string, entry []byte) error {
+	if len(key) > maxKeyLength {
+		return ErrKeyTooLong
+	}
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	return shard.set(key, hashedKey, entry)
@@ -166,6 +175,9 @@ func (c *BigCache) Set(key string, entry []byte) error {
 // it will set the key (same behaviour as Set()). With Append() you can
 // concatenate multiple entries under the same key in a lock-optimized way.
 func (c *BigCache) Append(key string, entry []byte) error {
+	if len(key) > maxKeyLength {
+		return ErrKeyTooLong
+	}
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	return shard.append(key, hashedKey, entry)
@@ -173,6 +185,9 @@ func (c *BigCache) Append(key string, entry []byte) error {
 
 // Delete removes the key
 func (c *BigCache) Delete(key string) error {
+	if len(key) > maxKeyLength {
+		return ErrEntryNotFound
+	}
 	hashedKey := c.hash.Sum64(key)
 	shard := c.getShard(hashedKey)
 	return shard.del(hashedKey)
