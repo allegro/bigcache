@@ -205,3 +205,26 @@ func readFromCacheNonExistentKeys(b *testing.B, shards int) {
 		}
 	})
 }
+
+func BenchmarkInitCacheWithoutStats(b *testing.B) {
+	cfg := DefaultConfig(10 * time.Minute)
+	cfg.StatsEnabled = false
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cache, _ := New(context.Background(), cfg)
+		_ = cache.Close()
+	}
+}
+
+func BenchmarkInitCacheWithStats(b *testing.B) {
+	cfg := DefaultConfig(10 * time.Minute)
+	cfg.StatsEnabled = true
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cache, _ := New(context.Background(), cfg)
+		_ = cache.Close()
+	}
+}
+
