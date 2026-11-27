@@ -5,6 +5,7 @@ import (
 )
 
 const (
+	maxKeyLength         = 1<<16 - 1                                               // Maximum key length in bytes that fits in keySizeInBytes (uint16)
 	timestampSizeInBytes = 8                                                       // Number of bytes used for timestamp
 	hashSizeInBytes      = 8                                                       // Number of bytes used for hash
 	keySizeInBytes       = 2                                                       // Number of bytes used for size of entry key
@@ -45,10 +46,10 @@ func appendToWrappedEntry(timestamp uint64, wrappedEntry []byte, entry []byte, b
 }
 
 func readEntry(data []byte) []byte {
-	length := binary.LittleEndian.Uint16(data[timestampSizeInBytes+hashSizeInBytes:])
+	length := int(binary.LittleEndian.Uint16(data[timestampSizeInBytes+hashSizeInBytes:]))
 
 	// copy on read
-	dst := make([]byte, len(data)-int(headersSizeInBytes+length))
+	dst := make([]byte, len(data)-(headersSizeInBytes+length))
 	copy(dst, data[headersSizeInBytes+length:])
 
 	return dst
@@ -59,7 +60,7 @@ func readTimestampFromEntry(data []byte) uint64 {
 }
 
 func readKeyFromEntry(data []byte) string {
-	length := binary.LittleEndian.Uint16(data[timestampSizeInBytes+hashSizeInBytes:])
+	length := int(binary.LittleEndian.Uint16(data[timestampSizeInBytes+hashSizeInBytes:]))
 
 	// copy on read
 	dst := make([]byte, length)
@@ -69,7 +70,7 @@ func readKeyFromEntry(data []byte) string {
 }
 
 func compareKeyFromEntry(data []byte, key string) bool {
-	length := binary.LittleEndian.Uint16(data[timestampSizeInBytes+hashSizeInBytes:])
+	length := int(binary.LittleEndian.Uint16(data[timestampSizeInBytes+hashSizeInBytes:]))
 
 	return bytesToString(data[headersSizeInBytes:headersSizeInBytes+length]) == key
 }
