@@ -33,6 +33,9 @@ type cacheShard struct {
 }
 
 func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, resp Response, err error) {
+	if len(key) > maxKeyLength {
+		return nil, resp, ErrEntryNotFound
+	}
 	currentTime := uint64(s.clock.Epoch())
 	s.lock.RLock()
 	wrappedEntry, err := s.getWrappedEntry(hashedKey)
@@ -59,6 +62,9 @@ func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, re
 }
 
 func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
+	if len(key) > maxKeyLength {
+		return nil, ErrEntryNotFound
+	}
 	s.lock.RLock()
 	wrappedEntry, err := s.getWrappedEntry(hashedKey)
 	if err != nil {
@@ -117,6 +123,9 @@ func (s *cacheShard) getValidWrapEntry(key string, hashedKey uint64) ([]byte, er
 }
 
 func (s *cacheShard) set(key string, hashedKey uint64, entry []byte) error {
+	if len(key) > maxKeyLength {
+		return ErrKeyTooLong
+	}
 	currentTimestamp := uint64(s.clock.Epoch())
 
 	s.lock.Lock()
@@ -197,6 +206,9 @@ func (s *cacheShard) setWrappedEntryWithoutLock(currentTimestamp uint64, w []byt
 }
 
 func (s *cacheShard) append(key string, hashedKey uint64, entry []byte) error {
+	if len(key) > maxKeyLength {
+		return ErrKeyTooLong
+	}
 	s.lock.Lock()
 	wrappedEntry, err := s.getValidWrapEntry(key, hashedKey)
 
