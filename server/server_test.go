@@ -303,3 +303,17 @@ type errReader int
 func (errReader) Read([]byte) (int, error) {
 	return 0, errors.New("test read error")
 }
+
+func TestCacheIndexHandlerMethodNotAllowed(t *testing.T) {
+	t.Parallel()
+	req := httptest.NewRequest("PATCH", testBaseString+"/api/v1/cache/key", nil)
+	rr := httptest.NewRecorder()
+
+	handler := cacheIndexHandler()
+	handler.ServeHTTP(rr, req)
+
+	resp := rr.Result()
+	if resp.StatusCode != 405 {
+		t.Errorf("want: 405; got: %d", resp.StatusCode)
+	}
+}
