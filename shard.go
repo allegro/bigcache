@@ -86,6 +86,31 @@ func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
 	return entry, nil
 }
 
+func (s *cacheShard) getInto(key string, hashedKey uint64, dst []byte) (int, error) {
+	s.lock.RLock()
+	wrappedEntry, err := s.getWrappedEntry(hashedKey)
+	if err != nil {
+		s.lock.RUnlock()
+		return 0, err
+	}
+	if !compareKeyFromEntry(wrappedEntry, key) {
+		var entryKey string
+		if s.isVerbose {
+			entryKey = readKeyFromEntry(wrappedEntry)
+		}
+		s.lock.RUnlock()
+		s.collision()
+		if s.isVerbose {
+			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
+		}
+		return 0, ErrEntryNotFound
+	}
+	n := copyEntry(wrappedEntry, dst)
+	s.lock.RUnlock()
+	s.hit(hashedKey)
+	return n, nil
+}
+
 func (s *cacheShard) getWrappedEntry(hashedKey uint64) ([]byte, error) {
 	itemIndex := s.hashmap[hashedKey]
 

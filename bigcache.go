@@ -149,6 +149,19 @@ func (c *BigCache) Get(key string) ([]byte, error) {
 	return shard.get(key, hashedKey)
 }
 
+// GetInto copies the entry for key into dst and returns the number of bytes copied.
+// It copies at most len(dst) bytes and leaves any remaining bytes in dst unchanged.
+// A nil or empty dst copies no bytes but still performs the lookup and updates statistics.
+// Like Get, it returns ErrEntryNotFound when no entry exists for key.
+// The copy completes under the shard read lock, so dst never aliases cache storage.
+func (c *BigCache) GetInto(key string, dst []byte) (int, error) {
+	if len(key) > maxKeyLength {
+		return 0, ErrEntryNotFound
+	}
+	hashedKey := c.hash.Sum64(key)
+	return c.getShard(hashedKey).getInto(key, hashedKey, dst)
+}
+
 // GetWithInfo reads entry for the key with Response info.
 // It returns an ErrEntryNotFound when
 // no entry exists for the given key.
