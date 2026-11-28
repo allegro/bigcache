@@ -1621,3 +1621,191 @@ func TestBigCache_KeyTooLong(t *testing.T) {
 	noError(t, err)
 	assertEqual(t, []byte("valid"), val)
 }
+
+func TestGetInto(t *testing.T) {
+	cfg := Config{Shards: 1, LifeWindow: time.Minute, MaxEntriesInWindow: 16, MaxEntrySize: 1024, HardMaxCacheSize: 1, StatsEnabled: true}
+	cache, err := New(context.Background(), cfg)
+	noError(t, err)
+	defer cache.Close()
+	value := []byte("abcdef")
+	noError(t, cache.Set("key", value))
+	for _, size := range []int{0, 3, 6, 10} {
+		dst := bytes.Repeat([]byte{'?'}, size)
+		n, err := cache.GetInto("key", dst)
+		noError(t, err)
+		want := append([]byte(nil), dst...)
+		expected := copy(want, value)
+		assertEqual(t, expected, n)
+		if !bytes.Equal(want, dst) {
+			t.Fatalf("size %d: got %q, want %q", size, dst, want)
+		}
+	}
+	dst := []byte("untouched")
+	n, err := cache.GetInto("missing", dst)
+	assertEqual(t, ErrEntryNotFound, err)
+	assertEqual(t, 0, n)
+	assertEqual(t, "untouched", string(dst))
+	assertEqual(t, int64(4), cache.Stats().Hits)
+	assertEqual(t, int64(1), cache.Stats().Misses)
+	// Caller-owned data must not alias cache storage in either direction.
+	dst = make([]byte, len(value))
+	_, err = cache.GetInto("key", dst)
+	noError(t, err)
+	dst[0] = 'X'
+	got, err := cache.Get("key")
+	noError(t, err)
+	assertEqual(t, "abcdef", string(got))
+	noError(t, cache.Set("key", []byte("123456")))
+	assertEqual(t, "Xbcdef", string(dst))
+}
+
+func TestGetIntoCollision(t *testing.T) {
+	cfg := Config{Shards: 1, LifeWindow: time.Minute, MaxEntriesInWindow: 16, MaxEntrySize: 128, Hasher: hashStub(1), Verbose: true}
+	cache, err := New(context.Background(), cfg)
+	noError(t, err)
+	defer cache.Close()
+	noError(t, cache.Set("first", []byte("secret")))
+	dst := []byte("untouched")
+	n, err := cache.GetInto("second", dst)
+	assertEqual(t, ErrEntryNotFound, err)
+	assertEqual(t, 0, n)
+	assertEqual(t, "untouched", string(dst))
+	assertEqual(t, int64(1), cache.Stats().Collisions)
+}
+
+func TestGetIntoNoAlloc(t *testing.T) {
+	cfg := Config{Shards: 1, LifeWindow: time.Minute, MaxEntriesInWindow: 16, MaxEntrySize: 1024}
+	cache, err := New(context.Background(), cfg)
+	noError(t, err)
+	defer cache.Close()
+	noError(t, cache.Set("key", bytes.Repeat([]byte{'a'}, 1024)))
+	dst := make([]byte, 1024)
+	allocs := testing.AllocsPerRun(100, func() {
+		n, err := cache.GetInto("key", dst)
+		if err != nil || n != len(dst) {
+			t.Fatalf("GetInto: n=%d, err=%v", n, err)
+		}
+	})
+	if allocs != 0 {
+		t.Fatalf("GetInto allocated %v objects per read", allocs)
+	}
+}
+
+func TestGetIntoEdgeCases(t *testing.T) {
+	clock := mockedClock{value: 0}
+	cfg := Config{Shards: 1, LifeWindow: time.Second, MaxEntriesInWindow: 16, MaxEntrySize: 128}
+	cache, err := newBigCache(context.Background(), cfg, &clock)
+	noError(t, err)
+	defer cache.Close()
+	noError(t, cache.Set("empty", nil))
+	dst := []byte("unchanged")
+	n, err := cache.GetInto("empty", dst)
+	noError(t, err)
+	assertEqual(t, 0, n)
+	assertEqual(t, "unchanged", string(dst))
+	n, err = cache.GetInto("empty", nil)
+	noError(t, err)
+	assertEqual(t, 0, n)
+	n, err = cache.GetInto(strings.Repeat("x", maxKeyLength+1), dst)
+	assertEqual(t, ErrEntryNotFound, err)
+	assertEqual(t, 0, n)
+	assertEqual(t, "unchanged", string(dst))
+	noError(t, cache.Set("key", []byte("value")))
+	// Get returns expired entries until eviction, and GetInto must do the same.
+	clock.value = 10
+	n, err = cache.GetInto("key", dst)
+	noError(t, err)
+	assertEqual(t, 5, n)
+	assertEqual(t, "value", string(dst[:n]))
+}
+
+func TestGetIntoConcurrentOverwriteAndEviction(t *testing.T) {
+	cfg := Config{Shards: 1, LifeWindow: time.Minute, MaxEntriesInWindow: 16, MaxEntrySize: 128, HardMaxCacheSize: 1, StatsEnabled: true}
+	cache, err := New(context.Background(), cfg)
+	noError(t, err)
+	defer cache.Close()
+	first := bytes.Repeat([]byte{'a'}, 64<<10)
+	second := bytes.Repeat([]byte{'b'}, 64<<10)
+	noError(t, cache.Set("key", first))
+	var wg sync.WaitGroup
+	for i := 0; i < 3; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			dst := make([]byte, len(first))
+			for j := 0; j < 500; j++ {
+				n, err := cache.GetInto("key", dst)
+				if err == ErrEntryNotFound {
+					continue
+				}
+				if err != nil || n != len(dst) || (!bytes.Equal(dst, first) && !bytes.Equal(dst, second)) {
+					t.Errorf("GetInto returned inconsistent data: n=%d, err=%v", n, err)
+					return
+				}
+			}
+		}()
+	}
+	for i := 0; i < 500; i++ {
+		value := first
+		if i%2 != 0 {
+			value = second
+		}
+		noError(t, cache.Set("key", value))
+		noError(t, cache.Set(fmt.Sprintf("other-%d", i), first))
+		if i%7 == 0 {
+			noError(t, cache.Delete("key"))
+		}
+		if i%31 == 0 {
+			noError(t, cache.Reset())
+		}
+	}
+	wg.Wait()
+}
+
+func TestGetIntoMaxKeyLength(t *testing.T) {
+	cfg := Config{Shards: 1, LifeWindow: time.Minute, MaxEntriesInWindow: 16, MaxEntrySize: 128}
+	cache, err := New(context.Background(), cfg)
+	noError(t, err)
+	defer cache.Close()
+	key := strings.Repeat("k", maxKeyLength)
+	noError(t, cache.Set(key, []byte("value")))
+	dst := make([]byte, 5)
+	n, err := cache.GetInto(key, dst)
+	noError(t, err)
+	assertEqual(t, 5, n)
+	assertEqual(t, "value", string(dst))
+}
+
+func BenchmarkGetIntoLargeEntry(b *testing.B) {
+	cfg := Config{Shards: 1, LifeWindow: time.Hour, MaxEntriesInWindow: 16, MaxEntrySize: 7 << 20, HardMaxCacheSize: 16}
+	cache, err := New(context.Background(), cfg)
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer cache.Close()
+	value := bytes.Repeat([]byte{'a'}, 7<<20)
+	if err := cache.Set("key", value); err != nil {
+		b.Fatal(err)
+	}
+	for _, mode := range []string{"Get", "GetInto"} {
+		b.Run(mode, func(b *testing.B) {
+			dst := make([]byte, len(value))
+			b.ReportAllocs()
+			b.SetBytes(int64(len(value)))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if mode == "Get" {
+					data, err := cache.Get("key")
+					if err != nil {
+						b.Fatal(err)
+					}
+					copy(dst, data)
+				} else {
+					if _, err := cache.GetInto("key", dst); err != nil {
+						b.Fatal(err)
+					}
+				}
+			}
+		})
+	}
+}
