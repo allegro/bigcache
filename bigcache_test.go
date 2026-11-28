@@ -1762,6 +1762,20 @@ func TestGetIntoConcurrentOverwriteAndEviction(t *testing.T) {
 	wg.Wait()
 }
 
+func TestGetIntoMaxKeyLength(t *testing.T) {
+	cfg := Config{Shards: 1, LifeWindow: time.Minute, MaxEntriesInWindow: 16, MaxEntrySize: 128}
+	cache, err := New(context.Background(), cfg)
+	noError(t, err)
+	defer cache.Close()
+	key := strings.Repeat("k", maxKeyLength)
+	noError(t, cache.Set(key, []byte("value")))
+	dst := make([]byte, 5)
+	n, err := cache.GetInto(key, dst)
+	noError(t, err)
+	assertEqual(t, 5, n)
+	assertEqual(t, "value", string(dst))
+}
+
 func BenchmarkGetIntoLargeEntry(b *testing.B) {
 	cfg := Config{Shards: 1, LifeWindow: time.Hour, MaxEntriesInWindow: 16, MaxEntrySize: 7 << 20, HardMaxCacheSize: 16}
 	cache, err := New(context.Background(), cfg)

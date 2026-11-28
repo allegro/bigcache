@@ -38,20 +38,11 @@ func (s *cacheShard) getWithInfo(key string, hashedKey uint64) (entry []byte, re
 	}
 	currentTime := uint64(s.clock.Epoch())
 	s.lock.RLock()
-	wrappedEntry, err := s.getWrappedEntry(hashedKey)
+	wrappedEntry, err := s.getWrappedEntryForKey(key, hashedKey)
 	if err != nil {
 		s.lock.RUnlock()
 		return nil, resp, err
 	}
-	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
-		s.lock.RUnlock()
-		s.collision()
-		if s.isVerbose {
-			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
-		}
-		return nil, resp, ErrEntryNotFound
-	}
-
 	entry = readEntry(wrappedEntry)
 	if s.isExpired(wrappedEntry, currentTime) {
 		resp.EntryStatus = Expired
@@ -66,18 +57,10 @@ func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
 		return nil, ErrEntryNotFound
 	}
 	s.lock.RLock()
-	wrappedEntry, err := s.getWrappedEntry(hashedKey)
+	wrappedEntry, err := s.getWrappedEntryForKey(key, hashedKey)
 	if err != nil {
 		s.lock.RUnlock()
 		return nil, err
-	}
-	if entryKey := readKeyFromEntry(wrappedEntry); key != entryKey {
-		s.lock.RUnlock()
-		s.collision()
-		if s.isVerbose {
-			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
-		}
-		return nil, ErrEntryNotFound
 	}
 	entry := readEntry(wrappedEntry)
 	s.lock.RUnlock()
@@ -88,22 +71,10 @@ func (s *cacheShard) get(key string, hashedKey uint64) ([]byte, error) {
 
 func (s *cacheShard) getInto(key string, hashedKey uint64, dst []byte) (int, error) {
 	s.lock.RLock()
-	wrappedEntry, err := s.getWrappedEntry(hashedKey)
+	wrappedEntry, err := s.getWrappedEntryForKey(key, hashedKey)
 	if err != nil {
 		s.lock.RUnlock()
 		return 0, err
-	}
-	if !compareKeyFromEntry(wrappedEntry, key) {
-		var entryKey string
-		if s.isVerbose {
-			entryKey = readKeyFromEntry(wrappedEntry)
-		}
-		s.lock.RUnlock()
-		s.collision()
-		if s.isVerbose {
-			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, entryKey, hashedKey)
-		}
-		return 0, ErrEntryNotFound
 	}
 	n := copyEntry(wrappedEntry, dst)
 	s.lock.RUnlock()
@@ -128,22 +99,30 @@ func (s *cacheShard) getWrappedEntry(hashedKey uint64) ([]byte, error) {
 	return wrappedEntry, err
 }
 
-func (s *cacheShard) getValidWrapEntry(key string, hashedKey uint64) ([]byte, error) {
+// getWrappedEntryForKey requires the caller to hold the shard lock.
+// The returned entry aliases queue storage and must be consumed before unlocking.
+// Hits are recorded by the caller using the appropriate lock mode.
+func (s *cacheShard) getWrappedEntryForKey(key string, hashedKey uint64) ([]byte, error) {
 	wrappedEntry, err := s.getWrappedEntry(hashedKey)
 	if err != nil {
 		return nil, err
 	}
-
 	if !compareKeyFromEntry(wrappedEntry, key) {
 		s.collision()
 		if s.isVerbose {
 			s.logger.Printf("Collision detected. Both %q and %q have the same hash %x", key, readKeyFromEntry(wrappedEntry), hashedKey)
 		}
-
 		return nil, ErrEntryNotFound
 	}
-	s.hitWithoutLock(hashedKey)
+	return wrappedEntry, nil
+}
 
+func (s *cacheShard) getValidWrapEntry(key string, hashedKey uint64) ([]byte, error) {
+	wrappedEntry, err := s.getWrappedEntryForKey(key, hashedKey)
+	if err != nil {
+		return nil, err
+	}
+	s.hitWithoutLock(hashedKey)
 	return wrappedEntry, nil
 }
 

@@ -56,7 +56,7 @@ func readEntry(data []byte) []byte {
 }
 
 func copyEntry(data, dst []byte) int {
-	length := binary.LittleEndian.Uint16(data[timestampSizeInBytes+hashSizeInBytes:])
+	length := int(binary.LittleEndian.Uint16(data[timestampSizeInBytes+hashSizeInBytes:]))
 	return copy(dst, data[headersSizeInBytes+length:])
 }
 
