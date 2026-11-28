@@ -3,6 +3,7 @@ package queue
 import (
 	"encoding/binary"
 	"log"
+	"math"
 	"time"
 )
 
@@ -106,18 +107,27 @@ func (q *BytesQueue) Push(data []byte) (int, error) {
 	return index, nil
 }
 
-func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
-	start := time.Now()
-	if q.capacity < minimum {
-		q.capacity += minimum
-	}
-	newCapacity := q.capacity * 2
-	if newCapacity < 0 || (newCapacity > q.maxCapacity && q.maxCapacity > 0) {
-		if q.maxCapacity > 0 {
-			newCapacity = q.maxCapacity
+func nextCapacity(capacity, maxCapacity, minimum int) int {
+	if capacity < minimum {
+		if capacity > math.MaxInt-minimum {
+			capacity = math.MaxInt
+		} else {
+			capacity += minimum
 		}
 	}
-	q.capacity = newCapacity
+	newCapacity := capacity * 2
+	if newCapacity < 0 {
+		newCapacity = math.MaxInt
+	}
+	if maxCapacity > 0 && newCapacity > maxCapacity {
+		newCapacity = maxCapacity
+	}
+	return newCapacity
+}
+
+func (q *BytesQueue) allocateAdditionalMemory(minimum int) {
+	start := time.Now()
+	q.capacity = nextCapacity(q.capacity, q.maxCapacity, minimum)
 
 	oldArray := q.array
 	q.array = make([]byte, q.capacity)

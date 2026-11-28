@@ -2,6 +2,7 @@ package queue
 
 import (
 	"bytes"
+	"math"
 	"path"
 	"reflect"
 	"runtime"
@@ -610,4 +611,24 @@ func objectsAreEqual(expected, actual interface{}) bool {
 		return exp == nil && act == nil
 	}
 	return bytes.Equal(exp, act)
+}
+
+func TestNextCapacity_Overflow(t *testing.T) {
+	t.Parallel()
+
+	// Doubling math.MaxInt/2 + 1 overflows int into negative; without maxCapacity it must clamp to math.MaxInt
+	assertEqual(t, math.MaxInt, nextCapacity(math.MaxInt/2+1, 0, 0))
+	// With maxCapacity set, overflow must clamp to maxCapacity instead of staying negative
+	assertEqual(t, 1024, nextCapacity(math.MaxInt/2+1, 1024, 0))
+	// Adding minimum can also overflow into negative before doubling
+	assertEqual(t, math.MaxInt, nextCapacity(math.MaxInt-10, 0, math.MaxInt))
+}
+
+func TestAllocateAdditionalMemory_OverflowWithMaxCapacity(t *testing.T) {
+	t.Parallel()
+
+	q := NewBytesQueue(16, 1024, false)
+	q.capacity = math.MaxInt/2 + 1
+	q.allocateAdditionalMemory(0)
+	assertEqual(t, 1024, q.capacity)
 }
